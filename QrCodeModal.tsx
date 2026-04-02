@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { QRRipple } from "./QRRipple";
-import { TextRipple } from "./TextRipple";
+import { TextShimmer } from "./TextShimmer";
 
 /* ─────────────────────────────────────────────────────────
  * ANIMATION STORYBOARD
@@ -320,33 +320,37 @@ export function QrCodeModal({
               {/* Copy link */}
               <motion.button
                 className="flex items-center justify-center gap-[6px] px-[12px] py-[9px] min-w-0 select-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
-                style={{ ...innerPillStyle, flex: "1 0 0", overflow: "visible", WebkitAppearance: "none", appearance: "none" as React.CSSProperties["appearance"] }}
+                style={{ ...innerPillStyle, flex: "1 0 0", overflow: "clip", WebkitAppearance: "none", appearance: "none" as React.CSSProperties["appearance"] }}
                 onClick={copy}
                 whileTap={{ scale: 0.97 }}
                 aria-label={copied ? "Link copied" : "Copy link"}
                 aria-live="polite"
               >
-                <TextRipple triggerKey={copyTrigger}>
-                  <AnimatePresence mode="popLayout" initial={false}>
-                    {copied ? (
-                      <motion.span key="copied" className="flex items-center gap-[4px]"
-                        initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.13 }}>
-                        <CheckIcon />
-                        <span className="text-[14px] font-medium leading-[20px] text-[#5c5c5c] whitespace-nowrap"
-                          style={{ fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0", letterSpacing: "-0.01em" }}>Copied</span>
-                      </motion.span>
-                    ) : (
-                      <motion.span key="copy" className="flex items-center gap-[4px]"
-                        initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.13 }}>
-                        <LinkIcon />
-                        <span className="text-[14px] font-medium leading-[20px] text-[#5c5c5c] whitespace-nowrap"
-                          style={{ fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0", letterSpacing: "-0.01em" }}>Copy link</span>
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </TextRipple>
+                <AnimatePresence mode="popLayout" initial={false}>
+                  {copied ? (
+                    <motion.span key="copied" className="flex items-center gap-[4px]"
+                      initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.13 }}>
+                      <CheckIcon />
+                      <TextShimmer
+                        triggerKey={copyTrigger}
+                        className="text-[14px] font-medium leading-[20px] whitespace-nowrap"
+                        style={{ fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0", letterSpacing: "-0.01em" }}
+                      >Copied</TextShimmer>
+                    </motion.span>
+                  ) : (
+                    <motion.span key="copy" className="flex items-center gap-[4px]"
+                      initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                      transition={{ duration: 0.13 }}>
+                      <LinkIcon />
+                      <TextShimmer
+                        triggerKey={copyTrigger}
+                        className="text-[14px] font-medium leading-[20px] whitespace-nowrap"
+                        style={{ fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0", letterSpacing: "-0.01em" }}
+                      >Copy link</TextShimmer>
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </motion.button>
 
               {/* Color picker */}
