@@ -54,8 +54,6 @@ const CONTENT_Y = 10;
  * Only dark/saturated — light colors lose scan contrast on white bg.
  * ─────────────────────────────────────────────────────── */
 const QR_COLORS = [
-  { hex: "#111111", label: "Black"  },
-  { hex: "#374151", label: "Slate"  },
   { hex: "#1d4ed8", label: "Blue"   },
   { hex: "#7c3aed", label: "Violet" },
   { hex: "#be185d", label: "Pink"   },
@@ -128,7 +126,7 @@ export function QrCodeModal({
 }: QrCodeModalProps) {
   const [isOpen,          setIsOpen]          = useState(false);
   const [copied,          setCopied]          = useState(false);
-  const [qrColor,         setQrColor]         = useState("#111111");
+  const [qrColor,         setQrColor]         = useState("#1d4ed8");
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const colorPickerRef     = useRef<HTMLDivElement>(null);
