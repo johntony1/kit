@@ -265,8 +265,8 @@ export function QRRipple({
 
       /* Fire new ripple */
       if (t >= nextFire) {
-        const x = firstFired ? 0.15 + Math.random() * 0.70 : 0.5;
-        const y = firstFired ? 0.15 + Math.random() * 0.70 : 0.5;
+        const x = 0.5;
+        const y = 0.5;
         firstFired = true;
         ripples.push({ x, y, startTime: t });
         if (ripples.length > MAX_RIPPLES) ripples.shift();
