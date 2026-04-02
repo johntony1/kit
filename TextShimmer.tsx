@@ -7,8 +7,8 @@ import { useEffect } from "react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
 
 /* ─── Tuning ────────────────────────────────────────────── */
-const DURATION  = 0.62;
-const EASE      = [0.165, 0.84, 0.44, 1] as const; // ease-out-quart
+const DURATION  = 1.1;
+const EASE      = [0.37, 0, 0.63, 1] as const; // ease-in-out sine — slow start, gentle peak, slow exit
 const TEXT_COLOR  = "#5c5c5c";
 const GLOW_MID    = "#bfdbfe"; // blue-200
 const GLOW_BRIGHT = "#eff6ff"; // blue-50 (near-white core)
