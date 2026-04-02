@@ -15,7 +15,7 @@ import { QRRipple } from "./QRRipple";
  *  150ms   white QR panel fades in + slides up (y 10→0, scale 0.96→1)
  *  220ms   action row fades in + slides up
  *   —      [copy] "Copy link" → "Copied" crossfade
- *   —      [close] content fades (80ms) → card morphs back to pill
+ *   —      [close] content fades (80ms) → FLIP: card contracts back to pill
  * ───────────────────────────────────────────────────────── */
 
 /* ─── Timing ────────────────────────────────────────────── */
@@ -28,13 +28,13 @@ const TIMING = {
 /* ─── Springs ───────────────────────────────────────────── */
 /* Apple-style duration+bounce.
  * open:  pill → card — slight bounce so it feels alive
- * close: card → pill — faster, no bounce (user wants it gone)
+ * close: card → pill — snappy, no bounce (decisive contraction)
  * hover: button micro-interaction — crisp, no overshoot
  * content: ease-out-quart for entering content (not spring)
  */
 const SPRING = {
-  open:    { type: "spring" as const, duration: 0.52, bounce: 0.18 },
-  close:   { type: "spring" as const, duration: 0.38, bounce: 0    },
+  open:    { type: "spring" as const, duration: 0.50, bounce: 0.18 },
+  close:   { type: "spring" as const, duration: 0.28, bounce: 0    },
   hover:   { type: "spring" as const, duration: 0.20, bounce: 0    },
   content: { duration: 0.22, ease: [0.165, 0.84, 0.44, 1] as const },
 } as const;
@@ -171,11 +171,22 @@ export function QrCodeModal({
   const canHover = typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches;
 
   return (
-    <div className="relative z-50" style={{ fontFamily: "'Inter', sans-serif" }} onKeyDown={handleKeyDown}>
+    <div
+      className="relative z-50"
+      style={{
+        fontFamily:      "'Inter', sans-serif",
+        width:           OUTER_W,
+        display:         "flex",
+        justifyContent:  "center",
+        alignItems:      "center",
+      }}
+      onKeyDown={handleKeyDown}
+    >
 
-      {/* mode="popLayout" — pops the exiting element out of flow so the
-          entering element positions correctly without layout interference.
-          initial={false} — button doesn't animate in on first page load. */}
+      {/* popLayout — takes the exiting element out of flow so the entering
+          element positions correctly. FLIP still works because layoutId
+          captures positions before the DOM swap. initial={false} skips the
+          mount animation on first load. */}
       <AnimatePresence mode="popLayout" initial={false}>
 
         {!isOpen ? (
@@ -184,6 +195,12 @@ export function QrCodeModal({
           <motion.button
             key="button"
             layoutId="qr-container"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={shouldReduceMotion ? { duration: 0.01 } : {
+              layout:   SPRING.close,
+              default:  { duration: 0.22, ease: [0.165, 0.84, 0.44, 1] },
+            }}
             onClick={open}
             className="flex items-center gap-[6px] px-[14px] select-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
             style={{
@@ -220,10 +237,6 @@ export function QrCodeModal({
                 "0 1px 3px rgba(0,0,0,0.04)",
               ].join(", "),
             }}
-            transition={shouldReduceMotion ? { duration: 0.01 } : {
-              layout:  SPRING.close,  // card → pill: fast, no bounce
-              default: SPRING.hover,  // hover/tap: crisp
-            }}
             aria-haspopup="dialog"
             aria-expanded={false}
             aria-label="Show Qr code"
@@ -253,6 +266,7 @@ export function QrCodeModal({
               width:        OUTER_W,
               padding:      OUTER_PAD,
             }}
+            exit={nm({ opacity: 0, transition: { duration: 0.08, ease: "easeIn" } })}
             transition={nm(SPRING.open)}
           >
 
