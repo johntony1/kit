@@ -271,7 +271,7 @@ export function QrCodeModal({
               }}
               initial={{ opacity: 0, scale: 0.96, y: CONTENT_Y }}
               animate={{ opacity: 1, scale: 1,    y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: CONTENT_Y / 2, transition: exitFast }}
+              exit={{ opacity: 0, transition: exitFast }}
               transition={contentT(TIMING.qrDelay)}
             >
               <QRRipple
