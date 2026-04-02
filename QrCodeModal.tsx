@@ -20,16 +20,23 @@ import { QRRipple } from "./QRRipple";
 
 /* ─── Timing ────────────────────────────────────────────── */
 const TIMING = {
-  qrDelay:      0.20,
-  actionsDelay: 0.28,
+  qrDelay:      0.15,   // content enters before spring fully settles
+  actionsDelay: 0.22,
   copiedReset:  2000,
 } as const;
 
 /* ─── Springs ───────────────────────────────────────────── */
+/* Apple-style duration+bounce — easier to tune than stiffness/damping.
+ * open:  full morph open — longer, slight bounce so the card settles in
+ * close: morph back to pill — faster, no bounce (user wants it gone)
+ * hover: crisp micro-interaction — short, no overshoot
+ * content: ease-out-quart for entering content (Emil: use ease-out, not spring, for content)
+ */
 const SPRING = {
-  container: { type: "spring" as const, stiffness: 300, damping: 25 },
-  content:   { type: "spring" as const, stiffness: 350, damping: 28 },
-  hover:     { type: "spring" as const, stiffness: 400, damping: 20 },
+  open:    { type: "spring" as const, duration: 0.52, bounce: 0.18 },
+  close:   { type: "spring" as const, duration: 0.38, bounce: 0    },
+  hover:   { type: "spring" as const, duration: 0.20, bounce: 0    },
+  content: { duration: 0.22, ease: [0.165, 0.84, 0.44, 1] as const }, // ease-out-quart
 } as const;
 
 /* ─── Dimensions ──────────────────────────────────────────
@@ -137,7 +144,7 @@ export function QrCodeModal({
     shouldReduceMotion ? { duration: 0.01 } : t;
 
   const contentT = (delay: number) => nm({ ...SPRING.content, delay });
-  const exitFast = nm({ duration: 0.08 });
+  const exitFast = nm({ duration: 0.08, ease: "easeIn" as const });
 
   // Close on Escape — web convention for dialogs
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -204,7 +211,10 @@ export function QrCodeModal({
                   "0 1px 3px rgba(0,0,0,0.04)",
                 ].join(", "),
               }}
-              transition={nm(SPRING.hover)}
+              transition={shouldReduceMotion ? { duration: 0.01 } : {
+                layout:  SPRING.close,   // card → pill morph: fast, no bounce
+                default: SPRING.hover,   // hover/tap: crisp micro-interaction
+              }}
               aria-haspopup="dialog"
               aria-expanded={false}
               aria-label="Show Qr code"
@@ -245,7 +255,7 @@ export function QrCodeModal({
                 width:        OUTER_W,
                 padding:      OUTER_PAD,
               }}
-              transition={nm(SPRING.container)}
+              transition={nm(SPRING.open)}
             >
 
               {/* White card — node 202167:40009
@@ -264,9 +274,9 @@ export function QrCodeModal({
                     "0px 0px 0px 0.5px #ebebeb",
                   ].join(", "),
                 }}
-                initial={{ opacity: 0, y: CONTENT_Y }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: CONTENT_Y / 2, transition: exitFast }}
+                initial={{ opacity: 0, scale: 0.96, y: CONTENT_Y }}
+                animate={{ opacity: 1, scale: 1,    y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: CONTENT_Y / 2, transition: exitFast }}
                 transition={contentT(TIMING.qrDelay)}
               >
                 <QRRipple
@@ -289,7 +299,7 @@ export function QrCodeModal({
               {/* Action row — px-[10px] pb-[10px] (no top padding) */}
               <motion.div
                 className="flex items-center gap-[10px] px-[10px] pb-[10px] w-full shrink-0"
-                initial={{ opacity: 0, y: CONTENT_Y }}
+                initial={{ opacity: 0, y: CONTENT_Y * 0.6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, transition: exitFast }}
                 transition={contentT(TIMING.actionsDelay)}
