@@ -28,8 +28,8 @@ const SHADER = {
   fadeRate:   1.3,
   envelope:   280.0,
   aberrScale: 0.005,
-  glowGain:   0.82,
-  glowColor:  [0.0, 0.6, 1.2] as [number, number, number], // overbright electric blue
+  glowGain:   1.6,
+  glowColor:  [0.1, 0.8, 2.2] as [number, number, number], // overbright electric blue
 } as const;
 
 const FIRE = {
