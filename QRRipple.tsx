@@ -28,8 +28,8 @@ const SHADER = {
   fadeRate:   1.3,
   envelope:   280.0,
   aberrScale: 0.005,
-  glowGain:   0.22,
-  glowColor:  [0.25, 0.55, 1.0] as [number, number, number],
+  glowGain:   0.48,
+  glowColor:  [0.0, 0.6, 1.2] as [number, number, number], // overbright electric blue
 } as const;
 
 const FIRE = {
@@ -91,21 +91,31 @@ const FRAG = /* glsl */`
       float waveDist   = dist - waveRadius;
       float envelope   = exp(-waveDist * waveDist * u_envelope);
       float fade       = exp(-age * u_fadeRate);
-      float wave       = sin(waveDist * u_frequency) * envelope * fade;
+      float sinVal     = sin(waveDist * u_frequency);
+      float wave       = sinVal * envelope * fade;
 
       totalDisp += normalize(diff) * wave * u_intensity;
-      totalGlow += envelope * fade;
+
+      /* Glow: isolate only the crest (sin near its peak).
+       * smoothstep(0.4, 1.0, sinVal) → 0 below threshold, 1 at full peak.
+       * Squared → tighter bright core, softer falloff toward the edges.
+       * Modulated by envelope (spatial gaussian) + fade (time decay). */
+      float crest = smoothstep(0.4, 1.0, sinVal);
+      totalGlow  += crest * crest * envelope * fade;
     }
 
     vec2 aberr = length(totalDisp) > 0.0001
       ? normalize(totalDisp) * length(totalDisp) * 0.6 * u_aberrScale
       : vec2(0.0);
 
+    /* Sample displaced texture (glow tracks the distorted surface) */
     float r = texture2D(u_texture, clamp(uv + totalDisp + aberr, 0.0, 1.0)).r;
     float g = texture2D(u_texture, clamp(uv + totalDisp,         0.0, 1.0)).g;
     float b = texture2D(u_texture, clamp(uv + totalDisp - aberr, 0.0, 1.0)).b;
     float a = texture2D(u_texture, clamp(uv + totalDisp,         0.0, 1.0)).a;
 
+    /* Additive blend: glow on top of displaced base.
+     * glowColor.b = 1.2 → intentional overbright for bloom-like pop. */
     vec4 color = vec4(r, g, b, a);
     color.rgb += totalGlow * u_glowGain * u_glowColor;
     gl_FragColor = color;
