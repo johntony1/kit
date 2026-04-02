@@ -181,8 +181,12 @@ export function QRRipple({
   borderRadius = 16,
 }: QRRippleProps) {
   const shouldReduceMotion = useReducedMotion();
-  const wrapRef  = useRef<HTMLDivElement>(null);
-  const glRef    = useRef<HTMLCanvasElement>(null);
+  const wrapRef     = useRef<HTMLDivElement>(null);
+  const glRef       = useRef<HTMLCanvasElement>(null);
+  // Kept in a ref so the render loop picks up color changes without
+  // needing to tear down and rebuild the entire WebGL context.
+  const glowRgbRef  = useRef<[number, number, number]>(hexToGlowRgb(glowColor));
+  useEffect(() => { glowRgbRef.current = hexToGlowRgb(glowColor); }, [glowColor]);
 
   useEffect(() => {
     if (shouldReduceMotion) return;
@@ -257,8 +261,10 @@ export function QRRipple({
     gl.uniform1f(gl.getUniformLocation(prog, "u_envelope"),   SHADER.envelope);
     gl.uniform1f(gl.getUniformLocation(prog, "u_aberrScale"), SHADER.aberrScale);
     gl.uniform1f(gl.getUniformLocation(prog, "u_glowGain"),   SHADER.glowGain);
-    gl.uniform3f(gl.getUniformLocation(prog, "u_glowColor"),  ...hexToGlowRgb(glowColor));
     gl.uniform1i(gl.getUniformLocation(prog, "u_texture"), 0);
+
+    /* Dynamic — updated every frame so color changes take effect instantly */
+    const uGlowColor = gl.getUniformLocation(prog, "u_glowColor");
 
     /* ── Ripple state ──────────────────────────────────── */
     const ripples: Ripple[] = [];
@@ -306,6 +312,7 @@ export function QRRipple({
       gl!.uniform2fv(uPositions, posFlat);
       gl!.uniform1fv(uTimes, timFlat);
       gl!.uniform1i(uCount, ripples.length);
+      gl!.uniform3f(uGlowColor, ...glowRgbRef.current);
 
       gl!.drawArrays(gl!.TRIANGLE_STRIP, 0, 4);
 
@@ -322,7 +329,7 @@ export function QRRipple({
       gl!.deleteShader(vert);
       gl!.deleteShader(frag);
     };
-  }, [value, fgColor, bgColor, glowColor, size, shouldReduceMotion]);
+  }, [value, fgColor, bgColor, size, shouldReduceMotion]);
 
   return (
     <div
