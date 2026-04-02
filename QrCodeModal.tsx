@@ -266,7 +266,7 @@ export function QrCodeModal({
               width:        OUTER_W,
               padding:      OUTER_PAD,
             }}
-            exit={nm({ opacity: 0, transition: { duration: 0.08, ease: "easeIn" } })}
+            exit={nm({ opacity: 0, transition: { duration: 0.08, ease: "easeIn" as const } })}
             transition={nm(SPRING.open)}
           >
 

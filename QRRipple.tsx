@@ -287,12 +287,12 @@ export function QRRipple({
         }
       }
 
-      gl.uniform1f(uTime, t);
-      gl.uniform2fv(uPositions, posFlat);
-      gl.uniform1fv(uTimes, timFlat);
-      gl.uniform1i(uCount, ripples.length);
+      gl!.uniform1f(uTime, t);
+      gl!.uniform2fv(uPositions, posFlat);
+      gl!.uniform1fv(uTimes, timFlat);
+      gl!.uniform1i(uCount, ripples.length);
 
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl!.drawArrays(gl!.TRIANGLE_STRIP, 0, 4);
 
       rafId = requestAnimationFrame(render);
     }
@@ -301,11 +301,11 @@ export function QRRipple({
 
     return () => {
       cancelAnimationFrame(rafId);
-      gl.deleteTexture(tex);
-      gl.deleteBuffer(buf);
-      gl.deleteProgram(prog);
-      gl.deleteShader(vert);
-      gl.deleteShader(frag);
+      gl!.deleteTexture(tex);
+      gl!.deleteBuffer(buf);
+      gl!.deleteProgram(prog);
+      gl!.deleteShader(vert);
+      gl!.deleteShader(frag);
     };
   }, [value, fgColor, bgColor, size, shouldReduceMotion]);
 
