@@ -292,7 +292,7 @@ export function QRRipple({
       gl.deleteShader(vert);
       gl.deleteShader(frag);
     };
-  }, [value, size, shouldReduceMotion]);
+  }, [value, fgColor, bgColor, size, shouldReduceMotion]);
 
   return (
     <div

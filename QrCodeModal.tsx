@@ -1,7 +1,7 @@
 // QrCodeModal.tsx
 // deps: framer-motion, qrcode.react
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { QRRipple } from "./QRRipple";
 
@@ -52,6 +52,26 @@ const OUTER_W   = 284;   // px — total outer width (kept from scale-up)
 const QR_SIZE   = OUTER_W - OUTER_PAD * 2 - CARD_PAD * 2;  // 248px
 
 const RADIUS = { button: 9999, modal: 32, card: 28, qr: 18 } as const;
+
+/* ─── QR color swatches ─────────────────────────────────────
+ * Only dark/saturated colors — light colors lose scan contrast
+ * against the white QR background.
+ * Lifted from Xami CRM NotesPage COLOR_SWATCHES pattern.
+ * ─────────────────────────────────────────────────────── */
+const QR_COLORS = [
+  { hex: "#111111", label: "Black"  },
+  { hex: "#374151", label: "Slate"  },
+  { hex: "#1d4ed8", label: "Blue"   },
+  { hex: "#7c3aed", label: "Violet" },
+  { hex: "#be185d", label: "Pink"   },
+  { hex: "#b91c1c", label: "Red"    },
+  { hex: "#c2410c", label: "Orange" },
+  { hex: "#d97706", label: "Amber"  },
+  { hex: "#15803d", label: "Green"  },
+  { hex: "#0f766e", label: "Teal"   },
+  { hex: "#0369a1", label: "Sky"    },
+  { hex: "#1e3a5f", label: "Navy"   },
+] as const;
 const CONTENT_Y = 10;
 
 /* ─── Shared inner-button style (Copy link + Close) ─────
@@ -122,9 +142,24 @@ interface QrCodeModalProps {
 export function QrCodeModal({
   url = typeof window !== "undefined" ? window.location.href : "https://example.com",
 }: QrCodeModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const shouldReduceMotion  = useReducedMotion();
+  const [isOpen,           setIsOpen]           = useState(false);
+  const [copied,           setCopied]           = useState(false);
+  const [qrColor,          setQrColor]          = useState("#111111");
+  const [colorPickerOpen,  setColorPickerOpen]  = useState(false);
+  const shouldReduceMotion = useReducedMotion();
+  const colorPickerRef     = useRef<HTMLDivElement>(null);
+
+  // Close color picker on outside click
+  useEffect(() => {
+    if (!colorPickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (!colorPickerRef.current?.contains(e.target as Node)) {
+        setColorPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [colorPickerOpen]);
 
   const open  = () => setIsOpen(true);
   const close = () => { setIsOpen(false); setCopied(false); };
@@ -282,7 +317,7 @@ export function QrCodeModal({
                 <QRRipple
                   value={url}
                   size={QR_SIZE}
-                  fgColor="#111111"
+                  fgColor={qrColor}
                   bgColor="#ffffff"
                   borderRadius={RADIUS.qr}
                 />
@@ -335,31 +370,91 @@ export function QrCodeModal({
                   </AnimatePresence>
                 </motion.button>
 
-                {/* Orange avatar — node 202167:42422
-                 * Structure: 32×32 white pill container (same ring as other buttons)
-                 *            with a 20×20 orange ellipse centered inside (6px margin)
-                 * Scaled: 40px container, ~25px orange dot
-                 */}
-                <div
-                  className="shrink-0 rounded-full flex items-center justify-center"
-                  style={{ ...innerPillStyle, width: 40, height: 40 }}
-                  aria-hidden="true"
-                >
-                  <div
-                    className="rounded-full"
-                    style={{
-                      width:      25,
-                      height:     25,
-                      background: "linear-gradient(135deg,#ff8c42 0%,#f76030 100%)",
-                      boxShadow:  [
-                        "inset 0px -1px 1px -0.5px rgba(247,96,48,0.32)",
-                        "0px 0px 0px 1px rgba(247,96,48,0.32)",
-                        "0px 1px 1px -0.5px rgba(247,96,48,0.24)",
-                        "0px 3px 3px -1.5px rgba(247,96,48,0.16)",
-                        "0px 6px 6px -3px rgba(247,96,48,0.10)",
-                      ].join(", "),
-                    }}
-                  />
+                {/* Color picker trigger — shows current QR color, opens swatch popover */}
+                <div className="relative shrink-0" ref={colorPickerRef}>
+
+                  {/* Swatch popover — positioned above the trigger */}
+                  <AnimatePresence>
+                    {colorPickerOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.92, y: 6 }}
+                        animate={{ opacity: 1, scale: 1,    y: 0 }}
+                        exit={{    opacity: 0, scale: 0.92, y: 6 }}
+                        transition={{ duration: 0.15, ease: [0.165, 0.84, 0.44, 1] }}
+                        style={{
+                          position:     "absolute",
+                          bottom:       "calc(100% + 10px)",
+                          left:         "50%",
+                          transform:    "translateX(-50%)",
+                          transformOrigin: "bottom center",
+                          background:   "#ffffff",
+                          borderRadius: 18,
+                          padding:      10,
+                          display:      "grid",
+                          gridTemplateColumns: "repeat(4, 1fr)",
+                          gap:          6,
+                          zIndex:       20,
+                          boxShadow: [
+                            "0px 4px 16px rgba(0,0,0,0.12)",
+                            "0px 1px 4px rgba(0,0,0,0.06)",
+                            "0px 0px 0px 0.5px #e8e8e8",
+                          ].join(", "),
+                        }}
+                      >
+                        {QR_COLORS.map(({ hex, label }) => (
+                          <motion.button
+                            key={hex}
+                            aria-label={label}
+                            onClick={() => { setQrColor(hex); setColorPickerOpen(false); }}
+                            whileHover={!shouldReduceMotion ? { scale: 1.18 } : {}}
+                            whileTap={!shouldReduceMotion  ? { scale: 0.92 } : {}}
+                            transition={{ duration: 0.12 }}
+                            style={{
+                              width:        26,
+                              height:       26,
+                              borderRadius: "50%",
+                              background:   hex,
+                              border:       "none",
+                              cursor:       "pointer",
+                              outline:      qrColor === hex
+                                ? `2px solid ${hex}`
+                                : "none",
+                              outlineOffset: 2,
+                              WebkitAppearance: "none",
+                              appearance:   "none" as React.CSSProperties["appearance"],
+                            }}
+                          />
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* The trigger button itself — shows selected color as a dot */}
+                  <motion.button
+                    className="shrink-0 rounded-full flex items-center justify-center select-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
+                    style={{ ...innerPillStyle, width: 40, height: 40, WebkitAppearance: "none", appearance: "none" as React.CSSProperties["appearance"] }}
+                    onClick={() => setColorPickerOpen(v => !v)}
+                    whileTap={!shouldReduceMotion ? { scale: 0.92 } : {}}
+                    aria-label="Change QR code color"
+                    aria-haspopup="true"
+                    aria-expanded={colorPickerOpen}
+                  >
+                    <motion.div
+                      className="rounded-full"
+                      animate={{ backgroundColor: qrColor }}
+                      transition={{ duration: 0.2 }}
+                      style={{
+                        width:      25,
+                        height:     25,
+                        boxShadow: [
+                          `inset 0px -1px 1px -0.5px rgba(0,0,0,0.20)`,
+                          `0px 0px 0px 1px rgba(0,0,0,0.12)`,
+                          `0px 1px 3px rgba(0,0,0,0.12)`,
+                        ].join(", "),
+                      }}
+                    />
+                  </motion.button>
+
                 </div>
 
                 {/* Close — p-[9px] pill shrink-0 */}
