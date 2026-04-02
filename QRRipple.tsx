@@ -25,11 +25,11 @@ const SHADER = {
   intensity:  0.015,
   frequency:  22.0,
   speed:      0.55,
-  fadeRate:   1.3,
+  fadeRate:   1.1,   // slower fade so thick ring stays visible longer
   envelope:   280.0,
   aberrScale: 0.005,
-  glowGain:   1.6,
-  glowColor:  [0.1, 0.8, 2.2] as [number, number, number], // overbright electric blue
+  glowGain:   2.4,   // boosted for radial-band approach
+  glowColor:  [0.0, 0.6, 1.2] as [number, number, number], // pure electric blue
 } as const;
 
 const FIRE = {
@@ -89,19 +89,34 @@ const FRAG = /* glsl */`
 
       float waveRadius = age * u_speed;
       float waveDist   = dist - waveRadius;
-      float envelope   = exp(-waveDist * waveDist * u_envelope);
       float fade       = exp(-age * u_fadeRate);
-      float sinVal     = sin(waveDist * u_frequency);
-      float wave       = sinVal * envelope * fade;
 
+      /* ── Distortion: sine ripple envelope around the ring edge ── */
+      float envelope = exp(-waveDist * waveDist * u_envelope);
+      float sinVal   = sin(waveDist * u_frequency);
+      float wave     = sinVal * envelope * fade;
       totalDisp += normalize(diff) * wave * u_intensity;
 
-      /* Glow: isolate only the crest (sin near its peak).
-       * smoothstep(0.4, 1.0, sinVal) → 0 below threshold, 1 at full peak.
-       * Squared → tighter bright core, softer falloff toward the edges.
-       * Modulated by envelope (spatial gaussian) + fade (time decay). */
-      float crest = smoothstep(0.4, 1.0, sinVal);
-      totalGlow  += crest * crest * envelope * fade;
+      /* ── Radial-band glow ──────────────────────────────────────
+       * waveDist == 0  → on the ring edge (maximum glow)
+       * waveDist  < 0  → inside  (already passed by the ring)
+       * waveDist  > 0  → outside (ring hasn't reached yet)
+       *
+       * halfThick: half the ring thickness in UV space.
+       * outerHalo : wide soft band centered on waveDist == 0.
+       * core      : narrow bright spike at the ring edge — squared
+       *             for a tighter, more intense inner highlight.
+       * Glow fades with time via `fade` (same as distortion) so
+       * both effects stay locked together visually. */
+      float halfThick = 0.07;
+
+      float outerHalo = smoothstep(-halfThick * 2.2, -halfThick * 0.1, waveDist)
+                      * (1.0 - smoothstep(halfThick * 0.1, halfThick * 2.2, waveDist));
+
+      float core = 1.0 - smoothstep(0.0, halfThick * 0.55, abs(waveDist));
+      core = core * core;
+
+      totalGlow += (outerHalo * 0.55 + core) * fade;
     }
 
     vec2 aberr = length(totalDisp) > 0.0001
@@ -114,8 +129,8 @@ const FRAG = /* glsl */`
     float b = texture2D(u_texture, clamp(uv + totalDisp - aberr, 0.0, 1.0)).b;
     float a = texture2D(u_texture, clamp(uv + totalDisp,         0.0, 1.0)).a;
 
-    /* Additive blend: glow on top of displaced base.
-     * glowColor.b = 1.2 → intentional overbright for bloom-like pop. */
+    /* Additive blend: radial-band glow on top of displaced base.
+     * glowColor = (0, 0.6, 1.2) → overbright blue, intentional bloom pop. */
     vec4 color = vec4(r, g, b, a);
     color.rgb += totalGlow * u_glowGain * u_glowColor;
     gl_FragColor = color;
