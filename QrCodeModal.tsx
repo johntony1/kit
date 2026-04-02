@@ -33,9 +33,8 @@ const TIMING = {
  * content: ease-out-quart for entering content (Emil: use ease-out, not spring, for content)
  */
 const SPRING = {
-  open:    { type: "spring" as const, duration: 0.52, bounce: 0.18 },
-  close:   { type: "spring" as const, duration: 0.38, bounce: 0    },
-  hover:   { type: "spring" as const, duration: 0.20, bounce: 0    },
+  modal:   { type: "spring" as const, duration: 0.52, bounce: 0.18 }, // modal scale-in
+  hover:   { type: "spring" as const, duration: 0.20, bounce: 0    }, // button hover/tap
   content: { duration: 0.22, ease: [0.165, 0.84, 0.44, 1] as const }, // ease-out-quart
 } as const;
 
@@ -190,46 +189,54 @@ export function QrCodeModal({
   const canHover = typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches;
 
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    <>
-      {/* ── Shared layout: button ↔ modal ───────────────── */}
-      {/* onKeyDown here catches Escape when focus is inside the modal */}
-      <div className="relative z-50" style={{ fontFamily: "'Inter', sans-serif" }} onKeyDown={handleKeyDown}>
-        <AnimatePresence>
+    /* ── Single morphing container (Dynamic Island pattern) ───
+     * One element stays in the DOM always.
+     * `layout` uses FLIP to animate its size/shape between states.
+     * Inner content swaps via AnimatePresence — no outer element swap,
+     * so there is zero layout recalculation and zero jumping.
+     * ─────────────────────────────────────────────────────── */
+    <div style={{ fontFamily: "'Inter', sans-serif" }} onKeyDown={handleKeyDown}>
+      <motion.div
+        layout
+        role={isOpen ? "dialog" : undefined}
+        aria-modal={isOpen ? "true" : undefined}
+        aria-label={isOpen ? "QR code" : undefined}
+        style={{
+          overflow:     "hidden",
+          width:        isOpen ? OUTER_W : undefined,
+          background:   isOpen
+            ? "#f7f7f7"
+            : "linear-gradient(180deg,#fbfbfb 0%,#ececee 100%)",
+          borderRadius: isOpen ? RADIUS.modal : RADIUS.button,
+          boxShadow:    isOpen ? "none" : [
+            "inset 0 1px 0 rgba(255,255,255,0.80)",
+            "0 0 0 0.5px #e8e8e8",
+            "0 1px 2px rgba(0,0,0,0.06)",
+            "0 3px 8px rgba(0,0,0,0.05)",
+          ].join(", "),
+          WebkitFontSmoothing: "antialiased",
+          MozOsxFontSmoothing: "grayscale",
+        }}
+        transition={nm(SPRING.modal)}
+      >
 
+        <AnimatePresence mode="popLayout" initial={false}>
           {!isOpen ? (
-            /* ── BUTTON — Figma node 202167:42434 ──
-             * Polish layers (bottom → top):
-             *   1. Soft lift shadow (near + far) — makes button float off white bg
-             *   2. 0.5px #ebebeb ring — defines the edge
-             *   3. inset 0 1px 0 white — glass highlight, light hits the top rim
-             * appearance: none — strips native <button> border
-             * overflow: clip — Figma overflow-clip, no new formatting context
-             * minHeight: 44px — Emil: touch target requirement
-             */
+
+            /* ── BUTTON content ── */
             <motion.button
               key="button"
-              layoutId="qr-container"
               onClick={open}
+              exit={nm({ opacity: 0, scale: 0.9, transition: { duration: 0.1, ease: "easeIn" } })}
               className="flex items-center gap-[6px] px-[14px] select-none cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
               style={{
-                borderRadius:       RADIUS.button,
-                background:         "linear-gradient(180deg,#fbfbfb 0%,#ececee 100%)",
-                boxShadow:          [
-                  "inset 0 1px 0 rgba(255,255,255,0.80)", // glass top highlight
-                  "0 0 0 0.5px #e8e8e8",                  // hairline ring
-                  "0 1px 2px rgba(0,0,0,0.06)",           // near shadow
-                  "0 3px 8px rgba(0,0,0,0.05)",           // far shadow
-                ].join(", "),
-                minHeight:          44,
-                overflow:           "clip",
-                WebkitAppearance:   "none",
-                appearance:         "none" as React.CSSProperties["appearance"],
-                WebkitFontSmoothing: "antialiased",
-                MozOsxFontSmoothing: "grayscale",
+                minHeight:        44,
+                background:       "transparent",
+                border:           "none",
+                WebkitAppearance: "none",
+                appearance:       "none" as React.CSSProperties["appearance"],
               }}
               whileHover={(!shouldReduceMotion && canHover) ? {
-                scale:     1.02,
                 boxShadow: [
                   "inset 0 1px 0 rgba(255,255,255,0.90)",
                   "0 0 0 0.5px #d8d8d8",
@@ -237,19 +244,8 @@ export function QrCodeModal({
                   "0 6px 18px rgba(0,0,0,0.07)",
                 ].join(", "),
               } : {}}
-              whileTap={shouldReduceMotion ? {} : {
-                scale:     0.97,
-                boxShadow: [
-                  "inset 0 1px 0 rgba(255,255,255,0.60)",
-                  "0 0 0 0.5px #e0e0e0",
-                  "0 1px 1px rgba(0,0,0,0.05)",
-                  "0 1px 3px rgba(0,0,0,0.04)",
-                ].join(", "),
-              }}
-              transition={shouldReduceMotion ? { duration: 0.01 } : {
-                layout:  SPRING.close,   // card → pill morph: fast, no bounce
-                default: SPRING.hover,   // hover/tap: crisp micro-interaction
-              }}
+              whileTap={shouldReduceMotion ? {} : { scale: 0.97 }}
+              transition={nm(SPRING.hover)}
               aria-haspopup="dialog"
               aria-expanded={false}
               aria-label="Show Qr code"
@@ -265,32 +261,15 @@ export function QrCodeModal({
 
           ) : (
 
-            /* ── MODAL — Figma node 202167:42433 ── */
-            /*
-             * Outer:      bg-[#f7f7f7]  p-[4px]  rounded-[28px]
-             *             flex-col  gap-[12px]  items-start  w=211px
-             *
-             * White card: bg-white  p-[12px]  rounded-[24px]
-             *             overflow-clip  shrink-0  w-full
-             *
-             * Action row: flex  items-center  gap-[8px]
-             *             px-[8px]  pb-[8px]  (no top pad — gap handles it)
-             *             w-full  shrink-0
-             */
+            /* ── MODAL content ── */
             <motion.div
               key="modal"
-              layoutId="qr-container"
-              role="dialog"
-              aria-modal="true"
-              aria-label="QR code"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={nm({ opacity: 0, transition: { duration: 0.1, ease: "easeIn" } })}
+              transition={nm({ delay: 0.18, duration: 0.2, ease: [0.165, 0.84, 0.44, 1] })}
               className="flex flex-col items-start gap-[16px]"
-              style={{
-                background:   "#f7f7f7",
-                borderRadius: RADIUS.modal,
-                width:        OUTER_W,
-                padding:      OUTER_PAD,
-              }}
-              transition={nm(SPRING.open)}
+              style={{ padding: OUTER_PAD }}
             >
 
               {/* White card — node 202167:40009
@@ -473,8 +452,9 @@ export function QrCodeModal({
 
           )}
         </AnimatePresence>
-      </div>
-    </>
+
+      </motion.div>
+    </div>
   );
 }
 
