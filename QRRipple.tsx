@@ -22,12 +22,13 @@ import { useReducedMotion } from "framer-motion";
 const MAX_RIPPLES = 6;
 
 const SHADER = {
-  intensity:  0.045,   // strong distortion so vibration is visible
-  frequency:  26.0,    // oscillation density
-  speed:      0.52,
-  fadeRate:   0.9,     // slow fade — ring stays visible longer
+  intensity:  0.045,
+  frequency:  26.0,
+  speed:      0.75,    // asymptotic max-radius (ease-out formula, not linear speed)
+  easeK:      3.2,     // exponential decay rate — higher = faster initial burst
+  fadeRate:   0.85,
   envelope:   280.0,
-  aberrScale: 0.010,   // more chromatic aberration for electric feel
+  aberrScale: 0.010,
   glowGain:   2.8,
   glowColor:  [0.0, 0.6, 1.2] as [number, number, number],
 } as const;
@@ -63,6 +64,7 @@ const FRAG = /* glsl */`
   uniform float     u_intensity;
   uniform float     u_frequency;
   uniform float     u_speed;
+  uniform float     u_easeK;
   uniform float     u_fadeRate;
   uniform float     u_envelope;
   uniform float     u_aberrScale;
@@ -87,7 +89,14 @@ const FRAG = /* glsl */`
       float dist   = length(diff);
       if (dist < 0.001) continue;
 
-      float waveRadius = age * u_speed;
+      /* Ease-out expansion: ring bursts from center then decelerates.
+       * waveRadius = speed * (1 - e^(-k*age))
+       *   age=0       → 0
+       *   age=0.2s    → ~40% of max radius  (fast burst)
+       *   age=0.5s    → ~80% of max radius  (rapid deceleration)
+       *   age→∞       → speed (asymptote)   (nearly stopped)
+       * Compare: linear would reach speed*age — no deceleration at all. */
+      float waveRadius = u_speed * (1.0 - exp(-u_easeK * age));
       float waveDist   = dist - waveRadius;
       float fade       = exp(-age * u_fadeRate);
 
@@ -274,6 +283,7 @@ export function QRRipple({
     gl.uniform1f(gl.getUniformLocation(prog, "u_intensity"),  SHADER.intensity);
     gl.uniform1f(gl.getUniformLocation(prog, "u_frequency"),  SHADER.frequency);
     gl.uniform1f(gl.getUniformLocation(prog, "u_speed"),      SHADER.speed);
+    gl.uniform1f(gl.getUniformLocation(prog, "u_easeK"),      SHADER.easeK);
     gl.uniform1f(gl.getUniformLocation(prog, "u_fadeRate"),   SHADER.fadeRate);
     gl.uniform1f(gl.getUniformLocation(prog, "u_envelope"),   SHADER.envelope);
     gl.uniform1f(gl.getUniformLocation(prog, "u_aberrScale"), SHADER.aberrScale);
