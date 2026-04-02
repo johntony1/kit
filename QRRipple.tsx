@@ -106,7 +106,7 @@ const FRAG = /* glsl */`
        * outerHalo : wide soft band centered on waveDist == 0.
        * core      : narrow bright spike at the ring edge — squared
        *             for a tighter, more intense inner highlight.
-       * Glow fades with time via `fade` (same as distortion) so
+       * Glow fades with time via fade (same as distortion) so
        * both effects stay locked together visually. */
       float halfThick = 0.07;
 
