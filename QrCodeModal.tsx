@@ -291,8 +291,9 @@ export function QrCodeModal({
               <QRRipple
                 value={url}
                 size={QR_SIZE}
-                fgColor={qrColor}
+                fgColor="#111111"
                 bgColor="#ffffff"
+                glowColor={qrColor}
                 borderRadius={RADIUS.qr}
               />
               <div

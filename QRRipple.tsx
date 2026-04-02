@@ -138,6 +138,19 @@ const FRAG = /* glsl */`
 `;
 
 /* ─── WebGL helpers ─────────────────────────────────────── */
+
+/* Convert a CSS hex color (#rrggbb) to an overbright RGB triple for the
+ * glow uniform. Normalises so the dominant channel = 1.2, giving every
+ * hue at least one overbright component for a bloom-like pop. */
+function hexToGlowRgb(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max   = Math.max(r, g, b, 0.001);
+  const scale = 1.2 / max;
+  return [r * scale, g * scale, b * scale];
+}
+
 function compileShader(gl: WebGLRenderingContext, type: number, src: string): WebGLShader {
   const shader = gl.createShader(type)!;
   gl.shaderSource(shader, src);
@@ -155,6 +168,7 @@ export interface QRRippleProps {
   size: number;
   fgColor?: string;
   bgColor?: string;
+  glowColor?: string;   // hex — controls the ripple glow tint
   borderRadius?: number;
 }
 
@@ -163,6 +177,7 @@ export function QRRipple({
   size,
   fgColor = "#111111",
   bgColor = "#ffffff",
+  glowColor = "#1d9fff",
   borderRadius = 16,
 }: QRRippleProps) {
   const shouldReduceMotion = useReducedMotion();
@@ -242,7 +257,7 @@ export function QRRipple({
     gl.uniform1f(gl.getUniformLocation(prog, "u_envelope"),   SHADER.envelope);
     gl.uniform1f(gl.getUniformLocation(prog, "u_aberrScale"), SHADER.aberrScale);
     gl.uniform1f(gl.getUniformLocation(prog, "u_glowGain"),   SHADER.glowGain);
-    gl.uniform3f(gl.getUniformLocation(prog, "u_glowColor"),  ...SHADER.glowColor);
+    gl.uniform3f(gl.getUniformLocation(prog, "u_glowColor"),  ...hexToGlowRgb(glowColor));
     gl.uniform1i(gl.getUniformLocation(prog, "u_texture"), 0);
 
     /* ── Ripple state ──────────────────────────────────── */
@@ -307,7 +322,7 @@ export function QRRipple({
       gl!.deleteShader(vert);
       gl!.deleteShader(frag);
     };
-  }, [value, fgColor, bgColor, size, shouldReduceMotion]);
+  }, [value, fgColor, bgColor, glowColor, size, shouldReduceMotion]);
 
   return (
     <div
