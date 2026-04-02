@@ -3,10 +3,24 @@ import { QrCodeModal } from "../QrCodeModal";
 export default function App() {
   return (
     <div className="min-h-screen bg-white">
-      {/* Fixed center — removed from flow so button and modal are always
-          centered regardless of the component's own height. */}
-      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)" }}>
-        <QrCodeModal url="https://example.com/shared" />
+      {/* Full-screen fixed container — size NEVER changes, so Framer Motion's
+          FLIP bounding-box measurements stay stable throughout the morph.
+          (translate(-50%,-50%) shifts when the wrapper resizes, causing a jump;
+          inset:0 + flex centering avoids that entirely.) */}
+      <div
+        style={{
+          position:       "fixed",
+          inset:          0,
+          display:        "flex",
+          alignItems:     "center",
+          justifyContent: "center",
+          pointerEvents:  "none",
+          zIndex:         50,
+        }}
+      >
+        <div style={{ pointerEvents: "auto" }}>
+          <QrCodeModal url="https://example.com/shared" />
+        </div>
       </div>
     </div>
   );
