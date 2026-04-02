@@ -128,6 +128,7 @@ export function QrCodeModal({
   const [copied,          setCopied]          = useState(false);
   const [qrColor,         setQrColor]         = useState("#1d4ed8");
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [rippleTrigger,   setRippleTrigger]   = useState(0);
   const shouldReduceMotion = useReducedMotion();
   const colorPickerRef     = useRef<HTMLDivElement>(null);
 
@@ -142,7 +143,7 @@ export function QrCodeModal({
     return () => document.removeEventListener("mousedown", handler);
   }, [colorPickerOpen]);
 
-  const open  = () => setIsOpen(true);
+  const open  = () => { setIsOpen(true); setRippleTrigger(n => n + 1); };
   const close = () => { setIsOpen(false); setCopied(false); };
 
   const copy = async () => {
@@ -292,6 +293,7 @@ export function QrCodeModal({
                 fgColor="#111111"
                 bgColor="#ffffff"
                 glowColor={qrColor}
+                triggerKey={rippleTrigger}
                 borderRadius={RADIUS.qr}
               />
               <div
@@ -375,7 +377,7 @@ export function QrCodeModal({
                         <motion.button
                           key={hex}
                           aria-label={label}
-                          onClick={() => { setQrColor(hex); setColorPickerOpen(false); }}
+                          onClick={() => { setQrColor(hex); setColorPickerOpen(false); setRippleTrigger(n => n + 1); }}
                           whileHover={!shouldReduceMotion ? { scale: 1.18 } : {}}
                           whileTap={!shouldReduceMotion   ? { scale: 0.92 } : {}}
                           transition={{ duration: 0.12 }}

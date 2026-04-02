@@ -33,12 +33,6 @@ const SHADER = {
   glowColor:  [0.0, 0.6, 1.2] as [number, number, number],
 } as const;
 
-const FIRE = {
-  firstDelay: 0.4,
-  minGap:     1.5,
-  maxGap:     3.5,
-} as const;
-
 /* ─── Vertex shader ─────────────────────────────────────── */
 /* Full-screen quad: NDC positions passed straight through.
  * No camera math — position.xy of a [2,2] plane ARE NDC corners. */
@@ -195,6 +189,7 @@ export interface QRRippleProps {
   fgColor?: string;
   bgColor?: string;
   glowColor?: string;   // hex — controls the ripple glow tint
+  triggerKey?: number;  // increment to fire a ripple from center
   borderRadius?: number;
 }
 
@@ -204,15 +199,20 @@ export function QRRipple({
   fgColor = "#111111",
   bgColor = "#ffffff",
   glowColor = "#1d9fff",
+  triggerKey = 0,
   borderRadius = 16,
 }: QRRippleProps) {
   const shouldReduceMotion = useReducedMotion();
-  const wrapRef     = useRef<HTMLDivElement>(null);
-  const glRef       = useRef<HTMLCanvasElement>(null);
-  // Kept in a ref so the render loop picks up color changes without
-  // needing to tear down and rebuild the entire WebGL context.
-  const glowRgbRef  = useRef<[number, number, number]>(hexToGlowRgb(glowColor));
+  const wrapRef          = useRef<HTMLDivElement>(null);
+  const glRef            = useRef<HTMLCanvasElement>(null);
+  // Color ref: render loop picks up changes without re-init.
+  const glowRgbRef       = useRef<[number, number, number]>(hexToGlowRgb(glowColor));
   useEffect(() => { glowRgbRef.current = hexToGlowRgb(glowColor); }, [glowColor]);
+  // Pending trigger: set by the triggerKey effect, consumed by render loop.
+  const pendingRippleRef = useRef(false);
+  useEffect(() => {
+    if (triggerKey > 0) pendingRippleRef.current = true;
+  }, [triggerKey]);
 
   useEffect(() => {
     if (shouldReduceMotion) return;
@@ -295,30 +295,19 @@ export function QRRipple({
 
     /* ── Ripple state ──────────────────────────────────── */
     const ripples: Ripple[] = [];
-    let startClock: number | null = null;
-    let nextFire   = 0;
-    let firstFired = false;
-    let rafId      = 0;
+    let rafId = 0;
 
-    const posFlat  = new Float32Array(MAX_RIPPLES * 2).fill(0.5);
-    const timFlat  = new Float32Array(MAX_RIPPLES).fill(-999);
+    const posFlat = new Float32Array(MAX_RIPPLES * 2).fill(0.5);
+    const timFlat = new Float32Array(MAX_RIPPLES).fill(-999);
 
     function render(now: number) {
       const t = now / 1000;
 
-      if (startClock === null) {
-        startClock = t;
-        nextFire   = t + FIRE.firstDelay;
-      }
-
-      /* Fire new ripple */
-      if (t >= nextFire) {
-        const x = 0.5;
-        const y = 0.5;
-        firstFired = true;
-        ripples.push({ x, y, startTime: t });
+      /* Consume externally triggered ripple */
+      if (pendingRippleRef.current) {
+        pendingRippleRef.current = false;
+        ripples.push({ x: 0.5, y: 0.5, startTime: t });
         if (ripples.length > MAX_RIPPLES) ripples.shift();
-        nextFire = t + FIRE.minGap + Math.random() * (FIRE.maxGap - FIRE.minGap);
       }
 
       /* Expire old ripples */
