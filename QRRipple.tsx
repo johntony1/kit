@@ -22,14 +22,14 @@ import { useReducedMotion } from "framer-motion";
 const MAX_RIPPLES = 6;
 
 const SHADER = {
-  intensity:  0.015,
-  frequency:  22.0,
-  speed:      0.55,
-  fadeRate:   1.1,   // slower fade so thick ring stays visible longer
+  intensity:  0.045,   // strong distortion so vibration is visible
+  frequency:  26.0,    // oscillation density
+  speed:      0.52,
+  fadeRate:   0.9,     // slow fade — ring stays visible longer
   envelope:   280.0,
-  aberrScale: 0.005,
-  glowGain:   2.4,   // boosted for radial-band approach
-  glowColor:  [0.0, 0.6, 1.2] as [number, number, number], // pure electric blue
+  aberrScale: 0.010,   // more chromatic aberration for electric feel
+  glowGain:   2.8,
+  glowColor:  [0.0, 0.6, 1.2] as [number, number, number],
 } as const;
 
 const FIRE = {
@@ -91,32 +91,49 @@ const FRAG = /* glsl */`
       float waveDist   = dist - waveRadius;
       float fade       = exp(-age * u_fadeRate);
 
-      /* ── Distortion: sine ripple envelope around the ring edge ── */
-      float envelope = exp(-waveDist * waveDist * u_envelope);
-      float sinVal   = sin(waveDist * u_frequency);
-      float wave     = sinVal * envelope * fade;
-      totalDisp += normalize(diff) * wave * u_intensity;
+      /* ── Band envelope: where the effect lives ─────────────────
+       * Centred on waveDist == 0 (the ring edge).
+       * Wide enough to contain several oscillation cycles. */
+      float halfThick = 0.10;
+      float band = smoothstep(-halfThick * 2.8, -halfThick * 0.15, waveDist)
+                 * (1.0 - smoothstep(halfThick * 0.15, halfThick * 2.8, waveDist));
 
-      /* ── Radial-band glow ──────────────────────────────────────
-       * waveDist == 0  → on the ring edge (maximum glow)
-       * waveDist  < 0  → inside  (already passed by the ring)
-       * waveDist  > 0  → outside (ring hasn't reached yet)
+      /* ── Vibration: layered waves — electric, unstable, alive ──
        *
-       * halfThick: half the ring thickness in UV space.
-       * outerHalo : wide soft band centered on waveDist == 0.
-       * core      : narrow bright spike at the ring edge — squared
-       *             for a tighter, more intense inner highlight.
-       * Glow fades with time via fade (same as distortion) so
-       * both effects stay locked together visually. */
-      float halfThick = 0.07;
+       * v1  primary outward-traveling wave  sin(dist*freq - time)
+       * v2  second freq — different speed creates beating/interference
+       * v3  angular wave via atan() — breaks perfect radial symmetry
+       * v4  high-freq shimmer with opposite angular phase
+       *
+       * Using absolute dist (not waveDist) so the oscillation pattern
+       * is a field the expanding band sweeps through, giving a
+       * shimmering, unstable edge rather than a clean smooth ring. */
+      float angle = atan(diff.y, diff.x);
 
-      float outerHalo = smoothstep(-halfThick * 2.2, -halfThick * 0.1, waveDist)
-                      * (1.0 - smoothstep(halfThick * 0.1, halfThick * 2.2, waveDist));
+      float v1 = sin(dist * u_frequency        - u_time * 9.0);
+      float v2 = sin(dist * u_frequency * 1.37 - u_time * 14.0) * 0.65;
+      float v3 = sin(dist * u_frequency * 0.61 + angle * 5.0 - u_time * 6.5) * 0.60;
+      float v4 = sin(dist * u_frequency * 2.10 - angle * 3.0 - u_time * 18.0) * 0.35;
 
-      float core = 1.0 - smoothstep(0.0, halfThick * 0.55, abs(waveDist));
-      core = core * core;
+      float vibration = (v1 + v2 + v3 + v4) / 2.6;
 
-      totalGlow += (outerHalo * 0.55 + core) * fade;
+      /* ── Distortion: radial push + tangential swirl ────────────
+       * Tangential component (perpendicular to outward direction)
+       * adds a writhing quality — the ring writhes, not just pushes. */
+      vec2 radial   = normalize(diff);
+      vec2 tangent  = vec2(-diff.y, diff.x) / max(dist, 0.001);
+      vec2 dispDir  = radial * 0.72 + tangent * 0.28;
+
+      totalDisp += dispDir * vibration * band * fade * u_intensity;
+
+      /* ── Glow: band lit by vibration intensity ─────────────────
+       * glowMod makes the ring brighter where wave crests land,
+       * so the glow flickers and pulses as it expands. */
+      float core    = 1.0 - smoothstep(0.0, halfThick * 0.50, abs(waveDist));
+      core          = core * core;
+      float glowMod = abs(vibration) * 0.5 + 0.5;
+
+      totalGlow += (band * glowMod * 0.55 + core * 1.1) * fade;
     }
 
     vec2 aberr = length(totalDisp) > 0.0001
