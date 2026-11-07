@@ -1,13 +1,9 @@
 import { useState } from "react";
 import transitionsSrc from "../transitions/transitions.ts?raw";
 import pageSwapSrc from "../transitions/PageSwap.tsx?raw";
-import bookSrc from "../transitions/Book.tsx?raw";
-import { Book } from "../transitions/Book";
 import { DURATIONS, type TransitionKind } from "../transitions/transitions";
 import { PageSwap } from "../transitions/PageSwap";
-import { DemoPage, PAGE_COUNT, bookPages } from "../demos/Pages";
-
-const BOOK = () => [<div key="e" className="bkp bkpEnd" />, ...bookPages()];
+import { DemoPage, PAGE_COUNT } from "../demos/Pages";
 import { Code, Slider } from "./ui";
 
 export const TRANS_KEYS: TransitionKind[] = ["burn", "paper", "reveal", "ink", "curtain", "pixels", "zoom", "tilt"];
@@ -15,8 +11,8 @@ export const TRANS_KEYS: TransitionKind[] = ["burn", "paper", "reveal", "ink", "
 export const TRANS_META: Record<TransitionKind, { name: string; desc: string; how: string }> = {
   burn: { name: "Burn", desc: "The page burns away from where you click: a ragged charred edge, a flickering ember line and a little smoke, with the next page underneath.",
     how: "Mask the old page with a hole whose edge radius is a sum of sines around the circle, regenerated every frame as an SVG mask. Draw the char (soft brown rings), the burnt lip, a flickering ember line with an orange glow, and rising smoke on a canvas above. The hole grows with an ease-in (t^1.55) over 2.2 s, because fire speeds up as it spreads." },
-  paper: { name: "Paper flip", desc: "A book you turn like a real one: the page bends as it lifts, the free edge leads, the light moves across it and it throws shadows on the pages around it. Drag the edge or click.",
-    how: "Move the corner P from (W, H) along an arc to (-W, H - 0.28H sin(πe)). The fold is the perpendicular bisector of corner to P. Clip the old page to the side still flat, reflect the folded part across the fold to draw its back (paper colour, darker at the crease), and cast gradient shadows on both sides of the fold. 900 ms, ease in and out." },
+  paper: { name: "Paper flip", desc: "The page turns over like a sheet of paper: it bends as it lifts, the light runs across it, and it throws a shadow on the next page as it goes.",
+    how: "Cut a copy of the old page into 40 thin vertical strips, each a child of the one before, transform-origin at its left edge, preserve-3d, with a front (its slice of the page) and a back (paper colour) using backface-visibility: hidden. Each frame give strip i the absolute angle A = π·p + 0.55·sin(πp)·(s^1.8 − 0.25)·1.2 (s = its position 0..1, clamped 0..π) and rotate it by A minus its parent's angle, so the sheet bends with the free edge leading. Darken each face by 0.5·sin(A)^1.2. Cast a gradient shadow on the next page at the sheet's projected edge (sum of strip width·cos A). Perspective 2200px from the left edge. 1.1 s, ease in and out." },
   reveal: { name: "Reveal", desc: "The next page grows out of the click as a circle.", how: "Animate clip-path: circle(0 at x y) to circle(farthest corner at x y) on the new page, 700 ms, cubic-bezier(.76,0,.24,1)." },
   ink: { name: "Ink", desc: "A wobbly blob of the next page spreads out from the click like ink.", how: "The burn mask without the fire: a noisy circle (sum of sines, rough 1.4) grows over 1 s with an ease in and out." },
   curtain: { name: "Curtain", desc: "Five panels sweep up to cover the page, the page changes, and they sweep away.", how: "Five flex columns scaleY 0 to 1 from the bottom, staggered, swap at full cover, then scaleY 1 to 0 from the top. 1.1 s, cubic-bezier(.76,0,.24,1)." },
@@ -57,9 +53,12 @@ function SwapDemo({ kind, options, compact, start = 0 }: { kind: TransitionKind;
       onPointerDown={(e) => {
         if (busy) return;
         const r = e.currentTarget.getBoundingClientRect();
+        const go = (e.target as HTMLElement).closest("[data-go]")?.getAttribute("data-go");
+        const target = go !== null && go !== undefined ? Number(go) : (page + 1) % PAGE_COUNT;
+        if (target === page) return;
         setOrigin({ x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height });
         setBusy(true);
-        setPage((p) => (p + 1) % PAGE_COUNT);
+        setPage(target);
       }}
       onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !busy) { e.preventDefault(); setOrigin({ x: 0.5, y: 0.5 }); setBusy(true); setPage((p) => (p + 1) % PAGE_COUNT); } }}>
       <PageSwap kind={kind} page={page} origin={origin} options={options} onDone={() => setBusy(false)}
@@ -69,46 +68,16 @@ function SwapDemo({ kind, options, compact, start = 0 }: { kind: TransitionKind;
 }
 
 export function TransPreview({ k }: { k: TransitionKind }) {
-  if (k === "paper") return (
-    <div className="previewGrid">
-      <div className="panel hero flushPanel bookPanel"><div className="bookStage"><Book pages={BOOK()} height={330} /></div><span className="panelHint">Drag a page edge, or click</span></div>
-      <div className="panel small flushPanel"><SwapDemo kind="paper" compact start={1} /></div>
-      <div className="panel wide flushPanel"><SwapDemo kind="paper" start={2} /><span className="panelHint">Single page flip</span></div>
-    </div>
-  );
   return (
     <div className="previewGrid">
-      <div className="panel hero flushPanel"><SwapDemo kind={k} /><span className="panelHint">Click anywhere</span></div>
+      <div className="panel hero flushPanel"><SwapDemo kind={k} /><span className="panelHint">Click a link, or anywhere</span></div>
       <div className="panel small flushPanel"><SwapDemo kind={k} compact start={1} /></div>
       <div className="panel wide flushPanel"><SwapDemo kind={k} start={2} /><span className="panelHint">Next page</span></div>
     </div>
   );
 }
 
-function BookPlayground() {
-  const [duration, setDuration] = useState(0.9);
-  const [bend, setBend] = useState(0.9);
-  const [strips, setStrips] = useState(28);
-  const props = [duration !== 0.9 && `duration={${duration}}`, bend !== 0.9 && `bend={${bend}}`, strips !== 28 && `strips={${strips}}`].filter(Boolean);
-  const code = `<Book\n  pages={pages}\n  height={420}${props.length ? "\n  " + props.join("\n  ") : ""}\n/>`;
-  return (
-    <>
-      <h2 className="h2">Playground</h2>
-      <div className="playground">
-        <div className="panel playStage flushPanel bookPanel"><div className="bookStage"><Book key={strips} pages={BOOK()} height={400} duration={duration} bend={bend} strips={strips} /></div></div>
-        <div className="panel controls">
-          <Slider label="Duration" value={duration} min={0.3} max={2.5} step={0.05} unit="s" onChange={setDuration} />
-          <Slider label="Bend" value={bend} min={0} max={1.6} step={0.05} onChange={setBend} />
-          <Slider label="Strips" value={strips} min={6} max={60} step={1} onChange={setStrips} />
-        </div>
-      </div>
-      <Code code={code} label="these settings" />
-    </>
-  );
-}
-
 export function TransPlayground({ k }: { k: TransitionKind }) {
-  if (k === "paper") return <BookPlayground />;
   const [duration, setDuration] = useState(DURATIONS[k]);
   const [rough, setRough] = useState(0.5);
   const [smoke, setSmoke] = useState(0.6);
@@ -147,10 +116,8 @@ export function TransPlayground({ k }: { k: TransitionKind }) {
 }
 
 export function TransInstall({ k, fw }: { k: TransitionKind; fw: "React" | "JavaScript" }) {
-  const files: [string, string][] = k === "paper" && fw === "React" ? [["Book.tsx", bookSrc]] : fw === "React" ? [["transitions.ts", transitionsSrc], ["PageSwap.tsx", pageSwapSrc]] : [["transitions.ts", transitionsSrc]];
-  const usage = k === "paper" && fw === "React"
-    ? `import { Book } from "./Book";\n\n// add the .book styles from this page (bkStrip, bkFace, bkBack...)\n<Book pages={[<Cover />, <Contents />, <ChapterOne />, <PlateOne />]} height={420} />`
-    : fw === "React"
+  const files: [string, string][] = fw === "React" ? [["transitions.ts", transitionsSrc], ["PageSwap.tsx", pageSwapSrc]] : [["transitions.ts", transitionsSrc]];
+  const usage = fw === "React"
     ? `import { PageSwap } from "./PageSwap";\n\n<PageSwap kind="${k}" page={route} origin={click} render={(r) => <Page route={r} />} />`
     : `import { transition } from "./transitions";\n\n// both pages inside one container; the new one is already rendered\nawait transition("${k}", container, oldPage, newPage, { x: 0.5, y: 0.5 });\noldPage.remove();`;
   return (

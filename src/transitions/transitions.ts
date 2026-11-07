@@ -23,7 +23,7 @@ export interface TransitionOptions {
   smoke?: number;
 }
 
-export const DURATIONS: Record<TransitionKind, number> = { burn: 2.2, paper: 0.9, reveal: 0.7, ink: 1.0, curtain: 1.1, pixels: 1.0, zoom: 0.7, tilt: 0.65 };
+export const DURATIONS: Record<TransitionKind, number> = { burn: 2.2, paper: 1.1, reveal: 0.7, ink: 1.0, curtain: 1.1, pixels: 1.0, zoom: 0.7, tilt: 0.65 };
 
 const still = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const ease = {
@@ -170,73 +170,71 @@ async function ink(box: HTMLElement, from: HTMLElement, o: Required<TransitionOp
   clearMask(from);
 }
 
-/* ── paper: the corner peels and the page folds over itself ── */
-async function paper(box: HTMLElement, from: HTMLElement, o: Required<TransitionOptions>) {
-  const { cv, ctx, W, H } = overlayCanvas(box);
-  const paperColor = getComputedStyle(from).backgroundColor || "#f4f2ec";
-  const C0: [number, number] = [W, H];
-  const rect: [number, number][] = [[0, 0], [W, 0], [W, H], [0, H]];
-  // keep the part of the page where side(X) holds
-  const clip = (poly: [number, number][], f: (p: [number, number]) => number) => {
-    const out: [number, number][] = [];
-    for (let i = 0; i < poly.length; i++) {
-      const a = poly[i], b = poly[(i + 1) % poly.length];
-      const fa = f(a), fb = f(b);
-      if (fa <= 0) out.push(a);
-      if ((fa < 0 && fb > 0) || (fa > 0 && fb < 0)) { const k = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k]); }
-    }
-    return out;
-  };
+/* ── paper: the page turns over its left edge like a sheet of paper, bending as it goes ── */
+async function paper(box: HTMLElement, from: HTMLElement, to: HTMLElement, o: Required<TransitionOptions>) {
+  const W = box.clientWidth, H = box.clientHeight, N = 40, w = W / N;
+  // the turning sheet: thin strips chained in 3D, each holding its slice of a copy of the page
+  const sheet = document.createElement("div");
+  Object.assign(sheet.style, { position: "absolute", inset: "0", zIndex: "3", transformStyle: "preserve-3d", pointerEvents: "none" });
+  const firstBg = (from.firstElementChild && getComputedStyle(from.firstElementChild).backgroundColor) || getComputedStyle(from).backgroundColor;
+  const backColor = firstBg && firstBg !== "rgba(0, 0, 0, 0)" ? firstBg : "#f4f2ec";
+  const strips: HTMLDivElement[] = [], shadeF: HTMLDivElement[] = [], shadeB: HTMLDivElement[] = [];
+  let parent: HTMLElement = sheet;
+  for (let i = 0; i < N; i++) {
+    const st = document.createElement("div");
+    Object.assign(st.style, { position: "absolute", top: "0", left: i ? `${w}px` : "0", width: `${w + 1}px`, height: `${H}px`, transformOrigin: "0 50%", transformStyle: "preserve-3d" });
+    const face = (back: boolean) => {
+      const f = document.createElement("div");
+      Object.assign(f.style, { position: "absolute", inset: "0", overflow: "hidden", backfaceVisibility: "hidden", webkitBackfaceVisibility: "hidden", outline: "1px solid transparent", transform: back ? "rotateY(180deg)" : "" });
+      if (back) f.style.background = backColor;
+      else {
+        const copy = from.cloneNode(true) as HTMLElement;
+        Object.assign(copy.style, { position: "absolute", top: "0", left: `${-i * w}px`, width: `${W}px`, height: `${H}px`, visibility: "visible", clipPath: "", maskImage: "", transform: "", zIndex: "" });
+        f.appendChild(copy);
+      }
+      const sh = document.createElement("div");
+      Object.assign(sh.style, { position: "absolute", inset: "0", pointerEvents: "none" });
+      f.appendChild(sh);
+      (back ? shadeB : shadeF).push(sh);
+      return f;
+    };
+    st.appendChild(face(false));
+    st.appendChild(face(true));
+    parent.appendChild(st);
+    strips.push(st);
+    parent = st;
+  }
+  // the shadow the sheet throws on the next page as it lifts
+  const cast = document.createElement("div");
+  Object.assign(cast.style, { position: "absolute", inset: "0", zIndex: "2", pointerEvents: "none" });
+  box.style.perspective = "2200px";
+  box.style.perspectiveOrigin = "0% 50%";
+  box.append(cast, sheet);
+  from.style.visibility = "hidden";
+  void to;
+
   await frames(o.duration * 1000, (t) => {
-    const e = ease.paper(t);
-    const P: [number, number] = [W - 2.05 * W * e, H - H * 0.28 * Math.sin(Math.PI * e)];
-    const M: [number, number] = [(C0[0] + P[0]) / 2, (C0[1] + P[1]) / 2];
-    let nx = C0[0] - P[0], ny = C0[1] - P[1];
-    const L = Math.hypot(nx, ny) || 1;
-    nx /= L; ny /= L;
-    const d = (p: [number, number]) => (p[0] - M[0]) * nx + (p[1] - M[1]) * ny;
-    const stay = clip(rect, d);                                   // the page still lying flat
-    const folded = clip(rect, (p) => -d(p));                      // the part that has turned over
-    const back = folded.map((p) => { const k = 2 * d(p); return [p[0] - k * nx, p[1] - k * ny] as [number, number]; });
-    from.style.clipPath = stay.length > 2 ? `polygon(${stay.map((p) => `${p[0].toFixed(1)}px ${p[1].toFixed(1)}px`).join(",")})` : "polygon(0 0,0 0,0 0)";
-    ctx.clearRect(0, 0, W, H);
-    if (folded.length < 3) return;
-    const lift = Math.sin(Math.PI * Math.min(1, e * 1.1));
-    // the shadow the turning page casts on the next page
-    ctx.save();
-    const sh = ctx.createLinearGradient(M[0], M[1], M[0] + nx * 90, M[1] + ny * 90);
-    sh.addColorStop(0, `rgba(0,0,0,${0.32 * lift})`);
-    sh.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = sh;
-    path(ctx, folded); ctx.fill();
-    ctx.restore();
-    // a soft shadow on the flat page, just under the fold
-    ctx.save();
-    path(ctx, stay); ctx.clip();
-    const s2 = ctx.createLinearGradient(M[0], M[1], M[0] - nx * 40, M[1] - ny * 40);
-    s2.addColorStop(0, `rgba(0,0,0,${0.18 * lift})`);
-    s2.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = s2; ctx.fillRect(0, 0, W, H);
-    ctx.restore();
-    // the back of the page: paper, lit, darker at the crease
-    ctx.save();
-    ctx.shadowColor = `rgba(0,0,0,${0.35 * lift})`;
-    ctx.shadowBlur = 24;
-    ctx.fillStyle = paperColor;
-    path(ctx, back); ctx.fill();
-    ctx.restore();
-    ctx.save();
-    path(ctx, back); ctx.clip();
-    const bg = ctx.createLinearGradient(M[0], M[1], M[0] - nx * L * 0.5, M[1] - ny * L * 0.5);
-    bg.addColorStop(0, "rgba(0,0,0,0.22)");
-    bg.addColorStop(0.18, "rgba(255,255,255,0.10)");
-    bg.addColorStop(0.6, "rgba(255,255,255,0.04)");
-    bg.addColorStop(1, "rgba(0,0,0,0.06)");
-    ctx.fillStyle = bg; ctx.fillRect(-W, -H, W * 3, H * 3);
-    ctx.restore();
+    const p = ease.paper(t);
+    const lead = 0.55 * Math.sin(Math.PI * p);
+    let prev = 0, reach = 0;
+    for (let i = 0; i < N; i++) {
+      const s = (i + 0.5) / N;
+      // the whole sheet turns with p; the free edge leads a little, the spine side lags
+      const A = Math.min(Math.PI, Math.max(0, Math.PI * p + lead * (Math.pow(s, 1.8) - 0.25) * 1.2));
+      strips[i].style.transform = `rotateY(${(-(A - prev) * 180) / Math.PI}deg)`;
+      const side = Math.pow(Math.sin(A), 1.2);
+      shadeF[i].style.background = `rgba(0,0,0,${(0.5 * side).toFixed(3)})`;
+      shadeB[i].style.background = `linear-gradient(90deg, rgba(255,255,255,${(0.1 * (1 - side)).toFixed(3)}), rgba(0,0,0,${(0.4 * side).toFixed(3)}))`;
+      reach += w * Math.cos(A);
+      prev = A;
+    }
+    const x = Math.max(0, Math.min(W, reach));
+    const k = Math.sin(Math.PI * p);
+    cast.style.background = `linear-gradient(90deg, rgba(0,0,0,${(0.42 * k).toFixed(3)}) ${((x / W) * 100).toFixed(1)}%, rgba(0,0,0,0) ${Math.min(100, (x / W) * 100 + 14).toFixed(1)}%)`;
   });
-  cv.remove();
-  from.style.clipPath = "";
+  sheet.remove();
+  cast.remove();
+  box.style.perspective = box.style.perspectiveOrigin = "";
 }
 
 /* ── the CSS ones ── */
@@ -320,7 +318,7 @@ export async function transition(kind: TransitionKind, box: HTMLElement, from: H
   // the ones that cover the screen first keep the next page hidden until the swap
   if (kind === "curtain" || kind === "pixels") to.style.visibility = "hidden";
   if (kind === "burn") await burn(box, from, o);
-  else if (kind === "paper") await paper(box, from, o);
+  else if (kind === "paper") await paper(box, from, to, o);
   else if (kind === "ink") await ink(box, from, o);
   else if (kind === "reveal") await reveal(box, from, to, o);
   else if (kind === "curtain") await curtain(box, from, to, o);
