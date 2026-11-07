@@ -46,14 +46,14 @@ export function Slider({ label, value, min, max, step, onChange, unit = "" }: { 
   const pct = ((value - min) / (max - min)) * 100;
   const digits = step < 0.01 ? 3 : step < 1 ? 2 : 0;
   return (
-    <div className="group">
-      <div className="groupLabel">{label}</div>
-      <label className="slider" style={{ ["--p" as string]: `${pct}%` }}>
-        <span className="sliderName">{label}</span>
-        <span className="sliderVal">{value.toFixed(digits)}{unit}</span>
-        <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-label={label} />
-      </label>
-    </div>
+    <label className="sld">
+      <span className="sldFill" style={{ width: `max(108px, ${pct}%)` }}>
+        <span>{label}</span>
+        <b />
+      </span>
+      <span className="sldDots" aria-hidden="true">{Array.from({ length: 9 }, (_, i) => <i key={i} />)}</span>
+      <em>{value.toFixed(digits)}{unit}</em>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-label={label} />
+    </label>
   );
 }
-

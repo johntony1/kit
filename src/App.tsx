@@ -116,7 +116,7 @@ function RipplePlayground() {
         <div className="panel playStage">
           {src === "Orb" && <OrbRipple options={options} auto={false} rippleRef={ref} />}
           {src === "QR code" && <QrRipple options={options} rippleRef={ref} />}
-          <button type="button" className="pill playBtn" onClick={() => ref.current?.fire()}>Play</button>
+          <button type="button" className="btn line playBtn" onClick={() => ref.current?.fire()}>Play</button>
         </div>
         <div className="panel controls">
           <Chips label="Source" value={src} options={R_SOURCES} onChange={setSrc} />
@@ -174,7 +174,7 @@ function ConfettiPlayground() {
       <div className="playground">
         <div className="panel playStage">
           <SuccessCard options={options} trigger={n} />
-          <button type="button" className="pill playBtn" onClick={() => setN(n + 1)}>Play</button>
+          <button type="button" className="btn line playBtn" onClick={() => setN(n + 1)}>Play</button>
         </div>
         <div className="panel controls">
           <Chips label="Colors" value={pal} options={Object.keys(C_PALETTES) as (keyof typeof C_PALETTES)[]} onChange={(p) => { setPal(p); setN((x) => x + 1); }} />
@@ -220,12 +220,12 @@ function LibraryPage({ lib, go }: { lib: Lib; go: (r: Route) => void }) {
           ))}
         </div>
         <div className="barRight">
-          <div className="fw" role="radiogroup" aria-label="Framework">
+          <div className="seg" role="radiogroup" aria-label="Framework">
             {(["React", "JavaScript"] as const).map((f) => (
-              <button key={f} type="button" role="radio" aria-checked={f === fw} className={`fwBtn ${f === fw ? "on" : ""}`} onClick={() => setFw(f)}>{f}</button>
+              <button key={f} type="button" role="radio" aria-checked={f === fw} className={`segBtn ${f === fw ? "on" : ""}`} onClick={() => setFw(f)}>{f}</button>
             ))}
           </div>
-          <button type="button" className="pill" onClick={() => copy(isType(lib) ? typePrompt(TYPE_EFFECTS[lib], TYPE_META[lib].desc) : lib === "ripple" ? RIPPLE_PROMPT : CONFETTI_PROMPT)}>
+          <button type="button" className="btn primary" onClick={() => copy(isType(lib) ? typePrompt(TYPE_EFFECTS[lib], TYPE_META[lib].desc) : lib === "ripple" ? RIPPLE_PROMPT : CONFETTI_PROMPT)}>
             <CopyIcon done={done} />
             {done ? "Copied" : "Copy prompt"}
           </button>
@@ -308,7 +308,7 @@ export default function App() {
           <button type="button" className={`topLink ${route === "intro" ? "on" : ""}`} onClick={() => go("intro")}>How to use</button>
         </nav>
         <div className="topRight">
-          <a className="pill" href={REPO} target="_blank" rel="noopener noreferrer">
+          <a className="btn line" href={REPO} target="_blank" rel="noopener noreferrer">
             <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 .2a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2" /></svg>
             GitHub
           </a>
