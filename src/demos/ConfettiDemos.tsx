@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Flag } from "./flags";
 import { ConfettiPop } from "../confetti/ConfettiPop";
@@ -16,11 +16,13 @@ function Check({ color = "#16a34a", size = 26 }: { color?: string; size?: number
 const SPRING_ENTRY = { type: "spring", visualDuration: 0.42, bounce: 0.14 } as const;
 const inter = { fontFamily: "'Inter', -apple-system, sans-serif", fontFeatureSettings: "'ss11', 'calt' 0, 'liga' 0" } as const;
 
-function SuccessBody({ options, onBack }: { options?: ConfettiOptions; onBack: () => void }) {
+function SuccessBody({ options, onBack }: { options?: Omit<ConfettiOptions, "within">; onBack: () => void }) {
+  // like the original, the card clips the confetti to its rounded corners
+  const card = useRef<HTMLDivElement>(null);
   return (
-    <div style={{ position: "relative", borderRadius: 20, height: 320, display: "flex", flexDirection: "column" }}>
+    <div ref={card} style={{ position: "relative", overflow: "hidden", borderRadius: 20, height: 320, display: "flex", flexDirection: "column" }}>
       <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 24px", gap: 16 }}>
-        <ConfettiPop originY={34} {...options}>
+        <ConfettiPop within={card} {...options}>
           <div className="badge"><Check /></div>
         </ConfettiPop>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
@@ -50,7 +52,7 @@ function SuccessBody({ options, onBack }: { options?: ConfettiOptions; onBack: (
 }
 
 /** the card, entering like the original: a spring from 97% (visual 0.38 s, bounce 0.1). Back to home plays it again */
-export function SuccessCard({ options, trigger = 0 }: { options?: ConfettiOptions; trigger?: number }) {
+export function SuccessCard({ options, trigger = 0 }: { options?: Omit<ConfettiOptions, "within">; trigger?: number }) {
   const [n, setN] = useState(0);
   return (
     <motion.div key={`${n}-${trigger}`} className="success"
@@ -67,7 +69,7 @@ export function LikePop() {
   return (
     <button type="button" className="likeBtn" aria-pressed={liked} aria-label={liked ? "Unlike" : "Like"}
       onClick={() => { setLiked(!liked); if (!liked) setN(n + 1); }}>
-      <ConfettiPop trigger={n} onMount={false} colors={["#ff4d6d", "#ff8fa3", "#ffb3c1", "#ffffff"]} glow={false} count={16} spread={0.8}>
+      <ConfettiPop trigger={n} onMount={false} colors={["#ff4d6d", "#ff8fa3", "#ffb3c1", "#ffffff"]} glow={false} count={36} spread={0.7} duration={1.2}>
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 8 3.4 4.5 6.9 4.5c2 0 3.6 1.1 5.1 3 1.5-1.9 3.1-3 5.1-3 3.5 0 5.5 3.5 4.2 6.8-1.8 4.6-9.3 9.2-9.3 9.2Z"
             fill={liked ? "#ff4d6d" : "none"} stroke={liked ? "#ff4d6d" : "currentColor"} strokeWidth="1.8" strokeLinejoin="round" />
@@ -92,7 +94,7 @@ export function TaskPop() {
               setDone(done.map((d, k) => (k === i ? !d : d)));
               if (!done[i]) setN(n.map((v, k) => (k === i ? v + 1 : v)));
             }}>
-            <ConfettiPop trigger={n[i]} onMount={false} count={14} spread={0.6} glow={false}>
+            <ConfettiPop trigger={n[i]} onMount={false} count={28} spread={0.55} duration={1} glow={false}>
               <span className={`box ${done[i] ? "on" : ""}`}>{done[i] && <Check color="#121212" size={13} />}</span>
             </ConfettiPop>
             <span className={`taskText ${done[i] ? "done" : ""}`}>{t}</span>

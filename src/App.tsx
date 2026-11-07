@@ -53,7 +53,7 @@ function IntroIcon() {
 
 const LIBS = {
   ripple: { name: "Ripple", icon: <RippleIcon />, desc: "A ring of light that bursts out of a point, bends whatever is under it and splits its colours." },
-  confetti: { name: "Confetti pop", icon: <ConfettiIcon />, desc: "An element pops in with a blur and an overshoot, confetti bursts out of it and a glow blooms behind." },
+  confetti: { name: "Confetti pop", icon: <ConfettiIcon />, desc: "An element pops in with a blur and an overshoot, a glow springs in behind it, and ribbons of confetti burst out, tumble and fall." },
 } as const;
 
 /* ── Install tab ── */
@@ -66,8 +66,8 @@ function Install({ lib, fw }: { lib: "ripple" | "confetti"; fw: "React" | "JavaS
       ? `import { Ripple } from "./RippleCanvas";\n\n<Ripple src="/your-image.png" width={320} height={320} fireOn="click" />`
       : `import { createRipple } from "./ripple";\n\nconst ripple = createRipple(canvas, image, { glowColor: "#1d9fff" });\nripple.fire();            // from the centre\nripple.fire(0.2, 0.8);    // from a point`
     : fw === "React"
-      ? `import { ConfettiPop } from "./ConfettiPop";\n\n<ConfettiPop trigger={done}>\n  <CheckBadge />\n</ConfettiPop>`
-      : `import { confettiPop } from "./confetti";\n\nconfettiPop(document.querySelector(".badge"));`;
+      ? `import { ConfettiPop } from "./ConfettiPop";\n\nconst card = useRef<HTMLDivElement>(null);\n\n<div ref={card} style={{ position: "relative", overflow: "hidden", borderRadius: 20 }}>\n  <ConfettiPop within={card} trigger={done}>\n    <CheckBadge />\n  </ConfettiPop>\n</div>`
+      : `import { confettiPop } from "./confetti";\n\nconfettiPop(document.querySelector(".badge"), { within: document.querySelector(".card") });`;
   return (
     <div className="panel installPanel">
       <h3 className="installHead">Installation</h3>
@@ -136,11 +136,11 @@ function RipplePlayground() {
 
 /* ── Confetti ── */
 const C_PALETTES = {
-  Party: CONFETTI_DEFAULTS.colors,
-  Mono: ["#ffffff", "#d4d4d4", "#8a8a8a"],
-  Ocean: ["#38bdf8", "#22d3ee", "#818cf8", "#e0f2fe"],
-  Sunset: ["#fb7185", "#f97316", "#facc15", "#fda4af"],
-  Forest: ["#22c55e", "#84cc16", "#bef264", "#14b8a6"],
+  Mint: CONFETTI_DEFAULTS.colors,
+  Party: ["#1fc16b", "#fa7319", "#f5c028", "#b197fc", "#38bdf8"],
+  Mono: ["#ffffff", "#e5e5e5", "#a3a3a3", "#d4d4d4"],
+  Ocean: ["#38bdf8", "#22d3ee", "#818cf8", "#e0f2fe", "#7dd3fc"],
+  Sunset: ["#fb7185", "#f97316", "#facc15", "#fda4af", "#fdba74"],
 } as const;
 
 function ConfettiPreview() {
@@ -154,20 +154,20 @@ function ConfettiPreview() {
 }
 
 function ConfettiPlayground() {
-  const [pal, setPal] = useState<keyof typeof C_PALETTES>("Party");
+  const [pal, setPal] = useState<keyof typeof C_PALETTES>("Mint");
   const [glow, setGlow] = useState<"On" | "Off">("On");
   const [pop, setPop] = useState<"On" | "Off">("On");
-  const [o, setO] = useState({ count: CONFETTI_DEFAULTS.count, spread: CONFETTI_DEFAULTS.spread, duration: CONFETTI_DEFAULTS.duration });
+  const [o, setO] = useState({ count: CONFETTI_DEFAULTS.count, spread: CONFETTI_DEFAULTS.spread, gravity: CONFETTI_DEFAULTS.gravity, duration: CONFETTI_DEFAULTS.duration });
   const [n, setN] = useState(0);
   const options = { ...o, colors: [...C_PALETTES[pal]], glow: glow === "On" ? CONFETTI_DEFAULTS.glow : (false as const), pop: pop === "On" };
   const set = (k: keyof typeof o) => (v: number) => setO({ ...o, [k]: v });
   const props = [
-    pal !== "Party" && `  colors={${JSON.stringify(C_PALETTES[pal]).replace(/,/g, ", ")}}`,
+    pal !== "Mint" && `  colors={${JSON.stringify(C_PALETTES[pal]).replace(/,/g, ", ")}}`,
     ...Object.entries(o).filter(([k, v]) => CONFETTI_DEFAULTS[k as keyof typeof o] !== v).map(([k, v]) => `  ${k}={${v}}`),
     glow === "Off" && "  glow={false}",
     pop === "Off" && "  pop={false}",
   ].filter(Boolean);
-  const code = `<ConfettiPop trigger={done}${props.length ? "\n" + props.join("\n") + "\n" : ""}>\n  <CheckBadge />\n</ConfettiPop>`;
+  const code = `<ConfettiPop within={card} trigger={done}${props.length ? "\n" + props.join("\n") + "\n" : ""}>\n  <CheckBadge />\n</ConfettiPop>`;
   return (
     <>
       <h2 className="h2">Playground</h2>
@@ -177,12 +177,13 @@ function ConfettiPlayground() {
           <button type="button" className="btn line playBtn" onClick={() => setN(n + 1)}>Play</button>
         </div>
         <div className="panel controls">
-          <Chips label="Colors" value={pal} options={Object.keys(C_PALETTES) as (keyof typeof C_PALETTES)[]} onChange={(p) => { setPal(p); setN((x) => x + 1); }} />
+          <Chips label="Colours" value={pal} options={Object.keys(C_PALETTES) as (keyof typeof C_PALETTES)[]} onChange={(p) => { setPal(p); setN((x) => x + 1); }} />
           <Chips label="Pop" value={pop} options={["On", "Off"] as const} onChange={setPop} />
           <Chips label="Glow" value={glow} options={["On", "Off"] as const} onChange={setGlow} />
-          <Slider label="Pieces" value={o.count} min={6} max={60} step={1} onChange={set("count")} />
-          <Slider label="Spread" value={o.spread} min={0.4} max={2} step={0.05} onChange={set("spread")} unit="×" />
-          <Slider label="Duration" value={o.duration} min={0.4} max={1.6} step={0.02} onChange={set("duration")} unit="s" />
+          <Slider label="Pieces" value={o.count} min={10} max={200} step={1} onChange={set("count")} />
+          <Slider label="Spread" value={o.spread} min={0.3} max={2} step={0.05} onChange={set("spread")} unit="×" />
+          <Slider label="Gravity" value={o.gravity} min={0.02} max={0.5} step={0.01} onChange={set("gravity")} />
+          <Slider label="Duration" value={o.duration} min={0.6} max={6} step={0.1} onChange={set("duration")} unit="s" />
         </div>
       </div>
       <Code code={code} label="these settings" />
