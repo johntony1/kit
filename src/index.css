@@ -305,3 +305,136 @@ button, input, textarea { font: inherit; color: inherit; letter-spacing: inherit
   .studioPanel { position: static; max-height: none; }
   .studioCanvas { height: 420px; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+ * The look: Operate's tactile warmth and Define's app shell, in the dark.
+ * A grainy chrome holds the navigation; the content sits on one inset
+ * sheet. Sage-tinted greys, one green, pills with a top highlight and a
+ * soft drop, concentric radii, shadows over borders.
+ * ════════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #121312;
+  --chrome: #121312;
+  --sheet: #191a19;
+  --panel: #1f201f;
+  --raised: #262826;
+  --line: rgba(255, 255, 255, 0.06);
+  --line2: rgba(255, 255, 255, 0.1);
+  --text: #e3e8e3;
+  --text2: #c2cbc4;
+  --muted: #8b968f;
+  --faint: #5d6862;
+  --accent: #34b562;
+  --accent2: #22994c;
+  --green: #3fc06c;
+  --sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0) 50%);
+  --surface: 0 0 0 1px rgba(255, 255, 255, 0.055), 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px -16px rgba(0, 0, 0, 0.55);
+  --lift: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 10px -4px rgba(0, 0, 0, 0.4);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --font: "Inter Variable", Inter, -apple-system, system-ui, sans-serif;
+}
+html, body, #root { background: var(--chrome); color: var(--text); font-feature-settings: "cv11", "ss01", "ss03"; }
+body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; background-image: var(--grain); opacity: 0.045; mix-blend-mode: overlay; }
+.site { position: relative; z-index: 1; max-width: 1320px; }
+::selection { background: rgba(52, 181, 98, 0.35); }
+
+/* ── top bar on the chrome ── */
+.top { height: 64px; gap: 20px; }
+.brand { font-size: 15px; font-weight: 600; letter-spacing: -0.015em; }
+.brandMark { width: 20px; height: 20px; }
+.topLink { height: 34px; padding: 0 13px; border-radius: 17px; font-size: 13.5px; color: var(--muted); transition: background-color 150ms ease, color 150ms ease; }
+.topLink.on { background: rgba(255, 255, 255, 0.07); color: var(--text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); }
+.topPill { height: 34px; padding: 0 13px; border-radius: 17px; font-size: 13px; background: rgba(255, 255, 255, 0.045); color: var(--text2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); transition: background-color 150ms ease, color 150ms ease, scale 150ms ease; }
+.topPill:active { scale: 0.96; }
+.topPill kbd { color: var(--faint); }
+
+/* ── shell: sidebar on the chrome, content on the sheet ── */
+.layout { grid-template-columns: 216px 1fr; gap: 12px; padding-top: 4px; }
+.side { top: 12px; padding: 6px 4px; gap: 2px; }
+.sideLabel { font: 500 12px/1 var(--font); letter-spacing: 0; text-transform: none; color: var(--faint); padding: 0 10px; margin: 18px 0 8px; }
+.navItem { position: relative; height: 32px; padding: 0 10px 0 8px; gap: 10px; border-radius: 9px; font-size: 13.5px; font-weight: 450; color: var(--text2); transition: background-color 150ms ease, color 150ms ease; }
+.navItem.bare { padding-left: 10px; }
+.navItem:hover { background: rgba(255, 255, 255, 0.035); color: var(--text); }
+.navItem.on { background: transparent; box-shadow: none; color: var(--green); font-weight: 500; }
+.navItem.on::before { content: ""; position: absolute; left: -4px; top: 7px; bottom: 7px; width: 3px; border-radius: 0 3px 3px 0; background: var(--green); }
+.navIcon { width: 18px; height: 18px; border-radius: 5px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.main { padding: 28px 32px 40px; border-radius: 16px; background: var(--sheen), var(--sheet); box-shadow: var(--surface); min-height: calc(100vh - 92px); }
+.foot { border-top: 0; margin-top: 64px; }
+
+/* ── page head ── */
+.headIcon { width: 40px; height: 40px; border-radius: 11px; background: var(--sheen), var(--raised); box-shadow: var(--lift); }
+.h1 { font-size: 28px; line-height: 34px; font-weight: 600; letter-spacing: -0.022em; color: var(--text); text-wrap: balance; }
+.lede { font-size: 14px; line-height: 22px; color: var(--muted); }
+.h2 { font: 600 14px/1 var(--font); letter-spacing: -0.005em; text-transform: none; color: var(--text2); margin: 32px 0 12px; }
+
+/* ── buttons: pills with a top highlight and a soft drop ── */
+.btn { height: 34px; padding: 0 14px; border-radius: 17px; font-size: 13px; font-weight: 500; color: var(--text2); transition: background-color 150ms ease, color 150ms ease, scale 150ms ease; }
+.btn:active { scale: 0.96; }
+.btn.line { background: linear-gradient(180deg, #2b2d2b, #242624); box-shadow: var(--lift); }
+.btn.line:hover { background: linear-gradient(180deg, #313331, #292b29); color: var(--text); }
+.btn.primary { border-radius: 17px; color: #fff; font-weight: 550; background: linear-gradient(180deg, #3cc06b, #22994c); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.12), 0 0 0 1px #1a7f3e, 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 14px -6px rgba(34, 153, 76, 0.55); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.15); }
+.btn.primary::after { background: linear-gradient(180deg, #46c873, #27a253); }
+.btn.primary:hover { background: linear-gradient(180deg, #3cc06b, #22994c); }
+.btn.primary:focus-visible { outline-color: var(--accent); }
+.round { width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(180deg, #2b2d2b, #242624); box-shadow: var(--lift); color: var(--text2); transition: background-color 150ms ease, scale 150ms ease; }
+.round:active { scale: 0.96; }
+.iconBtn { border-radius: 9px; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); }
+
+/* ── segmented: a sunken track, a raised thumb that slides ── */
+.seg { padding: 3px; border-radius: 19px; background: rgba(0, 0, 0, 0.28); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.04); }
+.segBtn { height: 28px; padding: 0 12px; border-radius: 14px; font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.segThumb { top: 3px; bottom: 3px; border-radius: 14px; background: linear-gradient(180deg, #303230, #282a28); box-shadow: var(--lift); transition: transform 0.28s cubic-bezier(0.2, 0, 0, 1), width 0.28s cubic-bezier(0.2, 0, 0, 1); }
+
+/* ── panels nest concentrically: sheet 16, panel 14, inner 10 ── */
+.panel { border-radius: 14px; background: var(--sheen), var(--panel); box-shadow: var(--surface); }
+.code { border-radius: 14px; background: var(--sheen), var(--panel); box-shadow: var(--surface); }
+.code pre { font-size: 12px; color: var(--text2); }
+.panelHint { height: 26px; padding: 0 10px; border-radius: 13px; background: rgba(20, 21, 20, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: var(--text2); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 6px 16px -6px rgba(0, 0, 0, 0.6); font-weight: 500; }
+.panelHint::before { background: var(--green); border-radius: 50%; }
+.qrTile { border-radius: 22px; }
+
+/* ── controls ── */
+.controls { padding: 16px; gap: 18px; }
+.groupLabel { font-size: 12.5px; color: var(--muted); }
+.chip { height: 30px; padding: 0 13px; border-radius: 15px; font-size: 12.5px; background: rgba(255, 255, 255, 0.035); color: var(--muted); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025); transition: background-color 150ms ease, color 150ms ease, scale 150ms ease; }
+.chip:active { scale: 0.96; }
+.chip.on { background: linear-gradient(180deg, #303230, #282a28); color: var(--text); box-shadow: var(--lift); }
+.swatchPair.on { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px var(--green); }
+.textIn, .askIn, .menuIn, .palIn { font-size: 13.5px; }
+.textIn { border-radius: 10px; background: rgba(0, 0, 0, 0.22); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.03); }
+.textIn:focus-visible { box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(52, 181, 98, 0.45); }
+.colorCtl { border-radius: 11px; background: rgba(0, 0, 0, 0.22); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35); }
+
+/* slider: a sunken, hatched track (like Operate's objective bar) and a raised fill */
+.sld { background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 6px), rgba(0, 0, 0, 0.24); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.03); }
+.sldFill { background: linear-gradient(180deg, #2e302e, #272927); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.4); }
+.sldFill b { box-shadow: 0 0 0 3px #2a2c2a, 0 1px 3px 3px rgba(0, 0, 0, 0.3); }
+.sldName, .sld em { color: var(--text2); }
+.sld em { font-variant-numeric: tabular-nums; }
+
+/* ── install, intro ── */
+.installPanel .code { border-radius: 10px; background: rgba(0, 0, 0, 0.25); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4); }
+.fileName { font: 500 12px/1 var(--font); letter-spacing: 0; text-transform: none; color: var(--muted); }
+.introCard:hover { box-shadow: 0 0 0 1px rgba(52, 181, 98, 0.5), 0 0 0 4px rgba(52, 181, 98, 0.12), var(--surface); }
+.footHead { font: 500 12.5px/1 var(--font); letter-spacing: 0; text-transform: none; color: var(--faint); }
+
+/* the demo surfaces get the grain too */
+.likeBtn, .tasks { background: linear-gradient(180deg, #2b2d2b, #242624); box-shadow: var(--lift); }
+.box.on { background: var(--accent2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 0 1px #1a7f3e; }
+
+/* menus and the palette sit on the dark card from the references: grain, a soft edge */
+.menu, .pal { background: var(--grain), linear-gradient(180deg, #232523, #1d1f1d); background-size: 180px, auto; background-blend-mode: soft-light, normal; border-radius: 14px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 18px 44px -12px rgba(0, 0, 0, 0.7); }
+.menuItem, .palItem { border-radius: 8px; }
+.palItem.on, .menuItem:hover, .menuItem.on { background: rgba(255, 255, 255, 0.06); }
+
+/* studio sits on the sheet like the rest */
+.studio { padding: 24px 28px 32px; margin-top: 4px; border-radius: 16px; background: var(--sheen), var(--sheet); box-shadow: var(--surface); }
+
+@media (hover: none) { .navItem:hover, .btn:hover, .chip:hover { background-color: inherit; } }
+@media (max-width: 900px) { .main { padding: 20px 16px 28px; } .studio { padding: 16px; } }
+/* slider layers: track, fill, name and value, handle on top */
+.sld { isolation: isolate; }
+.sldFill { z-index: auto; }
+.sldName, .sld em { z-index: 1; }
+.sldFill b { z-index: 2; }
+.sldDots { z-index: 0; }
