@@ -283,14 +283,78 @@ function NavItem({ active, icon, children, onClick }: { active: boolean; icon?: 
 function Brand() {
   return (
     <>
-      <span className="brandMark"><RippleIcon /></span>
+      <span className="brandMark"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="#fff" /><circle cx="12" cy="12" r="6.6" stroke="#fff" strokeOpacity=".7" strokeWidth="1.6" /><circle cx="12" cy="12" r="10" stroke="#fff" strokeOpacity=".35" strokeWidth="1.6" /></svg></span>
       <span>Effects<span className="dim">.free</span></span>
+    </>
+  );
+}
+
+/** the repo's star count, if GitHub answers */
+function useStars() {
+  const [stars, setStars] = useState<number | null>(null);
+  useEffect(() => {
+    fetch("https://api.github.com/repos/johntony1/qr-code-animatio").then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && typeof j.stargazers_count === "number") setStars(j.stargazers_count); }).catch(() => {});
+  }, []);
+  return stars;
+}
+
+/** Search ⌘K: a small palette that jumps to any effect */
+function SearchButton({ go }: { go: (r: Route) => void }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [hi, setHi] = useState(0);
+  const all = useMemo(() => [
+    { r: "intro" as Route, name: "Introduction", group: "Getting started" },
+    { r: "ripple" as Route, name: "Ripple", group: "Libraries" },
+    { r: "confetti" as Route, name: "Confetti pop", group: "Libraries" },
+    ...TYPE_KEYS.map((k) => ({ r: k as Route, name: TYPE_EFFECTS[k].name, group: "Type" })),
+  ], []);
+  const list = all.filter((x) => x.name.toLowerCase().includes(q.trim().toLowerCase()));
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setOpen((o) => !o); }
+      if (e.key === "Escape") setOpen(false);
+    };
+    addEventListener("keydown", on);
+    return () => removeEventListener("keydown", on);
+  }, []);
+  useEffect(() => { if (open) { setQ(""); setHi(0); } }, [open]);
+  const pick = (r: Route) => { setOpen(false); go(r); };
+  return (
+    <>
+      <button type="button" className="topPill search" onClick={() => setOpen(true)} aria-haspopup="dialog">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.75" /><path d="m10.5 10.5 3 3" strokeLinecap="round" /></svg>
+        <span>Search</span>
+        <kbd>⌘K</kbd>
+      </button>
+      {open && (
+        <div className="palScrim" onPointerDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
+          <div className="pal" role="dialog" aria-label="Search effects">
+            <input autoFocus className="palIn" placeholder="Search effects" value={q}
+              onChange={(e) => { setQ(e.target.value); setHi(0); }}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => Math.min(list.length - 1, h + 1)); }
+                if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => Math.max(0, h - 1)); }
+                if (e.key === "Enter" && list[hi]) pick(list[hi].r);
+              }} />
+            <div className="palList" role="listbox">
+              {list.map((x, i) => (
+                <button key={x.r} type="button" role="option" aria-selected={i === hi} className={`palItem ${i === hi ? "on" : ""}`} onMouseEnter={() => setHi(i)} onClick={() => pick(x.r)}>
+                  <span>{x.name}</span><em>{x.group}</em>
+                </button>
+              ))}
+              {!list.length && <p className="palEmpty">Nothing called that yet.</p>}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
 export default function App() {
   const [route, go] = useRoute();
+  const stars = useStars();
   const year = useMemo(() => new Date().getFullYear(), []);
   return (
     <div className="site">
@@ -299,11 +363,13 @@ export default function App() {
         <nav className="topLinks" aria-label="Main">
           <button type="button" className={`topLink ${route !== "intro" ? "on" : ""}`} onClick={() => go("ripple")}>Libraries</button>
           <button type="button" className={`topLink ${route === "intro" ? "on" : ""}`} onClick={() => go("intro")}>How to use</button>
+          <a className="topLink" href={REPO} target="_blank" rel="noopener noreferrer">Source</a>
         </nav>
         <div className="topRight">
-          <a className="btn line" href={REPO} target="_blank" rel="noopener noreferrer">
-            <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 .2a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2" /></svg>
-            GitHub
+          <SearchButton go={go} />
+          <a className="topPill" href={REPO} target="_blank" rel="noopener noreferrer" aria-label={stars !== null ? `GitHub, ${stars} stars` : "GitHub"}>
+            <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M8 .2a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2" /></svg>
+            {stars !== null ? <span>{stars >= 1000 ? `${(stars / 1000).toFixed(1)}k` : stars}</span> : <span>GitHub</span>}
           </a>
         </div>
       </header>

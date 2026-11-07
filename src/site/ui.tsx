@@ -43,18 +43,40 @@ export function Chips<T extends string>({ label, value, options, onChange }: { l
 }
 
 export function Slider({ label, value, min, max, step, onChange, unit = "" }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; unit?: string }) {
-  const pct = ((value - min) / (max - min)) * 100;
+  const track = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState(false);
+  const pct = Math.min(1, Math.max(0, (value - min) / (max - min)));
   const digits = step < 0.01 ? 3 : step < 1 ? 2 : 0;
+  const snap = (v: number) => Number(Math.min(max, Math.max(min, Math.round((v - min) / step) * step + min)).toFixed(6));
+  // the handle travels from 6 px in on the left to 6 px in on the right; map the pointer onto that
+  const fromX = (x: number) => {
+    const r = track.current!.getBoundingClientRect();
+    const k = (x - r.left - 11) / Math.max(1, r.width - 22);
+    return snap(min + Math.min(1, Math.max(0, k)) * (max - min));
+  };
+  const down = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag(true);
+    onChange(fromX(e.clientX));
+  };
+  const move = (e: React.PointerEvent<HTMLDivElement>) => { if (drag) onChange(fromX(e.clientX)); };
+  const up = () => setDrag(false);
+  const key = (e: React.KeyboardEvent) => {
+    const big = (max - min) / 10;
+    const d = { ArrowRight: step, ArrowUp: step, ArrowLeft: -step, ArrowDown: -step, PageUp: big, PageDown: -big }[e.key];
+    if (d !== undefined) { e.preventDefault(); onChange(snap(value + d)); }
+    if (e.key === "Home") { e.preventDefault(); onChange(min); }
+    if (e.key === "End") { e.preventDefault(); onChange(max); }
+  };
   return (
-    <label className="sld">
-      <span className="sldFill" style={{ width: `max(116px, ${pct}%)` }}>
-        <span>{label}</span>
-        <b />
-      </span>
-      <span className="sldDots" aria-hidden="true">{Array.from({ length: 7 }, (_, i) => <i key={i} />)}</span>
+    <div ref={track} className={`sld ${drag ? "drag" : ""}`} role="slider" tabIndex={0} aria-label={label}
+      aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} aria-valuetext={`${value.toFixed(digits)}${unit}`}
+      onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={key}>
+      <span className="sldFill" style={{ width: `calc(22px + (100% - 22px) * ${pct})` }}><b /></span>
+      <span className="sldName">{label}</span>
+      <span className="sldDots" aria-hidden="true">{Array.from({ length: 8 }, (_, i) => <i key={i} />)}</span>
       <em>{value.toFixed(digits)}{unit}</em>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-label={label} />
-    </label>
+    </div>
   );
 }
 

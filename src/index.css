@@ -65,16 +65,34 @@ button, input, textarea { font: inherit; color: inherit; letter-spacing: inherit
 /* small mono labels, like the picker's section heads */
 .sideLabel, .fileName, .footHead, .h2 { font: 500 10.5px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
 
-/* ── Top bar ── */
-.top { height: 64px; display: flex; align-items: center; gap: 20px; }
-.brand { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 590; color: var(--text); text-decoration: none; }
-.brandMark { width: 20px; height: 20px; display: inline-flex; }
-.dim { color: var(--muted); font-weight: 450; }
-.topLinks { display: flex; gap: 2px; }
-.topLink { height: 32px; padding: 0 11px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 510; cursor: pointer; transition: background-color 120ms, color 120ms; }
-.topLink:hover { color: var(--text); background: rgba(255, 255, 255, 0.055); }
-.topLink.on { color: var(--text); background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px var(--line); }
-.topRight { margin-left: auto; display: flex; gap: 8px; }
+/* ── Top bar (clean: a wordmark, one filled pill, plain links, pills on the right) ── */
+.top { height: 72px; display: flex; align-items: center; gap: 28px; }
+.brand { display: inline-flex; align-items: center; gap: 9px; font-size: 17px; font-weight: 500; letter-spacing: -0.01em; color: var(--text); text-decoration: none; }
+.brandMark { width: 22px; height: 22px; display: inline-flex; }
+.dim { color: var(--muted); font-weight: 400; }
+.topLinks { display: flex; align-items: center; gap: 4px; }
+.topLink { height: 40px; padding: 0 16px; border: 0; border-radius: 20px; background: transparent; color: var(--muted); font-size: 14px; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center; cursor: pointer; transition: background-color 120ms, color 120ms; }
+.topLink:hover { color: var(--text); }
+.topLink.on { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.topRight { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.topPill { height: 40px; padding: 0 16px; border: 0; border-radius: 20px; display: inline-flex; align-items: center; gap: 9px; background: rgba(255, 255, 255, 0.04); color: var(--text2); font-size: 14px; font-weight: 500; text-decoration: none; cursor: pointer; transition: background-color 120ms, color 120ms; }
+.topPill:hover { background: rgba(255, 255, 255, 0.07); color: var(--text); }
+.topPill.search { color: var(--muted); padding: 0 14px; }
+.topPill.search span { margin-right: 6px; }
+.topPill kbd { font: 500 12px/1 var(--font); color: var(--faint); letter-spacing: 0.02em; }
+
+/* search palette */
+.palScrim { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, 0.45); display: flex; justify-content: center; align-items: flex-start; padding-top: 14vh; animation: fadeIn 0.12s ease; }
+@keyframes fadeIn { from { opacity: 0; } }
+.pal { width: min(520px, calc(100vw - 32px)); border-radius: 14px; background: var(--sheen), var(--panel); box-shadow: var(--surface); overflow: hidden; animation: palIn 0.16s var(--ease); }
+@keyframes palIn { from { opacity: 0; transform: translateY(4px) scale(0.985); } }
+.palIn { width: 100%; height: 48px; padding: 0 16px; border: 0; outline: 0; background: transparent; color: var(--text); font-size: 14px; caret-color: var(--accent); border-bottom: 1px solid var(--line); }
+.palIn::placeholder { color: var(--faint); }
+.palList { padding: 6px; max-height: 340px; overflow: auto; }
+.palItem { width: 100%; height: 36px; padding: 0 10px; border: 0; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; background: transparent; color: var(--text2); font-size: 13px; cursor: pointer; text-align: left; }
+.palItem.on { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+.palItem em { font-style: normal; font-size: 12px; color: var(--faint); }
+.palEmpty { margin: 0; padding: 14px 10px; color: var(--muted); font-size: 13px; }
 
 /* ── Layout ── */
 .layout { display: grid; grid-template-columns: 208px 1fr; gap: 48px; padding-top: 28px; }
@@ -126,18 +144,18 @@ button, input, textarea { font: inherit; color: inherit; letter-spacing: inherit
 .group { display: flex; flex-direction: column; gap: 8px; }
 .groupLabel { font-size: 13px; line-height: 16px; color: var(--muted); }
 
-/* slider: a soft fill with the name inside, a white pill handle, dots, the value at the end */
-.sld { position: relative; display: block; width: 100%; height: 40px; border-radius: 11px; background: rgba(255, 255, 255, 0.035); cursor: grab; touch-action: none; user-select: none; }
-.sld:active { cursor: grabbing; }
-.sld:has(input:focus-visible) { box-shadow: 0 0 0 2px rgba(61, 123, 255, 0.5); }
-.sldFill { position: absolute; left: 0; top: 0; bottom: 0; max-width: 100%; border-radius: 11px; background: rgba(255, 255, 255, 0.07); display: flex; align-items: center; pointer-events: none; }
-.sldFill span { padding-left: 14px; font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; }
-.sldFill b { position: absolute; right: 8px; top: 50%; width: 8px; height: 24px; margin-top: -12px; border-radius: 4px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); transition: transform 0.12s ease; }
-.sld:hover .sldFill b, .sld:active .sldFill b { transform: scaleY(1.08); }
-.sldDots { position: absolute; left: 124px; right: 62px; top: 50%; height: 3px; margin-top: -1.5px; display: flex; justify-content: space-between; pointer-events: none; }
+/* slider: the name on the track, a soft fill that ends in a white pill handle, dots, the value */
+.sld { position: relative; display: block; width: 100%; height: 40px; border-radius: 11px; background: rgba(255, 255, 255, 0.035); cursor: grab; touch-action: none; user-select: none; outline: none; }
+.sld.drag { cursor: grabbing; }
+.sld:focus-visible { box-shadow: 0 0 0 2px rgba(61, 123, 255, 0.5); }
+.sldFill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 11px; background: rgba(255, 255, 255, 0.07); pointer-events: none; }
+.sldFill b { position: absolute; right: 6px; top: 50%; width: 10px; height: 26px; margin-top: -13px; border-radius: 5px; background: #fff; box-shadow: 0 0 0 3px #242427, 0 1px 3px 3px rgba(0, 0, 0, 0.25); z-index: 2; transition: transform 0.12s ease; }
+.sldFill { z-index: 1; }
+.sld:hover .sldFill b, .sld.drag .sldFill b { transform: scaleY(1.08); }
+.sldName { position: absolute; left: 26px; top: 50%; transform: translateY(-50%); font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; pointer-events: none; }
+.sldDots { position: absolute; left: 118px; right: 64px; top: 50%; height: 3px; margin-top: -1.5px; display: flex; justify-content: space-between; pointer-events: none; }
 .sldDots i { width: 3px; height: 3px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); }
 .sld em { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font: 500 13px/1 var(--font); font-style: normal; font-variant-numeric: tabular-nums; color: var(--muted); pointer-events: none; }
-.sld input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: inherit; margin: 0; }
 
 .textIn { width: 100%; resize: vertical; min-height: 52px; padding: 9px 10px; border: 0; border-radius: 9px; background: rgba(255, 255, 255, 0.035); color: var(--text); caret-color: var(--accent); font-size: 13px; line-height: 1.5; outline: none; box-shadow: inset 0 0 0 1px var(--line); }
 .textIn:focus-visible { box-shadow: inset 0 0 0 1px rgba(61, 123, 255, 0.6), 0 0 0 3px rgba(61, 123, 255, 0.14); }
@@ -213,6 +231,7 @@ button, input, textarea { font: inherit; color: inherit; letter-spacing: inherit
   .site { padding: 0 16px; }
   .top { gap: 10px; }
   .topLinks { display: none; }
+  .topPill.search span, .topPill.search kbd { display: none; }
   .h1 { font-size: 24px; line-height: 30px; }
   .previewGrid { grid-template-columns: 1fr; grid-template-rows: 340px 260px 260px; }
   .bar { flex-direction: column; align-items: flex-start; }
