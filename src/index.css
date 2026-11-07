@@ -82,6 +82,16 @@ button { font: inherit; color: inherit; }
 .previewGrid .hero { grid-column: 1 / -1; }
 .previewGrid .panel { display: grid; place-items: center; }
 .fill { position: absolute; inset: 0; }
+.orbFill { background: #000; }
+.flushPanel > canvas { position: absolute; inset: 0; }
+.panelHint.onArt { opacity: 0.45; z-index: 1; }
+.textIn { width: 100%; resize: vertical; min-height: 56px; padding: 8px 10px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.04); color: var(--text); font: 500 13px/18px var(--font); outline: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04); }
+.textIn:focus-visible { box-shadow: inset 0 0 0 1px rgba(123, 108, 255, 0.7); }
+.swatchPair { width: 40px; height: 32px; border: 0; border-radius: 10px; font: 800 12px/32px var(--font); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); transition: transform 0.15s var(--ease); }
+.swatchPair:active { transform: scale(0.95); }
+.swatchPair.on { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px #fff; }
+.side { max-height: calc(100vh - 48px); overflow-y: auto; scrollbar-width: none; }
+.orbTitle { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; font: 800 13px/1 "Inter", sans-serif; letter-spacing: 0.06em; text-transform: uppercase; color: #6f6f6f; opacity: 0; pointer-events: none; }
 .panelHint { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); font-size: 12px; color: var(--text-3); pointer-events: none; white-space: nowrap; }
 .qrTile { padding: 10px; border-radius: 22px; background: #fff; box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.8); }
 

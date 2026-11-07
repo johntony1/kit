@@ -8,18 +8,28 @@ import { CONFETTI_PROMPT } from "./confetti/prompt";
 import { RIPPLE_DEFAULTS } from "./ripple/ripple";
 import { CONFETTI_DEFAULTS } from "./confetti/confetti";
 import type { RippleHandle } from "./ripple/RippleCanvas";
-import { OrbRipple, QrRipple, TypeRipple } from "./demos/RippleDemos";
+import { OrbRipple, QrRipple } from "./demos/RippleDemos";
 import { LikePop, SuccessCard, TaskPop } from "./demos/ConfettiDemos";
+import { Chips, Code, CopyIcon, Slider, useCopy } from "./site/ui";
+import { TypeInstall, TypePlayground, TypePreview, TypeIcon } from "./site/TypePage";
+import { TYPE_EFFECTS, type TypeEffectKey } from "./type/effects";
+import { TYPE_META } from "./type/meta";
+import { typePrompt } from "./type/prompt";
+import { TypeCanvas } from "./type/TypeCanvas";
 
 const REPO = "https://github.com/johntony1/qr-code-animatio";
 
 /* ── Routing: #/ripple, #/confetti, #/introduction ── */
-type Route = "intro" | "ripple" | "confetti";
-const ORDER: Route[] = ["intro", "ripple", "confetti"];
+type Lib = "ripple" | "confetti" | TypeEffectKey;
+type Route = "intro" | Lib;
+const TYPE_KEYS = ["bubble", "lens", "liquid", "rings", "slice", "smear", "lines", "contour"] as TypeEffectKey[];
+const ORDER: Route[] = ["intro", "ripple", "confetti", ...TYPE_KEYS];
+const isType = (r: string): r is TypeEffectKey => (TYPE_KEYS as string[]).includes(r);
 function useRoute(): [Route, (r: Route) => void] {
   const read = (): Route => {
     const h = location.hash.replace(/^#\/?/, "");
-    return h === "ripple" || h === "confetti" ? h : h === "introduction" ? "intro" : "ripple";
+    const k = h.replace(/^type\//, "");
+    return h === "ripple" || h === "confetti" ? h : h.startsWith("type/") && isType(k) ? k : h === "introduction" ? "intro" : "ripple";
   };
   const [r, setR] = useState<Route>(read);
   useEffect(() => {
@@ -27,64 +37,7 @@ function useRoute(): [Route, (r: Route) => void] {
     addEventListener("hashchange", on);
     return () => removeEventListener("hashchange", on);
   }, []);
-  return [r, (next) => { location.hash = `/${next === "intro" ? "introduction" : next}`; }];
-}
-
-/* ── Small pieces ── */
-function useCopy() {
-  const [done, setDone] = useState(false);
-  return {
-    done,
-    copy: async (text: string) => {
-      try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1400); } catch { /* still selectable */ }
-    },
-  };
-}
-
-function CopyIcon({ done }: { done: boolean }) {
-  return done ? (
-    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="#46a758" strokeWidth="1.8" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-  ) : (
-    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="2" /><path d="M10.5 3.5v-.5a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 3v5A1.5 1.5 0 0 0 4 9.5h.5" /></svg>
-  );
-}
-
-function Code({ code, max, label }: { code: string; max?: number; label?: string }) {
-  const { done, copy } = useCopy();
-  return (
-    <div className="code">
-      <pre style={max ? { maxHeight: max } : undefined}><code>{code.replace(/\n$/, "")}</code></pre>
-      <button type="button" className="iconBtn codeCopy" onClick={() => copy(code)} aria-label={done ? "Copied" : `Copy ${label ?? "code"}`}><CopyIcon done={done} /></button>
-    </div>
-  );
-}
-
-function Chips<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: readonly T[]; onChange: (v: T) => void }) {
-  return (
-    <div className="group">
-      <div className="groupLabel">{label}</div>
-      <div className="chips" role="radiogroup" aria-label={label}>
-        {options.map((o) => (
-          <button key={o} type="button" role="radio" aria-checked={o === value} className={`chip ${o === value ? "on" : ""}`} onClick={() => onChange(o)}>{o}</button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Slider({ label, value, min, max, step, onChange, unit = "" }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; unit?: string }) {
-  const pct = ((value - min) / (max - min)) * 100;
-  const digits = step < 0.01 ? 3 : step < 1 ? 2 : 0;
-  return (
-    <div className="group">
-      <div className="groupLabel">{label}</div>
-      <label className="slider" style={{ ["--p" as string]: `${pct}%` }}>
-        <span className="sliderName">{label}</span>
-        <span className="sliderVal">{value.toFixed(digits)}{unit}</span>
-        <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-label={label} />
-      </label>
-    </div>
-  );
+  return [r, (next) => { location.hash = `/${next === "intro" ? "introduction" : isType(next) ? `type/${next}` : next}`; }];
 }
 
 /* ── Icons ── */
@@ -132,7 +85,7 @@ function Install({ lib, fw }: { lib: "ripple" | "confetti"; fw: "React" | "JavaS
 }
 
 /* ── Ripple ── */
-const R_SOURCES = ["Orb", "QR code", "Type"] as const;
+const R_SOURCES = ["Orb", "QR code"] as const;
 const R_COLORS = { Violet: "#7b6cff", Blue: "#1d9fff", Pink: "#ff4fa3", Orange: "#ff7a1a", Green: "#22c55e", White: "#ffffff" } as const;
 
 function RipplePreview() {
@@ -140,7 +93,7 @@ function RipplePreview() {
     <div className="previewGrid">
       <div className="panel hero"><OrbRipple /></div>
       <div className="panel small"><QrRipple /><span className="panelHint">Click the code</span></div>
-      <div className="panel wide"><TypeRipple /><span className="panelHint">Click anywhere</span></div>
+      <div className="panel wide flushPanel" style={{ background: "#eef0f3" }}><TypeCanvas effect={TYPE_EFFECTS.bubble} text="ripple" fit={0.66} /><span className="panelHint onArt" style={{ color: "#0b0b0b" }}>Click anywhere</span></div>
     </div>
   );
 }
@@ -163,7 +116,6 @@ function RipplePlayground() {
         <div className="panel playStage">
           {src === "Orb" && <OrbRipple options={options} auto={false} rippleRef={ref} />}
           {src === "QR code" && <QrRipple options={options} rippleRef={ref} />}
-          {src === "Type" && <TypeRipple options={options} rippleRef={ref} />}
           <button type="button" className="pill playBtn" onClick={() => ref.current?.fire()}>Play</button>
         </div>
         <div className="panel controls">
@@ -239,11 +191,11 @@ function ConfettiPlayground() {
 }
 
 /* ── A library page ── */
-function LibraryPage({ lib, go }: { lib: "ripple" | "confetti"; go: (r: Route) => void }) {
+function LibraryPage({ lib, go }: { lib: Lib; go: (r: Route) => void }) {
   const [tab, setTab] = useState<"Preview" | "Install">("Preview");
   const [fw, setFw] = useState<"React" | "JavaScript">("React");
   const { done, copy } = useCopy();
-  const L = LIBS[lib];
+  const L = isType(lib) ? { name: TYPE_EFFECTS[lib].name, icon: <TypeIcon k={lib} />, desc: TYPE_META[lib].desc } : LIBS[lib];
   const i = ORDER.indexOf(lib);
   return (
     <>
@@ -273,7 +225,7 @@ function LibraryPage({ lib, go }: { lib: "ripple" | "confetti"; go: (r: Route) =
               <button key={f} type="button" role="radio" aria-checked={f === fw} className={`fwBtn ${f === fw ? "on" : ""}`} onClick={() => setFw(f)}>{f}</button>
             ))}
           </div>
-          <button type="button" className="pill" onClick={() => copy(lib === "ripple" ? RIPPLE_PROMPT : CONFETTI_PROMPT)}>
+          <button type="button" className="pill" onClick={() => copy(isType(lib) ? typePrompt(TYPE_EFFECTS[lib], TYPE_META[lib].desc) : lib === "ripple" ? RIPPLE_PROMPT : CONFETTI_PROMPT)}>
             <CopyIcon done={done} />
             {done ? "Copied" : "Copy prompt"}
           </button>
@@ -282,9 +234,11 @@ function LibraryPage({ lib, go }: { lib: "ripple" | "confetti"; go: (r: Route) =
 
       {tab === "Preview" ? (
         <>
-          {lib === "ripple" ? <RipplePreview /> : <ConfettiPreview />}
-          {lib === "ripple" ? <RipplePlayground /> : <ConfettiPlayground />}
+          {isType(lib) ? <TypePreview k={lib} /> : lib === "ripple" ? <RipplePreview /> : <ConfettiPreview />}
+          {isType(lib) ? <TypePlayground key={lib} k={lib} /> : lib === "ripple" ? <RipplePlayground /> : <ConfettiPlayground />}
         </>
+      ) : isType(lib) ? (
+        <TypeInstall k={lib} fw={fw} />
       ) : (
         <Install lib={lib} fw={fw} />
       )}
@@ -297,15 +251,18 @@ function Intro({ go }: { go: (r: Route) => void }) {
     <>
       <div className="head"><div className="headIcon plain"><IntroIcon /></div></div>
       <h1 className="h1">Introduction</h1>
-      <p className="lede">Motion effects I made for my own work, free for yours. Each one is a file with no dependencies, a React component, and a prompt your agent can build from.</p>
+      <p className="lede">Motion and type effects I made for my own work, free for yours. Each one is a file with no dependencies, a React component, and a prompt your agent can build from.</p>
       <div className="introGrid">
-        {(["ripple", "confetti"] as const).map((k) => (
-          <button key={k} type="button" className="panel introCard" onClick={() => go(k)}>
-            <span className="introIcon">{LIBS[k].icon}</span>
-            <span className="introName">{LIBS[k].name}</span>
-            <span className="introDesc">{LIBS[k].desc}</span>
-          </button>
-        ))}
+        {(["ripple", "confetti", ...TYPE_KEYS] as Lib[]).map((k) => {
+          const L = isType(k) ? { name: TYPE_EFFECTS[k].name, icon: <TypeIcon k={k} />, desc: TYPE_META[k].desc } : LIBS[k];
+          return (
+            <button key={k} type="button" className="panel introCard" onClick={() => go(k)}>
+              <span className="introIcon">{L.icon}</span>
+              <span className="introName">{L.name}</span>
+              <span className="introDesc">{L.desc}</span>
+            </button>
+          );
+        })}
       </div>
       <h2 className="h2">How to use</h2>
       <div className="panel installPanel">
@@ -365,6 +322,10 @@ export default function App() {
           <div className="sideLabel">Libraries</div>
           <NavItem active={route === "ripple"} icon={<RippleIcon />} onClick={() => go("ripple")}>Ripple</NavItem>
           <NavItem active={route === "confetti"} icon={<ConfettiIcon />} onClick={() => go("confetti")}>Confetti pop</NavItem>
+          <div className="sideLabel">Type</div>
+          {TYPE_KEYS.map((k) => (
+            <NavItem key={k} active={route === k} icon={<TypeIcon k={k} />} onClick={() => go(k)}>{TYPE_EFFECTS[k].name}</NavItem>
+          ))}
         </aside>
         <main className="main" key={route}>
           {route === "intro" ? <Intro go={go} /> : <LibraryPage lib={route} go={go} />}
@@ -382,6 +343,10 @@ export default function App() {
             <div className="footHead">Libraries</div>
             <a href="#/ripple">Ripple</a>
             <a href="#/confetti">Confetti pop</a>
+          </div>
+          <div>
+            <div className="footHead">Type</div>
+            {TYPE_KEYS.map((k) => <a key={k} href={`#/type/${k}`}>{TYPE_EFFECTS[k].name}</a>)}
           </div>
           <div>
             <div className="footHead">Links</div>

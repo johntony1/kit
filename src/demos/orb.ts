@@ -1,68 +1,123 @@
-// The glowing orb used in the Ripple previews: a shape that morphs between a sparkle,
-// a circle, a squircle and a clover, lit like heat, with a red rim and a blue halo.
-// It draws into its own canvas, which the ripple then reads as a live source.
+// "Your energy transforms": a glowing shape that morphs from a sparkle to a circle,
+// a turning squircle, a clover and back, with a band of colour (white, blue, black,
+// red, orange, yellow) rolling down through it every 3 seconds. Rebuilt frame by
+// frame from the reference. 16 second loop.
+
+export const ORB_LOOP = 16;
+
+// time, superellipse n (<1 star, 1 diamond, 2 circle, >2 squircle), turn, clover, wobble
+const KEYS: [number, number, number, number, number][] = [
+  [0.0, 0.72, 0.0, 0.0, 0.0],
+  [1.0, 0.78, 0.0, 0.0, 0.0],
+  [1.6, 1.25, 0.0, 0.0, 0.004],
+  [2.2, 1.8, 0.0, 0.0, 0.006],
+  [2.6, 2.0, 0.0, 0.0, 0.006],
+  [3.9, 2.0, 0.0, 0.0, 0.012],
+  [4.6, 2.35, 0.25, 0.0, 0.018],
+  [5.4, 2.45, 0.55, 0.0, 0.022],
+  [6.2, 2.35, 0.8, 0.0, 0.022],
+  [6.9, 2.5, 0.4, 0.0, 0.014],
+  [7.5, 2.45, 0.3, -0.04, 0.012],
+  [8.0, 2.3, 0.15, -0.09, 0.018],
+  [8.8, 2.2, 0.0, -0.07, 0.045],
+  [9.6, 2.1, 0.0, -0.03, 0.04],
+  [10.3, 2.0, 0.0, 0.0, 0.014],
+  [12.0, 2.0, 0.0, 0.0, 0.01],
+  [12.8, 2.0, 0.0, 0.0, 0.022],
+  [16.0, 2.0, 0.0, 0.0, 0.022],
+];
+
+const ease = (x: number) => x * x * (3 - 2 * x);
+function at(t: number) {
+  let i = 0;
+  while (i < KEYS.length - 2 && KEYS[i + 1][0] <= t) i++;
+  const a = KEYS[i], b = KEYS[i + 1];
+  const k = ease(Math.min(1, Math.max(0, (t - a[0]) / (b[0] - a[0]))));
+  return a.map((v, j) => v + (b[j] - v) * k) as typeof a;
+}
 
 const FRAG = `precision highp float;
 uniform vec2  u_res;
-uniform float u_time;
-uniform float u_a;      // shape it is leaving
-uniform float u_b;      // shape it is going to
-uniform float u_mix;    // 0..1 (springs past 1 a little)
-uniform float u_pa;     // palette leaving
-uniform float u_pb;     // palette going to
-uniform float u_pmix;
-uniform float u_size;
-uniform vec3  u_bg;
+uniform float u_time;     // seconds into the loop
+uniform float u_n;
+uniform float u_turn;
+uniform float u_clover;
+uniform float u_wob;
+uniform float u_soft;     // 0 crisp .. 1 melted (the end)
+uniform float u_bright;   // 1 .. 0 (fade out)
+uniform vec2  u_squash;
+uniform float u_phase;   // where the colour band is (runs back at the end)
+
+// the colour band, by phase 0..1
+vec3 band(float u) {
+  u = fract(u);
+  vec3 c = vec3(1.0, 0.98, 0.95);
+  c = mix(c, vec3(0.84, 0.84, 1.0),  smoothstep(0.00, 0.10, u));
+  c = mix(c, vec3(0.27, 0.24, 0.95), smoothstep(0.08, 0.24, u));
+  c = mix(c, vec3(0.09, 0.05, 0.33), smoothstep(0.24, 0.38, u));
+  c = mix(c, vec3(0.10, 0.0, 0.03),  smoothstep(0.36, 0.47, u));
+  c = mix(c, vec3(0.95, 0.12, 0.03), smoothstep(0.46, 0.60, u));
+  c = mix(c, vec3(1.0, 0.46, 0.06),  smoothstep(0.58, 0.73, u));
+  c = mix(c, vec3(1.0, 0.86, 0.26),  smoothstep(0.71, 0.87, u));
+  c = mix(c, vec3(1.0, 0.98, 0.95),  smoothstep(0.85, 1.00, u));
+  return c;
+}
 
 float superR(float th, float n) {
   return pow(pow(abs(cos(th)), n) + pow(abs(sin(th)), n), -1.0 / n);
 }
-float shapeR(float k, float th) {
-  if (k < 0.5) return superR(th, 0.62) * 1.25;               // sparkle
-  if (k < 1.5) return 1.0;                                   // circle
-  if (k < 2.5) return superR(th + 0.785, 4.0) * 0.93;        // squircle, turned
-  return 0.92 - 0.11 * cos(4.0 * th);                        // clover
-}
-vec3 ramp(float k, float y) {
-  // y: 0 at the bottom, 1 at the top
-  if (k < 0.5) {        // fire: white, yellow, orange, red
-    vec3 c = mix(vec3(0.85, 0.07, 0.02), vec3(1.0, 0.42, 0.04), smoothstep(0.05, 0.4, y));
-    c = mix(c, vec3(1.0, 0.86, 0.22), smoothstep(0.38, 0.62, y));
-    return mix(c, vec3(1.0, 0.99, 0.94), smoothstep(0.6, 0.9, y));
-  }
-  if (k < 1.5) {        // ice: blue on top, white below
-    vec3 c = mix(vec3(1.0), vec3(0.78, 0.78, 1.0), smoothstep(0.35, 0.6, y));
-    return mix(c, vec3(0.22, 0.2, 0.98), smoothstep(0.62, 0.95, y));
-  }
-  // dusk: red on top, black middle, blue below
-  vec3 c = mix(vec3(0.2, 0.14, 0.92), vec3(0.04, 0.01, 0.05), smoothstep(0.12, 0.48, y));
-  return mix(c, vec3(1.0, 0.22, 0.08), smoothstep(0.5, 0.88, y));
-}
 
 void main() {
-  vec2 p = (gl_FragCoord.xy - 0.5 * u_res) / min(u_res.x, u_res.y);
+  float m = min(u_res.x, u_res.y);
+  vec2 p = (gl_FragCoord.xy - 0.5 * u_res) / m;
+  p.y += 0.03 * u_soft;
+  p /= u_squash;
+  float R = 0.335;
   float th = atan(p.y, p.x);
-  float wob = 0.022 * sin(3.0 * th + u_time * 1.3) + 0.016 * sin(5.0 * th - u_time * 1.9);
-  float r = u_size * (mix(shapeR(u_a, th), shapeR(u_b, th), u_mix) + wob);
-  float d = length(p) - r;
+  float a = th - u_turn;
+  float t = u_time;
+  float wob = sin(2.0 * th + 1.3 * t) * 0.5 + sin(3.0 * th - 1.7 * t + 1.0) * 0.35
+            + sin(5.0 * th + 2.3 * t + 2.0) * 0.25 + sin(7.0 * th - 2.9 * t) * 0.15;
+  float r = R * superR(a, u_n) * (1.0 + u_clover * cos(4.0 * a)) * (1.0 + u_wob * wob);
+  float dist = length(p);
+  float d = dist - r;
+  vec2 nrm = p / max(dist, 1e-4);
 
-  float y = clamp(p.y / (u_size * 2.0) + 0.5 + 0.06 * sin(u_time * 0.8 + p.x * 4.0), 0.0, 1.0);
-  vec3 fill = mix(ramp(u_pa, y), ramp(u_pb, y), u_pmix);
-  // light gathers at the edge, inside
-  fill += vec3(1.0, 0.55, 0.5) * exp(d * 60.0) * 0.35;
+  float px = 1.2 / m + u_soft * 0.05;
+  float inside = 1.0 - smoothstep(-px, px, d);
 
-  float inside = smoothstep(0.003, -0.003, d);
-  // the halo follows a rounder version of the shape, so a sparkle's points do not streak
-  float out_ = max(max(d, (length(p) - u_size * 0.95) * 0.8), 0.0);
-  float rim = exp(-abs(d) * 160.0);
-  vec3 halo = mix(vec3(0.33, 0.3, 1.0), vec3(1.0, 0.25, 0.2), exp(-out_ * 38.0));
-  halo = mix(halo, vec3(1.0, 0.85, 0.9), exp(-out_ * 110.0) * 0.6);
+  // colour rolls down through the shape: the top is ahead of the bottom
+  // the bands bow like they sit on a ball, and lean a little as it turns
+  float x = p.x / (2.0 * R);
+  float y = p.y / (2.0 * R) - 0.35 * x * x + 0.08 * sin(t * 0.7) * x;
+  vec3 fill = band(u_phase + y / 3.0 + 0.667);
+  // depth: a ball, lit from the upper left
+  float rr = clamp(dist / max(r, 1e-4), 0.0, 1.0);
+  float h = sqrt(1.0 - rr * rr);
+  fill *= 0.82 + 0.3 * h + 0.12 * dot(nrm, normalize(vec2(-0.5, 0.8))) * rr;
+  // light gathers just inside the edge
+  float inner = smoothstep(-0.06, 0.0, d) * inside;
+  fill = mix(fill, min(fill * 1.25 + vec3(0.32, 0.26, 0.24), vec3(1.0)), inner * 0.75 * (1.0 - u_soft));
+  float glint = smoothstep(-0.018, -0.006, d) * (1.0 - smoothstep(-0.004, 0.0, d));
+  glint *= pow(max(dot(nrm, normalize(vec2(-0.55, 0.85))), 0.0), 2.0);
+  fill = mix(fill, vec3(1.0, 0.97, 0.9), glint * 0.9 * (1.0 - u_soft));
 
-  vec3 col = u_bg;
-  col = mix(col, col + halo * 1.1, exp(-out_ * 10.0) * (1.0 - inside));
+  vec3 col = vec3(0.0);
+  float out_ = max(d, 0.0);
+  // halo: a violet band a little away from the edge, warmer underneath
+  // halo: a wide soft violet bloom a little away from the edge, warmer underneath
+  float halo = exp(-pow((out_ - 0.075) / 0.062, 2.0)) * smoothstep(0.0, 0.045, out_);
+  halo += exp(-out_ / 0.11) * 0.22 * smoothstep(0.0, 0.05, out_);
+  vec3 haloC = mix(vec3(0.43, 0.39, 0.98), vec3(0.8, 0.38, 0.26), smoothstep(0.15, -0.9, nrm.y));
+  col += haloC * halo * 0.9 * (1.0 - u_soft * 0.7);
+  // when it melts, a warm glow is what is left
+  col += fill * exp(-out_ / 0.06) * 0.6 * u_soft;
+  col += vec3(1.0, 0.3, 0.35) * exp(-out_ / 0.012) * 0.35 * step(0.0, d);
   col = mix(col, fill, inside);
-  col += vec3(1.0, 0.3, 0.25) * rim * 0.9;
-  gl_FragColor = vec4(min(col, vec3(1.0)), 1.0);
+  // the thin red outline
+  float line = exp(-pow(d / (0.0028 + u_soft * 0.02), 2.0)) * (1.0 - u_soft);
+  col = mix(col, vec3(1.0, 0.14, 0.07), line * 0.9);
+  gl_FragColor = vec4(col * u_bright, 1.0);
 }`;
 
 const VERT = `attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }`;
@@ -70,11 +125,12 @@ const VERT = `attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }
 export interface Orb {
   canvas: HTMLCanvasElement;
   resize(w: number, h: number): void;
+  /** seconds into the loop */
+  time(): number;
   destroy(): void;
 }
 
-/** shapes cycle every `every` seconds; onMorph fires as each new shape starts */
-export function createOrb({ size = 0.3, every = 1.9, bg = [0.102, 0.102, 0.102] as [number, number, number], onMorph = () => {} } = {}): Orb {
+export function createOrb(): Orb {
   const canvas = document.createElement("canvas");
   const gl = canvas.getContext("webgl", { preserveDrawingBuffer: true, antialias: true })!;
   const sh = (t: number, src: string) => { const s = gl.createShader(t)!; gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.warn(gl.getShaderInfoLog(s)); return s; };
@@ -83,38 +139,34 @@ export function createOrb({ size = 0.3, every = 1.9, bg = [0.102, 0.102, 0.102] 
   gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FRAG));
   gl.linkProgram(prog);
   gl.useProgram(prog);
-  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0);
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-  const u = (n: string) => gl.getUniformLocation(prog, n);
-  const U = { res: u("u_res"), time: u("u_time"), a: u("u_a"), b: u("u_b"), mix: u("u_mix"), pa: u("u_pa"), pb: u("u_pb"), pmix: u("u_pmix"), size: u("u_size"), bg: u("u_bg") };
+  const U = Object.fromEntries(["res", "time", "n", "turn", "clover", "wob", "soft", "bright", "squash", "phase"].map((n) => [n, gl.getUniformLocation(prog, `u_${n}`)]));
 
-  // sparkle → circle → squircle → clover → circle → sparkle ...
-  const SHAPES = [0, 1, 2, 3, 1];
   const t0 = performance.now();
-  let step = -1;
   let raf = 0;
-
-  // a spring that overshoots a little: the shape lands, then settles
-  const spring = (x: number) => (x >= 1 ? 1 : 1 - Math.exp(-7 * x) * Math.cos(9 * x));
-
+  const time = () => ((performance.now() - t0) / 1000) % ORB_LOOP;
   const frame = () => {
-    const t = (performance.now() - t0) / 1000;
-    const s = Math.floor(t / every);
-    if (s !== step) { step = s; onMorph(); }
-    const k = (t - s * every) / 0.75;
+    const t = time();
+    const [, n, turn, clover, wob] = at(t);
+    const soft = Math.min(1, Math.max(0, (t - 12.9) / 0.9));
+    const bright = 1 - Math.min(1, Math.max(0, (t - 13.2) / 1.0));
+    const egg = Math.min(1, Math.max(0, (t - 12.3) / 0.6));
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.uniform2f(U.res, canvas.width, canvas.height);
     gl.uniform1f(U.time, t);
-    gl.uniform1f(U.a, SHAPES[(s + SHAPES.length - 1) % SHAPES.length]);
-    gl.uniform1f(U.b, SHAPES[s % SHAPES.length]);
-    gl.uniform1f(U.mix, spring(k));
-    gl.uniform1f(U.pa, (s + 2) % 3);
-    gl.uniform1f(U.pb, s % 3);
-    gl.uniform1f(U.pmix, Math.min(1, k * 1.2));
-    gl.uniform1f(U.size, size);
-    gl.uniform3f(U.bg, ...bg);
+    // the band rolls on every 3 s, then runs back (white, yellow, orange, red) as it fades
+    gl.uniform1f(U.phase, t < 12.9 ? t / 3 : 12.9 / 3 - (t - 12.9) * 0.3);
+    gl.uniform1f(U.n, n);
+    gl.uniform1f(U.turn, turn);
+    gl.uniform1f(U.clover, clover);
+    gl.uniform1f(U.wob, wob);
+    gl.uniform1f(U.soft, ease(soft));
+    gl.uniform1f(U.bright, bright);
+    gl.uniform2f(U.squash, 1 + 0.03 * egg, 1 - 0.035 * egg);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     raf = requestAnimationFrame(frame);
   };
@@ -122,7 +174,8 @@ export function createOrb({ size = 0.3, every = 1.9, bg = [0.102, 0.102, 0.102] 
 
   return {
     canvas,
-    resize(w, h) { canvas.width = w; canvas.height = h; },
-    destroy() { cancelAnimationFrame(raf); gl.getExtension("WEBGL_lose_context")?.loseContext(); },
+    resize(w, h) { canvas.width = Math.max(1, w); canvas.height = Math.max(1, h); },
+    time,
+    destroy() { cancelAnimationFrame(raf); gl.deleteProgram(prog); gl.deleteBuffer(buf); },
   };
 }
