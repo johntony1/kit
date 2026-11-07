@@ -152,8 +152,8 @@ button, input, textarea { font: inherit; color: inherit; letter-spacing: inherit
 .sldFill b { position: absolute; right: 6px; top: 50%; width: 10px; height: 26px; margin-top: -13px; border-radius: 5px; background: #fff; box-shadow: 0 0 0 3px #242427, 0 1px 3px 3px rgba(0, 0, 0, 0.25); z-index: 2; transition: transform 0.12s ease; }
 .sldFill { z-index: 1; }
 .sld:hover .sldFill b, .sld.drag .sldFill b { transform: scaleY(1.08); }
-.sldName { position: absolute; left: 26px; top: 50%; transform: translateY(-50%); font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; pointer-events: none; }
-.sldDots { position: absolute; left: 118px; right: 64px; top: 50%; height: 3px; margin-top: -1.5px; display: flex; justify-content: space-between; pointer-events: none; }
+.sldName { position: absolute; left: 14px; top: 50%; transition: left 0.15s ease; transform: translateY(-50%); font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; pointer-events: none; }
+.sldDots { position: absolute; left: 112px; right: 64px; top: 50%; height: 3px; margin-top: -1.5px; display: flex; justify-content: space-between; pointer-events: none; }
 .sldDots i { width: 3px; height: 3px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); }
 .sld em { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font: 500 13px/1 var(--font); font-style: normal; font-variant-numeric: tabular-nums; color: var(--muted); pointer-events: none; }
 

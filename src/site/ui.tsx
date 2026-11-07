@@ -73,7 +73,7 @@ export function Slider({ label, value, min, max, step, onChange, unit = "" }: { 
       aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} aria-valuetext={`${value.toFixed(digits)}${unit}`}
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={key}>
       <span className="sldFill" style={{ width: `calc(22px + (100% - 22px) * ${pct})` }}><b /></span>
-      <span className="sldName">{label}</span>
+      <span className="sldName" style={{ left: pct < 0.07 ? 28 : 14 }}>{label}</span>
       <span className="sldDots" aria-hidden="true">{Array.from({ length: 8 }, (_, i) => <i key={i} />)}</span>
       <em>{value.toFixed(digits)}{unit}</em>
     </div>
