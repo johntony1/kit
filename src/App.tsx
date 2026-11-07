@@ -10,7 +10,7 @@ import { CONFETTI_DEFAULTS } from "./confetti/confetti";
 import type { RippleHandle } from "./ripple/RippleCanvas";
 import { OrbRipple, QrRipple } from "./demos/RippleDemos";
 import { LikePop, SuccessCard, TaskPop } from "./demos/ConfettiDemos";
-import { Chips, Code, CopyIcon, Slider, useCopy } from "./site/ui";
+import { Chips, Code, CopyIcon, Seg, Slider, useCopy } from "./site/ui";
 import { TypeInstall, TypePlayground, TypePreview, TypeIcon } from "./site/TypePage";
 import { TYPE_EFFECTS, type TypeEffectKey } from "./type/effects";
 import { TYPE_META } from "./type/meta";
@@ -214,17 +214,9 @@ function LibraryPage({ lib, go }: { lib: Lib; go: (r: Route) => void }) {
       <p className="lede">{L.desc}</p>
 
       <div className="bar">
-        <div className="seg" role="tablist" aria-label="View">
-          {(["Preview", "Install"] as const).map((t) => (
-            <button key={t} type="button" role="tab" aria-selected={t === tab} className={`segBtn ${t === tab ? "on" : ""}`} onClick={() => setTab(t)}>{t}</button>
-          ))}
-        </div>
+        <Seg label="View" value={tab} options={["Preview", "Install"] as const} onChange={setTab} />
         <div className="barRight">
-          <div className="seg" role="radiogroup" aria-label="Framework">
-            {(["React", "JavaScript"] as const).map((f) => (
-              <button key={f} type="button" role="radio" aria-checked={f === fw} className={`segBtn ${f === fw ? "on" : ""}`} onClick={() => setFw(f)}>{f}</button>
-            ))}
-          </div>
+          <Seg label="Framework" role="radiogroup" value={fw} options={["React", "JavaScript"] as const} onChange={setFw} />
           <button type="button" className="btn primary" onClick={() => copy(isType(lib) ? typePrompt(TYPE_EFFECTS[lib], TYPE_META[lib].desc) : lib === "ripple" ? RIPPLE_PROMPT : CONFETTI_PROMPT)}>
             <CopyIcon done={done} />
             {done ? "Copied" : "Copy prompt"}

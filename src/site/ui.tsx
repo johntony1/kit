@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 /* ── Small pieces ── */
 export function useCopy() {
@@ -47,13 +47,34 @@ export function Slider({ label, value, min, max, step, onChange, unit = "" }: { 
   const digits = step < 0.01 ? 3 : step < 1 ? 2 : 0;
   return (
     <label className="sld">
-      <span className="sldFill" style={{ width: `max(108px, ${pct}%)` }}>
+      <span className="sldFill" style={{ width: `max(116px, ${pct}%)` }}>
         <span>{label}</span>
         <b />
       </span>
-      <span className="sldDots" aria-hidden="true">{Array.from({ length: 9 }, (_, i) => <i key={i} />)}</span>
+      <span className="sldDots" aria-hidden="true">{Array.from({ length: 7 }, (_, i) => <i key={i} />)}</span>
       <em>{value.toFixed(digits)}{unit}</em>
       <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-label={label} />
     </label>
+  );
+}
+
+/** segmented tabs whose highlight slides to the chosen option */
+export function Seg<T extends string>({ value, options, onChange, label, role = "tablist" }: { value: T; options: readonly T[]; onChange: (v: T) => void; label: string; role?: "tablist" | "radiogroup" }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [thumb, setThumb] = useState<{ x: number; w: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = box.current?.querySelector<HTMLButtonElement>(`[data-v="${CSS.escape(value)}"]`);
+    if (el) setThumb({ x: el.offsetLeft, w: el.offsetWidth });
+  }, [value, options]);
+  const item = role === "tablist" ? "tab" : "radio";
+  return (
+    <div ref={box} className="seg" role={role} aria-label={label}>
+      {thumb && <span className="segThumb" aria-hidden="true" style={{ transform: `translateX(${thumb.x}px)`, width: thumb.w }} />}
+      {options.map((o) => (
+        <button key={o} type="button" role={item} data-v={o}
+          {...(item === "tab" ? { "aria-selected": o === value } : { "aria-checked": o === value })}
+          className={`segBtn ${o === value ? "on" : ""}`} onClick={() => onChange(o)}>{o}</button>
+      ))}
+    </div>
   );
 }

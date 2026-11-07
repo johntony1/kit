@@ -47,13 +47,23 @@ button, input, textarea { font: inherit; color: inherit; letter-spacing: inherit
 .round:disabled { opacity: 0.38; cursor: default; }
 
 /* ── Segmented controls ── */
-.seg, .chips { display: inline-flex; flex-wrap: wrap; padding: 2px; gap: 1px; border-radius: 8px; background: rgba(255, 255, 255, 0.035); box-shadow: inset 0 0 0 1px var(--line); }
-.segBtn, .chip { white-space: nowrap; appearance: none; border: 0; height: 26px; padding: 0 9px; border-radius: 6px; font-size: 12px; font-weight: 510; color: var(--muted); background: transparent; cursor: pointer; transition: background-color 120ms, color 120ms; }
-.segBtn:hover, .chip:hover { color: var(--text2); }
-.segBtn.on, .chip.on { background: var(--raised); color: var(--text); box-shadow: 0 0 0 1px var(--line2), 0 1px 2px rgba(0, 0, 0, 0.4); }
+.seg { position: relative; display: inline-flex; flex-wrap: wrap; padding: 2px; gap: 1px; border-radius: 8px; background: rgba(255, 255, 255, 0.035); box-shadow: inset 0 0 0 1px var(--line); }
+.segBtn { white-space: nowrap; appearance: none; border: 0; height: 26px; padding: 0 9px; border-radius: 6px; font-size: 12px; font-weight: 510; color: var(--muted); background: transparent; cursor: pointer; transition: background-color 120ms, color 120ms; }
+.segBtn:hover { color: var(--text2); }
+.segBtn { position: relative; z-index: 1; }
+.segBtn.on { color: var(--text); }
+/* the highlight slides between options */
+.segThumb { position: absolute; left: 0; top: 2px; bottom: 2px; border-radius: 6px; background: var(--raised); box-shadow: 0 0 0 1px var(--line2), 0 1px 2px rgba(0, 0, 0, 0.4); transition: transform 0.26s cubic-bezier(0.2, 0, 0, 1), width 0.26s cubic-bezier(0.2, 0, 0, 1); pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .segThumb { transition: none; } }
+
+/* option chips in the controls: separate pills */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { height: 32px; padding: 0 13px; border: 0; border-radius: 16px; background: rgba(255, 255, 255, 0.04); color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: background-color 120ms, color 120ms; }
+.chip:hover { color: var(--text2); background: rgba(255, 255, 255, 0.06); }
+.chip.on { background: rgba(255, 255, 255, 0.1); color: var(--text); box-shadow: 0 1px 1px rgba(0, 0, 0, 0.24), inset 0 0 0 1px rgba(255, 255, 255, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
 
 /* small mono labels, like the picker's section heads */
-.sideLabel, .groupLabel, .fileName, .footHead, .h2 { font: 500 10.5px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+.sideLabel, .fileName, .footHead, .h2 { font: 500 10.5px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
 
 /* ── Top bar ── */
 .top { height: 64px; display: flex; align-items: center; gap: 20px; }
@@ -112,25 +122,27 @@ button, input, textarea { font: inherit; color: inherit; letter-spacing: inherit
 .playground { display: grid; grid-template-columns: 1fr 268px; gap: 12px; }
 .playStage { min-height: 520px; display: grid; place-items: center; }
 .playBtn { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 2; background: var(--panel) !important; }
-.controls { padding: 14px; display: flex; flex-direction: column; gap: 14px; align-self: start; }
+.controls { padding: 16px; display: flex; flex-direction: column; gap: 16px; align-self: start; }
 .group { display: flex; flex-direction: column; gap: 8px; }
+.groupLabel { font-size: 13px; line-height: 16px; color: var(--muted); }
 
-/* the slider from Break it down: a blue fill with the name inside, a white handle, the value in mono */
-.sld { position: relative; display: block; width: 100%; height: 32px; border-radius: 9px; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px var(--line); cursor: ew-resize; touch-action: none; user-select: none; }
-.sld:has(input:focus-visible) { box-shadow: inset 0 0 0 1px var(--line), 0 0 0 2px rgba(61, 123, 255, 0.5); }
-.sldFill { position: absolute; left: 0; top: 0; bottom: 0; max-width: 100%; border-radius: 9px; background: linear-gradient(180deg, rgba(61, 123, 255, 0.34), rgba(43, 100, 248, 0.26)); box-shadow: inset 0 0 0 1px rgba(61, 123, 255, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.08); display: flex; align-items: center; pointer-events: none; }
-.sldFill span { padding-left: 11px; font-size: 12.5px; font-weight: 550; color: var(--text2); white-space: nowrap; }
-.sldFill b { position: absolute; right: 7px; top: 50%; width: 5px; height: 18px; margin-top: -9px; border-radius: 3px; background: #f7f8f8; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.4); transition: transform 0.12s ease; }
-.sld:hover .sldFill b { transform: scaleY(1.12); }
-.sldDots { position: absolute; left: 118px; right: 60px; top: 50%; height: 2px; margin-top: -1px; display: flex; justify-content: space-between; pointer-events: none; }
-.sldDots i { width: 3px; height: 3px; border-radius: 50%; background: rgba(255, 255, 255, 0.18); margin-top: -0.5px; }
-.sld em { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); font: 500 11.5px/1 var(--mono); font-style: normal; color: var(--muted); pointer-events: none; }
-.sld input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; margin: 0; }
+/* slider: a soft fill with the name inside, a white pill handle, dots, the value at the end */
+.sld { position: relative; display: block; width: 100%; height: 40px; border-radius: 11px; background: rgba(255, 255, 255, 0.035); cursor: grab; touch-action: none; user-select: none; }
+.sld:active { cursor: grabbing; }
+.sld:has(input:focus-visible) { box-shadow: 0 0 0 2px rgba(61, 123, 255, 0.5); }
+.sldFill { position: absolute; left: 0; top: 0; bottom: 0; max-width: 100%; border-radius: 11px; background: rgba(255, 255, 255, 0.07); display: flex; align-items: center; pointer-events: none; }
+.sldFill span { padding-left: 14px; font-size: 13px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+.sldFill b { position: absolute; right: 8px; top: 50%; width: 8px; height: 24px; margin-top: -12px; border-radius: 4px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); transition: transform 0.12s ease; }
+.sld:hover .sldFill b, .sld:active .sldFill b { transform: scaleY(1.08); }
+.sldDots { position: absolute; left: 124px; right: 62px; top: 50%; height: 3px; margin-top: -1.5px; display: flex; justify-content: space-between; pointer-events: none; }
+.sldDots i { width: 3px; height: 3px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); }
+.sld em { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font: 500 13px/1 var(--font); font-style: normal; font-variant-numeric: tabular-nums; color: var(--muted); pointer-events: none; }
+.sld input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: inherit; margin: 0; }
 
 .textIn { width: 100%; resize: vertical; min-height: 52px; padding: 9px 10px; border: 0; border-radius: 9px; background: rgba(255, 255, 255, 0.035); color: var(--text); caret-color: var(--accent); font-size: 13px; line-height: 1.5; outline: none; box-shadow: inset 0 0 0 1px var(--line); }
 .textIn:focus-visible { box-shadow: inset 0 0 0 1px rgba(61, 123, 255, 0.6), 0 0 0 3px rgba(61, 123, 255, 0.14); }
-.swatchPair { width: 38px; height: 26px; border: 0; border-radius: 6px; font: 700 11px/26px var(--font); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
-.swatchPair.on { box-shadow: 0 0 0 1px var(--bg), 0 0 0 2.5px var(--accent); }
+.swatchPair { width: 44px; height: 32px; border: 0; border-radius: 16px; font: 700 12px/32px var(--font); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
+.swatchPair.on { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px rgba(255, 255, 255, 0.85); }
 
 /* ── Code ── */
 .code { position: relative; margin-top: 12px; border-radius: 14px; background: var(--sheen), var(--panel); box-shadow: var(--surface); }
