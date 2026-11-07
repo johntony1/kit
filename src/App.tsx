@@ -16,18 +16,20 @@ import { TYPE_EFFECTS, type TypeEffectKey } from "./type/effects";
 import { TYPE_META } from "./type/meta";
 import { typePrompt } from "./type/prompt";
 import { TypeCanvas } from "./type/TypeCanvas";
+import { Studio } from "./site/Studio";
 
 const REPO = "https://github.com/johntony1/qr-code-animatio";
 
 /* ── Routing: #/ripple, #/confetti, #/introduction ── */
 type Lib = "ripple" | "confetti" | TypeEffectKey;
-type Route = "intro" | Lib;
+type Route = "intro" | Lib | `studio:${Lib}`;
 const TYPE_KEYS = ["bubble", "lens", "liquid", "rings", "slice", "smear", "lines", "contour"] as TypeEffectKey[];
 const ORDER: Route[] = ["intro", "ripple", "confetti", ...TYPE_KEYS];
 const isType = (r: string): r is TypeEffectKey => (TYPE_KEYS as string[]).includes(r);
 function useRoute(): [Route, (r: Route) => void] {
   const read = (): Route => {
-    const h = location.hash.replace(/^#\/?/, "");
+    const h = location.hash.replace(/^#\/?/, "").split("?")[0];
+    if (h.startsWith("studio")) { const k = h.split("/")[1] ?? "ripple"; return (k === "ripple" || k === "confetti" || isType(k) ? `studio:${k}` : "studio:ripple") as Route; }
     const k = h.replace(/^type\//, "");
     return h === "ripple" || h === "confetti" ? h : h.startsWith("type/") && isType(k) ? k : h === "introduction" ? "intro" : "ripple";
   };
@@ -37,7 +39,7 @@ function useRoute(): [Route, (r: Route) => void] {
     addEventListener("hashchange", on);
     return () => removeEventListener("hashchange", on);
   }, []);
-  return [r, (next) => { location.hash = `/${next === "intro" ? "introduction" : isType(next) ? `type/${next}` : next}`; }];
+  return [r, (next) => { location.hash = `/${next === "intro" ? "introduction" : next.startsWith("studio:") ? `studio/${next.slice(7)}` : isType(next) ? `type/${next}` : next}`; }];
 }
 
 /* ── Icons ── */
@@ -218,6 +220,10 @@ function LibraryPage({ lib, go }: { lib: Lib; go: (r: Route) => void }) {
         <Seg label="View" value={tab} options={["Preview", "Install"] as const} onChange={setTab} />
         <div className="barRight">
           <Seg label="Framework" role="radiogroup" value={fw} options={["React", "JavaScript"] as const} onChange={setFw} />
+          <button type="button" className="btn line" onClick={() => go(`studio:${lib}` as Route)}>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M2.5 4.5h6m3 0h2M2.5 11.5h2m3 0h6" strokeLinecap="round" /><circle cx="10" cy="4.5" r="1.6" /><circle cx="6" cy="11.5" r="1.6" /></svg>
+            Tune in Studio
+          </button>
           <button type="button" className="btn primary" onClick={() => copy(isType(lib) ? typePrompt(TYPE_EFFECTS[lib], TYPE_META[lib].desc) : lib === "ripple" ? RIPPLE_PROMPT : CONFETTI_PROMPT)}>
             <CopyIcon done={done} />
             {done ? "Copied" : "Copy prompt"}
@@ -305,6 +311,7 @@ function SearchButton({ go }: { go: (r: Route) => void }) {
   const [hi, setHi] = useState(0);
   const all = useMemo(() => [
     { r: "intro" as Route, name: "Introduction", group: "Getting started" },
+    { r: "studio:ripple" as Route, name: "Studio", group: "Tune" },
     { r: "ripple" as Route, name: "Ripple", group: "Libraries" },
     { r: "confetti" as Route, name: "Confetti pop", group: "Libraries" },
     ...TYPE_KEYS.map((k) => ({ r: k as Route, name: TYPE_EFFECTS[k].name, group: "Type" })),
@@ -361,7 +368,8 @@ export default function App() {
       <header className="top">
         <a className="brand" href="#/ripple" aria-label="Effects, home"><Brand /></a>
         <nav className="topLinks" aria-label="Main">
-          <button type="button" className={`topLink ${route !== "intro" ? "on" : ""}`} onClick={() => go("ripple")}>Libraries</button>
+          <button type="button" className={`topLink ${route !== "intro" && !route.startsWith("studio:") ? "on" : ""}`} onClick={() => go("ripple")}>Libraries</button>
+          <button type="button" className={`topLink ${route.startsWith("studio:") ? "on" : ""}`} onClick={() => go(`studio:${route.startsWith("studio:") ? route.slice(7) : route === "intro" ? "ripple" : route}` as Route)}>Studio</button>
           <button type="button" className={`topLink ${route === "intro" ? "on" : ""}`} onClick={() => go("intro")}>How to use</button>
           <a className="topLink" href={REPO} target="_blank" rel="noopener noreferrer">Source</a>
         </nav>
@@ -374,6 +382,10 @@ export default function App() {
         </div>
       </header>
 
+      {route.startsWith("studio:") ? (
+        <Studio key={route} lib={route.slice(7) as Lib} go={(k) => go(`studio:${k}` as Route)}
+          libs={[{ k: "ripple", name: "Ripple", group: "Libraries" }, { k: "confetti", name: "Confetti pop", group: "Libraries" }, ...TYPE_KEYS.map((k) => ({ k, name: TYPE_EFFECTS[k].name, group: "Type" }))]} />
+      ) : (
       <div className="layout">
         <aside className="side" aria-label="Libraries">
           <div className="sideLabel">Getting started</div>
@@ -387,9 +399,11 @@ export default function App() {
           ))}
         </aside>
         <main className="main" key={route}>
-          {route === "intro" ? <Intro go={go} /> : <LibraryPage lib={route} go={go} />}
+          {route === "intro" ? <Intro go={go} /> : <LibraryPage lib={route as Lib} go={go} />}
         </main>
       </div>
+
+      )}
 
       <footer className="foot">
         <div className="footLeft">

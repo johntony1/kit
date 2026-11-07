@@ -246,3 +246,62 @@ button, input, textarea { font: inherit; color: inherit; letter-spacing: inherit
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ── Studio ── */
+.studio { padding: 8px 0 0; }
+.studioBar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.studioBarRight { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.topPill.small { height: 34px; padding: 0 13px; font-size: 13px; gap: 7px; }
+.topPill.small svg { width: 13px; height: 13px; }
+.pickName { font-weight: 590; color: var(--text); }
+.studioBody { display: grid; grid-template-columns: 1fr 340px; gap: 12px; align-items: start; }
+.studioLeft { min-width: 0; display: flex; flex-direction: column; }
+.studioCanvas { height: min(640px, calc(100vh - 180px)); min-height: 420px; }
+.studioStage { position: absolute; inset: 0; }
+.studioStage > canvas { position: absolute; inset: 0; }
+.studioCenter { position: absolute; inset: 0; display: grid; place-items: center; }
+.studioCode pre { max-height: 220px; }
+.studioPanel { position: sticky; top: 16px; max-height: calc(100vh - 32px); display: flex; flex-direction: column; overflow: hidden; }
+.studioTabs { padding: 12px 12px 10px; border-bottom: 1px solid var(--line); }
+.studioGroups { overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.1) transparent; }
+.studioGroup { padding: 14px 14px 16px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--line); }
+.studioGroup:last-child { border-bottom: 0; }
+.studioGroupTitle { margin: 0; font-size: 13px; font-weight: 590; color: var(--text2); }
+.dropZone { width: min(420px, 80%); aspect-ratio: 1; border: 0; border-radius: 16px; background: rgba(255, 255, 255, 0.025); box-shadow: inset 0 0 0 1px var(--line2); color: var(--text2); font-size: 14px; font-weight: 550; line-height: 1.6; cursor: pointer; transition: background-color 120ms; }
+.dropZone:hover { background: rgba(255, 255, 255, 0.05); }
+.dropZone span { color: var(--muted); font-size: 12.5px; font-weight: 450; }
+.swapImg { position: absolute; top: 14px; right: 14px; }
+
+.colorCtl { position: relative; display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 12px 0 14px; border-radius: 11px; background: rgba(255, 255, 255, 0.035); cursor: pointer; }
+.colorName { font-size: 13px; font-weight: 500; color: var(--muted); }
+.colorVal { margin-left: auto; font: 500 12px/1 var(--mono); color: var(--text2); }
+.colorDot { width: 20px; height: 20px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2); }
+.colorCtl input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+.menuWrap { position: relative; }
+.menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 50; min-width: 220px; max-height: 420px; overflow: auto; padding: 6px; border-radius: 12px; background: var(--sheen), var(--panel); box-shadow: var(--surface); animation: palIn 0.14s var(--ease); }
+.studioBarRight .menu { left: auto; right: 0; }
+.menuHead { padding: 8px 8px 4px; font: 500 10.5px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+.menuItem { width: 100%; height: 32px; padding: 0 8px; border: 0; border-radius: 7px; background: transparent; color: var(--text2); font-size: 13px; text-align: left; cursor: pointer; }
+.menuItem:hover, .menuItem.on { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+.menuRow { display: flex; align-items: center; }
+.menuX { width: 28px; height: 28px; border: 0; border-radius: 7px; background: transparent; color: var(--faint); cursor: pointer; font-size: 15px; }
+.menuX:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.menuEmpty { margin: 0; padding: 4px 8px 6px; font-size: 12.5px; color: var(--faint); }
+.menuSave { display: flex; gap: 6px; padding: 8px 2px 2px; border-top: 1px solid var(--line); margin-top: 6px; }
+.menuIn { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 0; border-radius: 8px; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px var(--line); color: var(--text); font-size: 13px; outline: none; }
+
+.describe { display: flex; flex-direction: column; min-height: 360px; flex: 1; }
+.chat { flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+.chatHint { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+.bubble { margin: 0; max-width: 88%; padding: 8px 11px; border-radius: 12px; font-size: 13px; line-height: 1.45; color: var(--text2); background: rgba(255, 255, 255, 0.04); align-self: flex-start; }
+.bubble.me { align-self: flex-end; background: rgba(255, 255, 255, 0.09); color: var(--text); }
+.askRow { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--line); }
+.askIn { flex: 1; min-width: 0; height: 34px; padding: 0 11px; border: 0; border-radius: 9px; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px var(--line); color: var(--text); font-size: 13px; outline: none; caret-color: var(--accent); }
+.btn.primary[disabled] { opacity: 0.45; cursor: default; }
+
+@media (max-width: 900px) {
+  .studioBody { grid-template-columns: 1fr; }
+  .studioPanel { position: static; max-height: none; }
+  .studioCanvas { height: 420px; }
+}
