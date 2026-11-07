@@ -438,3 +438,25 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .sldName, .sld em { z-index: 1; }
 .sldFill b { z-index: 2; }
 .sldDots { z-index: 0; }
+
+/* ── demo pages for the transitions (light, Operate) ── */
+.pg { position: absolute; inset: 0; padding: 28px 32px; display: flex; flex-direction: column; gap: 14px; font-family: var(--font); letter-spacing: -0.01em; }
+.pg.compact { padding: 18px 20px; gap: 10px; }
+.pgPaper { background: var(--grain), #f4f2ec; background-size: 180px, auto; background-blend-mode: multiply, normal; color: #22302a; }
+.pgInk { background: var(--grain), #1b1d1b; background-size: 180px, auto; background-blend-mode: soft-light, normal; color: #d9e0da; }
+.pgSage { background: var(--grain), #e3ebe2; background-size: 180px, auto; background-blend-mode: multiply, normal; color: #1f3a2b; }
+.pgTop { display: flex; justify-content: space-between; align-items: center; margin-bottom: auto; }
+.pgLogo { font-size: 13px; font-weight: 650; }
+.pgLogo span { opacity: 0.5; font-weight: 450; }
+.pgTag { font-size: 11.5px; font-variant-numeric: tabular-nums; opacity: 0.55; }
+.pgH { margin: 0; font-size: 30px; line-height: 1.12; font-weight: 600; letter-spacing: -0.03em; max-width: 520px; text-wrap: balance; }
+.compact .pgH { font-size: 19px; }
+.pgP { margin: 0; font-size: 14px; line-height: 1.55; opacity: 0.72; max-width: 460px; text-wrap: pretty; }
+.compact .pgP { font-size: 12px; }
+.pgBtns { display: flex; gap: 8px; margin-top: 4px; }
+.pgBtn { height: 32px; padding: 0 14px; border-radius: 16px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 500; color: #4a5560; background: linear-gradient(180deg, #fafaf8, #eeeeeb); box-shadow: inset 0 1px 0 #fff, 0 0 0 1px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.08), 0 3px 8px -4px rgba(0, 0, 0, 0.12); }
+.pgBtn.green { color: #fff; background: linear-gradient(180deg, #2fbf66, #1e9e4f); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 0 1px #188a42, 0 2px 4px rgba(24, 138, 66, 0.25), 0 6px 12px -6px rgba(24, 138, 66, 0.5); }
+.pgRows { display: grid; grid-template-columns: auto auto; justify-content: start; column-gap: 28px; row-gap: 8px; font-size: 13px; }
+.pgRows span { opacity: 0.55; }
+.pgRows b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.swapStage { position: absolute; inset: 0; cursor: pointer; }

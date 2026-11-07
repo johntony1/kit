@@ -16,21 +16,26 @@ import { TYPE_EFFECTS, type TypeEffectKey } from "./type/effects";
 import { TYPE_META } from "./type/meta";
 import { typePrompt } from "./type/prompt";
 import { TypeCanvas } from "./type/TypeCanvas";
-import { Studio } from "./site/Studio";
+import { Studio, type StudioLib } from "./site/Studio";
+import { TRANS_KEYS, TRANS_META, TransInstall, TransPlayground, TransPreview, transPrompt } from "./site/TransitionPage";
+import type { TransitionKind } from "./transitions/transitions";
 
 const REPO = "https://github.com/johntony1/qr-code-animatio";
 
 /* ── Routing: #/ripple, #/confetti, #/introduction ── */
-type Lib = "ripple" | "confetti" | TypeEffectKey;
+type Lib = "ripple" | "confetti" | TypeEffectKey | TransitionKind;
 type Route = "intro" | Lib | `studio:${Lib}`;
 const TYPE_KEYS = ["bubble", "lens", "liquid", "rings", "slice", "smear", "lines", "contour"] as TypeEffectKey[];
-const ORDER: Route[] = ["intro", "ripple", "confetti", ...TYPE_KEYS];
+const ORDER: Route[] = ["intro", "ripple", "confetti", ...TYPE_KEYS, ...TRANS_KEYS];
+const isTrans = (r: string): r is TransitionKind => (TRANS_KEYS as string[]).includes(r);
 const isType = (r: string): r is TypeEffectKey => (TYPE_KEYS as string[]).includes(r);
 function useRoute(): [Route, (r: Route) => void] {
   const read = (): Route => {
     const h = location.hash.replace(/^#\/?/, "").split("?")[0];
     if (h.startsWith("studio")) { const k = h.split("/")[1] ?? "ripple"; return (k === "ripple" || k === "confetti" || isType(k) ? `studio:${k}` : "studio:ripple") as Route; }
     const k = h.replace(/^type\//, "");
+    const tk = h.replace(/^transition\//, "");
+    if (h.startsWith("transition/") && isTrans(tk)) return tk;
     return h === "ripple" || h === "confetti" ? h : h.startsWith("type/") && isType(k) ? k : h === "introduction" ? "intro" : "ripple";
   };
   const [r, setR] = useState<Route>(read);
@@ -39,7 +44,7 @@ function useRoute(): [Route, (r: Route) => void] {
     addEventListener("hashchange", on);
     return () => removeEventListener("hashchange", on);
   }, []);
-  return [r, (next) => { location.hash = `/${next === "intro" ? "introduction" : next.startsWith("studio:") ? `studio/${next.slice(7)}` : isType(next) ? `type/${next}` : next}`; }];
+  return [r, (next) => { location.hash = `/${next === "intro" ? "introduction" : next.startsWith("studio:") ? `studio/${next.slice(7)}` : isType(next) ? `type/${next}` : isTrans(next) ? `transition/${next}` : next}`; }];
 }
 
 /* ── Icons ── */
@@ -49,6 +54,20 @@ function RippleIcon() {
 function ConfettiIcon() {
   return <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true"><circle cx="12" cy="13" r="3.4" fill="#fff" /><rect x="4" y="4" width="3" height="3" rx=".6" fill="#1fc16b" transform="rotate(20 5.5 5.5)" /><rect x="17" y="3.5" width="2.4" height="3.6" rx=".6" fill="#fa7319" transform="rotate(-30 18 5)" /><circle cx="19.5" cy="14" r="1.4" fill="#f5c028" /><circle cx="4.6" cy="15" r="1.3" fill="#b197fc" /><rect x="11" y="2.5" width="2" height="3" rx=".5" fill="#f5c028" /></svg>;
 }
+function TransIcon({ k }: { k: TransitionKind }) {
+  const g: Record<TransitionKind, ReactNode> = {
+    burn: <path d="M12 3c1 3 4 4.5 4 8.5A4 4 0 0 1 8 11.5c0-1.5.7-2.6 1.5-3.5.2 1.6 1 2.4 2 2.6C11 8 11.5 5.5 12 3Z" fill="#ff8a3d" />,
+    paper: <><path d="M5 4h10l4 4v12H5z" fill="#e9e6dc" /><path d="M15 4v4h4" fill="#c9c4b4" /></>,
+    reveal: <><circle cx="12" cy="12" r="7" fill="#34b562" /><circle cx="12" cy="12" r="3" fill="#1b1d1b" /></>,
+    ink: <path d="M12 4c3 0 7 2 7 6.5S16 20 12 20s-7-4-7-9 4-7 7-7Z" fill="#7b6cff" />,
+    curtain: <>{[0, 1, 2, 3].map((i) => <rect key={i} x={4 + i * 4.2} y={5 + (i % 2) * 3} width="3.4" height={14 - (i % 2) * 3} rx="1" fill="#34b562" />)}</>,
+    pixels: <>{[0, 1, 2].flatMap((x) => [0, 1, 2].map((y) => <rect key={`${x}${y}`} x={5 + x * 5} y={5 + y * 5} width="4" height="4" rx="1" fill="#34b562" opacity={(x + y) % 2 ? 0.45 : 1} />))}</>,
+    zoom: <><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="#c2cbc4" strokeWidth="1.5" /><rect x="8" y="8" width="8" height="8" rx="2" fill="#c2cbc4" /></>,
+    tilt: <><path d="M4 7l7 2v8l-7 2z" fill="#5d6862" /><rect x="12" y="5" width="8" height="14" rx="2" fill="#c2cbc4" /></>,
+  };
+  return <svg viewBox="0 0 24 24" width="100%" height="100%" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#1b1d1b" />{g[k]}</svg>;
+}
+
 function IntroIcon() {
   return <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M5 5.5h14M5 12h14M5 18.5h9" strokeLinecap="round" /></svg>;
 }
@@ -198,7 +217,7 @@ function LibraryPage({ lib, go }: { lib: Lib; go: (r: Route) => void }) {
   const [tab, setTab] = useState<"Preview" | "Install">("Preview");
   const [fw, setFw] = useState<"React" | "JavaScript">("React");
   const { done, copy } = useCopy();
-  const L = isType(lib) ? { name: TYPE_EFFECTS[lib].name, icon: <TypeIcon k={lib} />, desc: TYPE_META[lib].desc } : LIBS[lib];
+  const L = isTrans(lib) ? { name: TRANS_META[lib].name, icon: <TransIcon k={lib} />, desc: TRANS_META[lib].desc } : isType(lib) ? { name: TYPE_EFFECTS[lib].name, icon: <TypeIcon k={lib} />, desc: TYPE_META[lib].desc } : LIBS[lib];
   const i = ORDER.indexOf(lib);
   return (
     <>
@@ -220,11 +239,11 @@ function LibraryPage({ lib, go }: { lib: Lib; go: (r: Route) => void }) {
         <Seg label="View" value={tab} options={["Preview", "Install"] as const} onChange={setTab} />
         <div className="barRight">
           <Seg label="Framework" role="radiogroup" value={fw} options={["React", "JavaScript"] as const} onChange={setFw} />
-          <button type="button" className="btn line" onClick={() => go(`studio:${lib}` as Route)}>
+          {!isTrans(lib) && <button type="button" className="btn line" onClick={() => go(`studio:${lib}` as Route)}>
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M2.5 4.5h6m3 0h2M2.5 11.5h2m3 0h6" strokeLinecap="round" /><circle cx="10" cy="4.5" r="1.6" /><circle cx="6" cy="11.5" r="1.6" /></svg>
             Tune in Studio
-          </button>
-          <button type="button" className="btn primary" onClick={() => copy(isType(lib) ? typePrompt(TYPE_EFFECTS[lib], TYPE_META[lib].desc) : lib === "ripple" ? RIPPLE_PROMPT : CONFETTI_PROMPT)}>
+          </button>}
+          <button type="button" className="btn primary" onClick={() => copy(isTrans(lib) ? transPrompt(lib) : isType(lib) ? typePrompt(TYPE_EFFECTS[lib], TYPE_META[lib].desc) : lib === "ripple" ? RIPPLE_PROMPT : CONFETTI_PROMPT)}>
             <CopyIcon done={done} />
             {done ? "Copied" : "Copy prompt"}
           </button>
@@ -233,9 +252,11 @@ function LibraryPage({ lib, go }: { lib: Lib; go: (r: Route) => void }) {
 
       {tab === "Preview" ? (
         <>
-          {isType(lib) ? <TypePreview k={lib} /> : lib === "ripple" ? <RipplePreview /> : <ConfettiPreview />}
-          {isType(lib) ? <TypePlayground key={lib} k={lib} /> : lib === "ripple" ? <RipplePlayground /> : <ConfettiPlayground />}
+          {isTrans(lib) ? <TransPreview k={lib} /> : isType(lib) ? <TypePreview k={lib} /> : lib === "ripple" ? <RipplePreview /> : <ConfettiPreview />}
+          {isTrans(lib) ? <TransPlayground key={lib} k={lib} /> : isType(lib) ? <TypePlayground key={lib} k={lib} /> : lib === "ripple" ? <RipplePlayground /> : <ConfettiPlayground />}
         </>
+      ) : isTrans(lib) ? (
+        <TransInstall k={lib} fw={fw} />
       ) : isType(lib) ? (
         <TypeInstall k={lib} fw={fw} />
       ) : (
@@ -252,8 +273,8 @@ function Intro({ go }: { go: (r: Route) => void }) {
       <h1 className="h1">Introduction</h1>
       <p className="lede">Motion and type effects I made for my own work, free for yours. Each one is a file with no dependencies, a React component, and a prompt your agent can build from.</p>
       <div className="introGrid">
-        {(["ripple", "confetti", ...TYPE_KEYS] as Lib[]).map((k) => {
-          const L = isType(k) ? { name: TYPE_EFFECTS[k].name, icon: <TypeIcon k={k} />, desc: TYPE_META[k].desc } : LIBS[k];
+        {(["ripple", "confetti", ...TYPE_KEYS, ...TRANS_KEYS] as Lib[]).map((k) => {
+          const L = isTrans(k) ? { name: TRANS_META[k].name, icon: <TransIcon k={k} />, desc: TRANS_META[k].desc } : isType(k) ? { name: TYPE_EFFECTS[k].name, icon: <TypeIcon k={k} />, desc: TYPE_META[k].desc } : LIBS[k];
           return (
             <button key={k} type="button" className="panel introCard" onClick={() => go(k)}>
               <span className="introIcon">{L.icon}</span>
@@ -315,6 +336,7 @@ function SearchButton({ go }: { go: (r: Route) => void }) {
     { r: "ripple" as Route, name: "Ripple", group: "Libraries" },
     { r: "confetti" as Route, name: "Confetti pop", group: "Libraries" },
     ...TYPE_KEYS.map((k) => ({ r: k as Route, name: TYPE_EFFECTS[k].name, group: "Type" })),
+    ...TRANS_KEYS.map((k) => ({ r: k as Route, name: TRANS_META[k].name, group: "Transitions" })),
   ], []);
   const list = all.filter((x) => x.name.toLowerCase().includes(q.trim().toLowerCase()));
   useEffect(() => {
@@ -369,7 +391,7 @@ export default function App() {
         <a className="brand" href="#/ripple" aria-label="Effects, home"><Brand /></a>
         <nav className="topLinks" aria-label="Main">
           <button type="button" className={`topLink ${route !== "intro" && !route.startsWith("studio:") ? "on" : ""}`} onClick={() => go("ripple")}>Libraries</button>
-          <button type="button" className={`topLink ${route.startsWith("studio:") ? "on" : ""}`} onClick={() => go(`studio:${route.startsWith("studio:") ? route.slice(7) : route === "intro" ? "ripple" : route}` as Route)}>Studio</button>
+          <button type="button" className={`topLink ${route.startsWith("studio:") ? "on" : ""}`} onClick={() => go(`studio:${route.startsWith("studio:") ? route.slice(7) : route === "intro" || isTrans(route) ? "ripple" : route}` as Route)}>Studio</button>
           <button type="button" className={`topLink ${route === "intro" ? "on" : ""}`} onClick={() => go("intro")}>How to use</button>
           <a className="topLink" href={REPO} target="_blank" rel="noopener noreferrer">Source</a>
         </nav>
@@ -383,7 +405,7 @@ export default function App() {
       </header>
 
       {route.startsWith("studio:") ? (
-        <Studio key={route} lib={route.slice(7) as Lib} go={(k) => go(`studio:${k}` as Route)}
+        <Studio key={route} lib={route.slice(7) as StudioLib} go={(k) => go(`studio:${k}` as Route)}
           libs={[{ k: "ripple", name: "Ripple", group: "Libraries" }, { k: "confetti", name: "Confetti pop", group: "Libraries" }, ...TYPE_KEYS.map((k) => ({ k, name: TYPE_EFFECTS[k].name, group: "Type" }))]} />
       ) : (
       <div className="layout">
@@ -396,6 +418,10 @@ export default function App() {
           <div className="sideLabel">Type</div>
           {TYPE_KEYS.map((k) => (
             <NavItem key={k} active={route === k} icon={<TypeIcon k={k} />} onClick={() => go(k)}>{TYPE_EFFECTS[k].name}</NavItem>
+          ))}
+          <div className="sideLabel">Transitions</div>
+          {TRANS_KEYS.map((k) => (
+            <NavItem key={k} active={route === k} icon={<TransIcon k={k} />} onClick={() => go(k)}>{TRANS_META[k].name}</NavItem>
           ))}
         </aside>
         <main className="main" key={route}>
@@ -420,6 +446,10 @@ export default function App() {
           <div>
             <div className="footHead">Type</div>
             {TYPE_KEYS.map((k) => <a key={k} href={`#/type/${k}`}>{TYPE_EFFECTS[k].name}</a>)}
+          </div>
+          <div>
+            <div className="footHead">Transitions</div>
+            {TRANS_KEYS.map((k) => <a key={k} href={`#/transition/${k}`}>{TRANS_META[k].name}</a>)}
           </div>
           <div>
             <div className="footHead">Links</div>
