@@ -87,15 +87,28 @@ function QrCard() {
   return <div className="bnQr"><div data-own-click><QrRipple rippleRef={ref} /></div></div>;
 }
 
-const SPRING = { type: "spring", duration: 0.5, bounce: 0.1 } as const;
+const SPRING = { type: "spring", duration: 0.46, bounce: 0.08 } as const;
 
 function Card({ t, open, paused, onOpen }: { t: Tile; open: boolean; paused: boolean; onOpen: () => void }) {
   const [ref, seen] = useInView<HTMLDivElement>();
-  const live = seen && !paused;
+  // after the sheet closes, the card flies home first and only then starts its live preview
+  const [landed, setLanded] = useState(true);
+  const was = useRef(open);
+  useEffect(() => {
+    if (was.current && !open) {
+      setLanded(false);
+      const id = setTimeout(() => setLanded(true), 650);
+      was.current = open;
+      return () => clearTimeout(id);
+    }
+    was.current = open;
+  }, [open]);
+  const live = seen && !paused && landed;
   return (
     <div ref={ref} className="bnSlot" style={{ gridColumn: `span ${t.c}`, gridRow: `span ${t.r}` }}>
       {!open && (
         <motion.div role="button" tabIndex={0} layoutId={`bn-${t.k}`} transition={SPRING} className="bnCard" style={{ borderRadius: 28 }}
+          onLayoutAnimationComplete={() => setLanded(true)}
           onClick={(e) => { if (!(e.target as HTMLElement).closest("[data-own-click]")) onOpen(); }}
           onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen(); } }} aria-label={`${nameOf(t.k)}. Press Enter to open.`}>
           <div className="bnPreview">{live ? <Preview t={t} /> : null}</div>
@@ -110,6 +123,20 @@ function Card({ t, open, paused, onOpen }: { t: Tile; open: boolean; paused: boo
 
 export function Home({ open, onOpen, onClose, detail }: { open: BentoLib | null; onOpen: (k: BentoLib) => void; onClose: () => void; detail: (k: BentoLib) => ReactNode }) {
   const [filter, setFilter] = useState<"All" | Group>("All");
+  // the detail page is heavy (canvases, playgrounds): mount it once the card has finished growing
+  const [ready, setReady] = useState(false);
+  const [ghost, setGhost] = useState(true);
+  useEffect(() => {
+    if (!ready) { setGhost(true); return; }
+    const id = setTimeout(() => setGhost(false), 260);
+    return () => clearTimeout(id);
+  }, [ready]);
+  useEffect(() => {
+    setReady(false);
+    if (!open) return;
+    const id = setTimeout(() => setReady(true), 560);
+    return () => clearTimeout(id);
+  }, [open]);
   const tiles = TILES.filter((t) => filter === "All" || t.group === filter);
 
   useEffect(() => {
@@ -142,14 +169,17 @@ export function Home({ open, onOpen, onClose, detail }: { open: BentoLib | null;
         {open && (
           <div className="bnLayer" key="layer">
             <motion.div className="bnScrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} onClick={onClose} />
-            <motion.div layoutId={`bn-${open}`} transition={SPRING} className="bnSheet" style={{ borderRadius: 28 }} role="dialog" aria-modal="true" aria-label={nameOf(open)}>
-              {/* the card's live preview rides along as the card grows, then hands over to the page */}
-              <motion.div layout className="bnGhost" initial={{ opacity: 1 }} animate={{ opacity: 0, transition: { delay: 0.22, duration: 0.18 } }} exit={{ opacity: 1, transition: { duration: 0.1 } }}>
-                <Preview t={TILES.find((x) => x.k === open)!} />
+            <motion.div layoutId={`bn-${open}`} transition={SPRING} className="bnSheet" style={{ borderRadius: 28 }} role="dialog" aria-modal="true" aria-label={nameOf(open)}
+              onLayoutAnimationComplete={() => setReady(true)}>
+              {/* the card's live preview rides along while it grows, then hands over to the page */}
+              <motion.div layout className="bnGhost" initial={{ opacity: 1 }} animate={{ opacity: ready ? 0 : 1, transition: { duration: 0.2 } }} exit={{ opacity: 0, transition: { duration: 0.12 } }}>
+                {ghost && <Preview t={TILES.find((x) => x.k === open)!} />}
               </motion.div>
-              <motion.div className="bnSheetInner" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0, transition: { delay: 0.34, duration: 0.28, ease: [0.2, 0, 0, 1] } }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
-                {detail(open)}
-              </motion.div>
+              {ready && (
+                <motion.div className="bnSheetInner" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.24, ease: [0.2, 0, 0, 1] } }} exit={{ opacity: 0, transition: { duration: 0.08 } }}>
+                  {detail(open)}
+                </motion.div>
+              )}
               <button type="button" className="bnClose" onClick={onClose} aria-label="Close">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" /></svg>
               </button>

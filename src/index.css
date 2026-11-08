@@ -515,8 +515,8 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 
 /* the sheet a card grows into */
 .bnLayer { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 24px; }
-.bnScrim { position: absolute; inset: 0; background: rgba(6, 7, 6, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-.bnSheet { position: relative; width: min(1180px, 100%); height: min(860px, 100%); overflow: hidden; background: var(--sheen), var(--sheet); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 40px 80px -20px rgba(0, 0, 0, 0.7); }
+.bnScrim { position: absolute; inset: 0; background: rgba(6, 7, 6, 0.74); }
+.bnSheet { position: relative; will-change: transform; width: min(1180px, 100%); height: min(860px, 100%); overflow: hidden; background: var(--sheen), var(--sheet); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 40px 80px -20px rgba(0, 0, 0, 0.7); }
 .bnSheetInner { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.1) transparent; }
 .sheetPage { padding: 28px 32px 40px; }
 .bnClose { position: absolute; top: 18px; right: 18px; z-index: 3; width: 36px; height: 36px; border: 0; border-radius: 18px; display: grid; place-items: center; background: linear-gradient(180deg, #2b2d2b, #242624); box-shadow: var(--lift); color: var(--text2); cursor: pointer; transition: scale 150ms ease, color 150ms ease; }
