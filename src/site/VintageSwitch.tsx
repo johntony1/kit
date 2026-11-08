@@ -1,22 +1,22 @@
-// VintageSwitch: the sound switch in the top bar, built like an old wall switch. A tall matte
-// plate with a screw above and below, a recessed slot, and a paddle that rocks up for on and down
-// for off. The end of the paddle that sticks out catches the light and grows a little (it is
-// nearer to you); the slot behind it falls into shadow. A faint green glow sits in the slot when on.
+// VintageSwitch: the sound switch in the top bar, built like an old panel toggle, standing upright.
+// A small plate in our dark tones with a chrome rim and four screws; a hex nut holds a polished
+// lever. Flip it and the lever travels straight up (on) or down (off), passing toward you through
+// the middle (it shortens as it points at the viewer, the ball grows), overshoots a touch and
+// settles. A small green lamp shows when sound is on.
 import { useEffect, useId } from "react";
 import { motion, useReducedMotion, useSpring, useTransform } from "framer-motion";
 
-const W = 26, H = 38, CX = 13;
-// the slot the paddle sits in
-const SX0 = 8.6, SX1 = 17.4, SY0 = 12.2, SY1 = 25.8;
+const W = 30, H = 42, CX = 15, CY = 23, L = 11.5;
 
-const mix = (a: number, b: number, t: number) => a + (b - a) * t;
-const quad = (pts: [number, number][]) => pts.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
+function hex(cx: number, cy: number, r: number) {
+  return Array.from({ length: 6 }, (_, i) => { const a = (Math.PI / 3) * i + Math.PI / 6; return `${(cx + Math.cos(a) * r).toFixed(2)},${(cy + Math.sin(a) * r).toFixed(2)}`; }).join(" ");
+}
 
-function Screw({ y, id }: { y: number; id: string }) {
+function Screw({ x, y, id }: { x: number; y: number; id: string }) {
   return (
     <g>
-      <circle cx={CX} cy={y} r={1.75} fill={`url(#${id}-screw)`} stroke="rgba(0,0,0,.7)" strokeWidth={0.35} />
-      <path d={`M${CX - 1} ${y + 0.55}L${CX + 1} ${y - 0.55}`} stroke="rgba(0,0,0,.75)" strokeWidth={0.5} strokeLinecap="round" />
+      <circle cx={x} cy={y} r={1.9} fill={`url(#${id}-chrome)`} stroke="rgba(0,0,0,.6)" strokeWidth={0.35} />
+      <path d={`M${x - 1.05} ${y}h2.1M${x} ${y - 1.05}v2.1`} stroke="rgba(0,0,0,.55)" strokeWidth={0.45} strokeLinecap="round" />
     </g>
   );
 }
@@ -24,64 +24,68 @@ function Screw({ y, id }: { y: number; id: string }) {
 export function VintageSwitch({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
   const id = useId().replace(/:/g, "");
   const reduced = useReducedMotion();
-  const p = useSpring(on ? 1 : 0, { stiffness: 620, damping: 26, mass: 0.6 });
+  const p = useSpring(on ? 1 : 0, { stiffness: 520, damping: 22, mass: 0.75 });
   useEffect(() => { if (reduced) p.jump(on ? 1 : 0); else p.set(on ? 1 : 0); }, [on, p, reduced]);
 
-  // u: 1 = rocked up (on), 0 = rocked down (off). The raised end sits proud of the slot and is wider.
-  const geo = (v: number) => {
-    const u = Math.min(1.08, Math.max(-0.08, v));
-    const top = mix(16.4, 11.6, u), bot = mix(26.4, 21.6, u); // paddle's top and bottom edge
-    const wTop = mix(8.2, 9.8, u), wBot = mix(9.8, 8.2, u); // the raised end is nearer, so wider
-    const lit = mix(1.3, 3.2, u); // the band of the top face that catches the light
-    return { top, bot, wTop, wBot, lit };
-  };
-  const front = useTransform(p, (v) => { const g = geo(v); return quad([[CX - g.wTop / 2, g.top + g.lit], [CX + g.wTop / 2, g.top + g.lit], [CX + g.wBot / 2, g.bot], [CX - g.wBot / 2, g.bot]]); });
-  const cap = useTransform(p, (v) => { const g = geo(v); return quad([[CX - g.wTop / 2, g.top], [CX + g.wTop / 2, g.top], [CX + g.wTop / 2, g.top + g.lit], [CX - g.wTop / 2, g.top + g.lit]]); });
-  const gapTop = useTransform(p, (v) => Math.max(0, geo(v).top - SY0));
-  const gapBot = useTransform(p, (v) => Math.max(0, SY1 - geo(v).bot));
-  const gapBotY = useTransform(p, (v) => geo(v).bot);
-  const glow = useTransform(p, (v) => Math.min(1, Math.max(0, (v - 0.5) / 0.5)) * 0.55);
+  // the lever swings through the viewer: it is shortest at the middle of the throw
+  // straight up and down: the lever's tip only moves along the vertical, through the viewer
+  const near = useTransform(p, (v) => 1 - Math.abs(Math.cos(Math.PI * Math.min(1, Math.max(0, v)))));
+  const x2 = useTransform(p, () => CX);
+  const y2 = useTransform(p, (v) => CY + Math.cos(Math.PI * v) * L);
+  const hx2 = useTransform(p, () => CX - 0.75);
+  const hy2 = y2;
+  const ballR = useTransform(near, (n) => 3.1 + 1.5 * n);
+  const shX = useTransform(x2, (x) => x + 1.4);
+  const shY = useTransform(y2, (y) => y + 2.2);
+  const lamp = useTransform(p, (v) => Math.min(1, Math.max(0, (v - 0.55) / 0.45)));
 
   return (
     <motion.button type="button" className="vintage" aria-pressed={on} aria-label={label} title={on ? "Sound on" : "Sound off"} onClick={onToggle}
-      whileTap={{ scale: 0.96 }} transition={{ type: "spring", duration: 0.25, bounce: 0 }}>
+      whileTap={{ scale: 0.97 }} transition={{ type: "spring", duration: 0.25, bounce: 0 }}>
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} aria-hidden="true">
         <defs>
+          <linearGradient id={`${id}-rim`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#f4f6f4" /><stop offset=".35" stopColor="#8e938f" /><stop offset=".55" stopColor="#4a4e4b" /><stop offset="1" stopColor="#c9cdca" />
+          </linearGradient>
           <linearGradient id={`${id}-plate`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#2e302e" /><stop offset="1" stopColor="#1d1f1d" />
+            <stop offset="0" stopColor="#323532" /><stop offset="1" stopColor="#1f211f" />
           </linearGradient>
-          <linearGradient id={`${id}-slot`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#070807" /><stop offset="1" stopColor="#121412" />
+          <linearGradient id={`${id}-chrome`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#ffffff" /><stop offset=".45" stopColor="#a9aeaa" /><stop offset=".7" stopColor="#5a5f5b" /><stop offset="1" stopColor="#d8dcd9" />
           </linearGradient>
-          <linearGradient id={`${id}-paddle`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#2a2c2a" /><stop offset="1" stopColor="#1a1c1a" />
-          </linearGradient>
-          <linearGradient id={`${id}-cap`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#6a6e6a" /><stop offset="1" stopColor="#3c3f3c" />
-          </linearGradient>
-          <radialGradient id={`${id}-screw`} cx=".35" cy=".3" r=".8">
-            <stop offset="0" stopColor="#5d615d" /><stop offset="1" stopColor="#1e201e" />
+          <radialGradient id={`${id}-ball`} cx=".35" cy=".3" r=".75">
+            <stop offset="0" stopColor="#ffffff" /><stop offset=".35" stopColor="#d6dad7" /><stop offset=".8" stopColor="#6c716d" /><stop offset="1" stopColor="#3b3f3c" />
           </radialGradient>
           <radialGradient id={`${id}-glow`} cx=".5" cy=".5" r=".5">
-            <stop offset="0" stopColor="#5dff9a" stopOpacity="1" /><stop offset="1" stopColor="#5dff9a" stopOpacity="0" />
+            <stop offset="0" stopColor="#5dff9a" stopOpacity=".9" /><stop offset="1" stopColor="#5dff9a" stopOpacity="0" />
           </radialGradient>
+          <filter id={`${id}-soft`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation=".9" /></filter>
         </defs>
 
-        {/* the plate: matte, a soft lip of light along the top edge */}
-        <rect x=".5" y=".5" width={W - 1} height={H - 1} rx="5" fill={`url(#${id}-plate)`} stroke="rgba(0,0,0,.75)" strokeWidth=".6" />
-        <rect x="1.1" y="1" width={W - 2.2} height={H - 2.4} rx="4.5" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth=".55" />
-        <Screw y={5.6} id={id} /><Screw y={H - 5.6} id={id} />
+        {/* chrome rim and the plate inside it */}
+        <rect x=".6" y=".6" width={W - 1.2} height={H - 1.2} rx="7.5" fill={`url(#${id}-rim)`} />
+        <rect x="2" y="2" width={W - 4} height={H - 4} rx="6.2" fill={`url(#${id}-plate)`} stroke="rgba(0,0,0,.65)" strokeWidth=".5" />
+        <rect x="2.6" y="2.5" width={W - 5.2} height={H - 5.5} rx="5.8" fill="none" stroke="rgba(255,255,255,.07)" strokeWidth=".6" />
 
-        {/* the slot, its inner shadow, and a faint green glow when on */}
-        <rect x={SX0} y={SY0} width={SX1 - SX0} height={SY1 - SY0} rx="1.6" fill={`url(#${id}-slot)`} stroke="rgba(255,255,255,.1)" strokeWidth=".45" />
-        <motion.rect x={SX0 + 0.8} y={SY0 + 0.8} width={SX1 - SX0 - 1.6} height={SY1 - SY0 - 1.6} rx="1.2" fill={`url(#${id}-glow)`} style={{ opacity: glow }} />
+        <Screw x={6.2} y={6.2} id={id} /><Screw x={W - 6.2} y={6.2} id={id} /><Screw x={6.2} y={H - 6.2} id={id} /><Screw x={W - 6.2} y={H - 6.2} id={id} />
 
-        {/* the paddle: dark front, a lit cap where it rises toward you */}
-        <motion.polygon points={front} fill={`url(#${id}-paddle)`} stroke="rgba(0,0,0,.8)" strokeWidth=".45" strokeLinejoin="round" />
-        <motion.polygon points={cap} fill={`url(#${id}-cap)`} stroke="rgba(0,0,0,.6)" strokeWidth=".35" strokeLinejoin="round" />
-        {/* shade in the slot where the paddle has lifted away */}
-        <motion.rect x={SX0 + 0.4} y={SY0 + 0.3} width={SX1 - SX0 - 0.8} height={gapTop} fill="rgba(0,0,0,.55)" />
-        <motion.rect x={SX0 + 0.4} y={gapBotY} width={SX1 - SX0 - 0.8} height={gapBot} fill="rgba(0,0,0,.55)" />
+        {/* lamp: dark glass when off, green with a glow when on */}
+        <circle cx={CX} cy={5.4} r={1.55} fill="#0e110e" stroke="rgba(0,0,0,.7)" strokeWidth=".35" />
+        <motion.circle cx={CX} cy={5.4} r={3.6} fill={`url(#${id}-glow)`} style={{ opacity: lamp }} />
+        <motion.circle cx={CX} cy={5.4} r={1.2} fill="#7dffae" style={{ opacity: lamp }} />
+
+        {/* hex nut, its washer ring and the bushing the lever comes out of */}
+        <polygon points={hex(CX, CY + 0.6, 6.6)} fill="rgba(0,0,0,.45)" filter={`url(#${id}-soft)`} />
+        <polygon points={hex(CX, CY, 6.4)} fill={`url(#${id}-chrome)`} stroke="rgba(0,0,0,.55)" strokeWidth=".4" />
+        <circle cx={CX} cy={CY} r={4.2} fill="#2a2d2a" stroke="rgba(255,255,255,.35)" strokeWidth=".4" />
+        <circle cx={CX} cy={CY} r={2.8} fill={`url(#${id}-chrome)`} stroke="rgba(0,0,0,.5)" strokeWidth=".35" />
+
+        {/* the lever: its shadow, the rod, a highlight along the rod, the ball */}
+        <motion.line x1={CX + 1.4} y1={CY + 2} x2={shX} y2={shY} stroke="rgba(0,0,0,.45)" strokeWidth="3.2" strokeLinecap="round" filter={`url(#${id}-soft)`} />
+        <motion.line x1={CX} y1={CY} x2={x2} y2={y2} stroke="#7f8480" strokeWidth="3.4" strokeLinecap="round" />
+        <motion.line x1={CX - 0.75} y1={CY} x2={hx2} y2={hy2} stroke="#f2f4f2" strokeOpacity=".85" strokeWidth="1" strokeLinecap="round" />
+        <circle cx={CX} cy={CY} r={1.9} fill={`url(#${id}-ball)`} />
+        <motion.circle cx={x2} cy={y2} r={ballR} fill={`url(#${id}-ball)`} stroke="rgba(0,0,0,.45)" strokeWidth=".35" />
       </svg>
     </motion.button>
   );
