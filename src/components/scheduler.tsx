@@ -2,7 +2,7 @@
 // the pencil splits it into start / end pills and a pill opens the drum picker.
 // Ported from ~/Documents/SCHEDULER (DayRow, TimePicker, Toggle, ClockIcon), same springs.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { motion, AnimatePresence, LayoutGroup, MotionConfig } from "framer-motion";
+import { motion, AnimatePresence, LayoutGroup, MotionConfig, useReducedMotion } from "framer-motion";
 import gsap from "gsap";
 import { play } from "../sound/sound";
 
@@ -126,19 +126,33 @@ function ClockIcon() {
 }
 
 /* ── Toggle (Figma dims, same spring) ───────────────────── */
-const TW = 51.406, TH = 25.703, INSET = 2.57, THUMB_W = 28.273, TRAVEL = TW - THUMB_W - INSET * 2;
-function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+/* ── Switch ───────────────────────────────────────────────
+ * A rounded rectangle, not a pill: the track is 23:16, the thumb is a near-square with its own
+ * hairline border and a soft drop shadow, as tall as the track so it sits on the edge.
+ * Off: a dark inset well. On: a green gradient with a darker green rim and a top highlight.
+ * Press and the thumb stretches toward where it is going; release and it springs across.
+ * The hit area is padded to at least 24px tall around the 16px (or larger) body. */
+const SW_SPRING = { type: "spring", stiffness: 700, damping: 42, mass: 0.7 } as const;
+function Switch({ checked, onChange, label, h = 16, focus }: { checked: boolean; onChange: (v: boolean) => void; label: string; h?: number; focus?: string }) {
+  const w = Math.round(h * 1.45), tw = Math.round(h * 0.84), travel = w - tw;
+  const [press, setPress] = useState(false);
+  const reduced = useReducedMotion();
+  const stretch = press ? Math.round(h * 0.2) : 0;
+  const r = h * 0.3, rt = h * 0.27;
+  const up = () => setPress(false);
   return (
-    <motion.button type="button" role="switch" aria-checked={checked} aria-label={label} className="scheduler-focus"
-      onClick={() => { play(checked ? "off" : "on"); onChange(!checked); }} whileTap={{ scale: 0.95 }} transition={TOGGLE_SPRING}
-      style={{ position: "relative", width: TW, height: TH, borderRadius: TH / 2, border: "none", padding: 0, cursor: "pointer", flexShrink: 0, overflow: "hidden", background: "transparent" }}>
-      <motion.div animate={{ backgroundColor: checked ? T.green : "#3a3d3a", opacity: checked ? 1 : 0.9 }} transition={{ duration: 0.18, ease: "easeOut" }}
-        style={{ position: "absolute", inset: 0, borderRadius: "inherit", boxShadow: "inset 0 1px 2px rgba(0,0,0,.35)" }} />
-      <motion.div
-        animate={{ x: checked ? TRAVEL : 0, boxShadow: checked ? "0 0 1.3px rgba(0,0,0,.4), 0 2.5px 10px rgba(0,0,0,.25)" : "0 2.5px 5px rgba(0,0,0,.25), 0 1.3px 2.5px rgba(0,0,0,.3)" }}
-        transition={TOGGLE_SPRING}
-        style={{ position: "absolute", top: INSET, left: INSET, width: THUMB_W, height: TH - INSET * 2, borderRadius: (TH - INSET * 2) / 2, background: "#f4f6f4", pointerEvents: "none" }} />
-    </motion.button>
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} className={focus}
+      onClick={() => onChange(!checked)} onPointerDown={() => setPress(true)} onPointerUp={up} onPointerLeave={up} onPointerCancel={up}
+      style={{ position: "relative", width: w, height: h, padding: 0, border: 0, background: "transparent", cursor: "pointer", flexShrink: 0, borderRadius: r, WebkitTapHighlightColor: "transparent" }}>
+      <span aria-hidden style={{ position: "absolute", inset: `${-Math.max(4, (24 - h) / 2)}px -6px` }} />
+      <span aria-hidden style={{ position: "absolute", inset: 0, borderRadius: r, background: "linear-gradient(180deg,#363936,#414441)", boxShadow: "inset 0 1px 2px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08), 0 1px 0 rgba(255,255,255,.04)" }} />
+      <motion.span aria-hidden initial={false} animate={{ opacity: checked ? 1 : 0 }} transition={{ duration: reduced ? 0 : 0.16, ease: "easeOut" }}
+        style={{ position: "absolute", inset: 0, borderRadius: r, background: "linear-gradient(180deg,#3ccb73,#1c9747)", boxShadow: "inset 0 0 0 1px #12753a, inset 0 1px 0 rgba(255,255,255,.3), 0 0 0 .5px rgba(0,0,0,.45)" }} />
+      <motion.span aria-hidden initial={false} animate={{ x: checked ? travel - stretch : 0, width: tw + stretch }} transition={reduced ? { duration: 0 } : SW_SPRING}
+        style={{ position: "absolute", top: 0, left: 0, height: h, borderRadius: rt, background: "linear-gradient(180deg,#ffffff,#eaedea)",
+          boxShadow: `inset 0 0 0 1px ${checked ? "rgba(18,117,58,.85)" : "rgba(0,0,0,.32)"}, inset 0 1.5px 0 #fff, 0 1px 1.5px rgba(0,0,0,.35), 0 3px 6px -2px rgba(0,0,0,.45)`,
+          transition: "box-shadow 160ms ease" }} />
+    </button>
   );
 }
 
@@ -222,7 +236,7 @@ function DayRow({ label, checked, onChange, index }: { label: string; checked: b
         <motion.div layout animate={{ paddingLeft: checked ? 4 : 12, paddingRight: checked ? 4 : 12 }} transition={EXPAND_SPRING}
           style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ ...TXT, color: checked ? T.text : T.text2, whiteSpace: "nowrap", userSelect: "none" }}>{label}</span>
-          <Toggle checked={checked} onChange={toggle} label={`${label} available`} />
+          <Switch checked={checked} onChange={(v) => { play(v ? "on" : "off"); toggle(v); }} label={`${label} available`} h={22} focus="scheduler-focus" />
         </motion.div>
 
         <AnimatePresence initial={false}>

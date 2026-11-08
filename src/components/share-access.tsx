@@ -5,7 +5,7 @@
 // same springs and timings.
 import { useLayoutEffect, useRef, useState } from "react";
 import type React from "react";
-import { motion, AnimatePresence, MotionConfig } from "framer-motion";
+import { motion, AnimatePresence, MotionConfig, useReducedMotion } from "framer-motion";
 import { play } from "../sound/sound";
 
 /* ── tokens ─────────────────────────────────────────────── */
@@ -21,7 +21,35 @@ const T = {
 };
 
 /* ── timing + motion (verbatim) ─────────────────────────── */
-const TOGGLE = { thumbTravel: 14, spring: { type: "spring" as const, visualDuration: 0.3, bounce: 0.3 } };
+/* ── Switch ───────────────────────────────────────────────
+ * A rounded rectangle, not a pill: the track is 23:16, the thumb is a near-square with its own
+ * hairline border and a soft drop shadow, as tall as the track so it sits on the edge.
+ * Off: a dark inset well. On: a green gradient with a darker green rim and a top highlight.
+ * Press and the thumb stretches toward where it is going; release and it springs across.
+ * The hit area is padded to at least 24px tall around the 16px (or larger) body. */
+const SW_SPRING = { type: "spring", stiffness: 700, damping: 42, mass: 0.7 } as const;
+function Switch({ checked, onChange, label, h = 16, focus }: { checked: boolean; onChange: (v: boolean) => void; label: string; h?: number; focus?: string }) {
+  const w = Math.round(h * 1.45), tw = Math.round(h * 0.84), travel = w - tw;
+  const [press, setPress] = useState(false);
+  const reduced = useReducedMotion();
+  const stretch = press ? Math.round(h * 0.2) : 0;
+  const r = h * 0.3, rt = h * 0.27;
+  const up = () => setPress(false);
+  return (
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} className={focus}
+      onClick={() => onChange(!checked)} onPointerDown={() => setPress(true)} onPointerUp={up} onPointerLeave={up} onPointerCancel={up}
+      style={{ position: "relative", width: w, height: h, padding: 0, border: 0, background: "transparent", cursor: "pointer", flexShrink: 0, borderRadius: r, WebkitTapHighlightColor: "transparent" }}>
+      <span aria-hidden style={{ position: "absolute", inset: `${-Math.max(4, (24 - h) / 2)}px -6px` }} />
+      <span aria-hidden style={{ position: "absolute", inset: 0, borderRadius: r, background: "linear-gradient(180deg,#363936,#414441)", boxShadow: "inset 0 1px 2px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08), 0 1px 0 rgba(255,255,255,.04)" }} />
+      <motion.span aria-hidden initial={false} animate={{ opacity: checked ? 1 : 0 }} transition={{ duration: reduced ? 0 : 0.16, ease: "easeOut" }}
+        style={{ position: "absolute", inset: 0, borderRadius: r, background: "linear-gradient(180deg,#3ccb73,#1c9747)", boxShadow: "inset 0 0 0 1px #12753a, inset 0 1px 0 rgba(255,255,255,.3), 0 0 0 .5px rgba(0,0,0,.45)" }} />
+      <motion.span aria-hidden initial={false} animate={{ x: checked ? travel - stretch : 0, width: tw + stretch }} transition={reduced ? { duration: 0 } : SW_SPRING}
+        style={{ position: "absolute", top: 0, left: 0, height: h, borderRadius: rt, background: "linear-gradient(180deg,#ffffff,#eaedea)",
+          boxShadow: `inset 0 0 0 1px ${checked ? "rgba(18,117,58,.85)" : "rgba(0,0,0,.32)"}, inset 0 1.5px 0 #fff, 0 1px 1.5px rgba(0,0,0,.35), 0 3px 6px -2px rgba(0,0,0,.45)`,
+          transition: "box-shadow 160ms ease" }} />
+    </button>
+  );
+}
 const SPRING_LAYOUT = { type: "spring" as const, stiffness: 240, damping: 22 };
 const CHIP_SPRING = { type: "spring" as const, visualDuration: 0.2, bounce: 0.3 };
 
@@ -146,11 +174,7 @@ export default function ShareAccess({ size = "card" }: { size?: "card" | "big" }
                     <span style={{ fontSize: 13, color: T.muted, whiteSpace: "nowrap" }}>Everyone with the link can access</span>
                   </div>
                 </div>
-                <button type="button" role="switch" aria-checked={toggled} aria-label="Public access" className="access-focus" onClick={toggle}
-                  style={{ position: "relative", flexShrink: 0, height: 20, width: 40, borderRadius: 999, cursor: "pointer", border: 0, padding: 0, background: toggled ? T.green : "rgba(255,255,255,.14)", boxShadow: "inset 0 1px 2px rgba(0,0,0,.35)", transition: "background 0.22s ease" }}>
-                  <motion.span animate={{ x: toggled ? TOGGLE.thumbTravel : 0 }} transition={TOGGLE.spring}
-                    style={{ position: "absolute", top: 2, left: 2, width: 22, height: 16, borderRadius: 999, background: "#f4f6f4", boxShadow: toggled ? "0 0 1px rgba(0,0,0,.4), 0 2px 8px rgba(0,0,0,.25)" : "0 2px 4px rgba(0,0,0,.25), 0 1px 2px rgba(0,0,0,.3)", transition: "box-shadow 0.22s ease" }} />
-                </button>
+                <Switch checked={toggled} onChange={() => toggle()} label="Public access" h={18} focus="access-focus" />
               </div>
             </div>
 

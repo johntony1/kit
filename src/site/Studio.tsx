@@ -14,7 +14,7 @@ import { TYPE_EFFECTS, type TypeEffectKey } from "../type/effects";
 import { TYPE_META } from "../type/meta";
 import { typePrompt } from "../type/prompt";
 import { TypeCanvas } from "../type/TypeCanvas";
-import { CopyIcon, Seg, Slider, useCopy } from "./ui";
+import { CopyIcon, Seg, Slider, Switch, useCopy } from "./ui";
 
 export type StudioLib = "ripple" | "confetti" | TypeEffectKey;
 type V = Record<string, string | number | boolean>;
@@ -234,13 +234,19 @@ function ControlView({ c, v, set }: { c: Control; v: V; set: (k: string, x: stri
   if (c.kind === "slider") return <Slider label={c.label} value={v[c.key] as number} min={c.min} max={c.max} step={c.step} unit={c.unit} onChange={(x) => set(c.key, x)} />;
   if (c.kind === "color") return <ColorControl label={c.label} value={v[c.key] as string} onChange={(x) => set(c.key, x)} />;
   if (c.kind === "text") return <textarea className="textIn" rows={2} value={v[c.key] as string} onChange={(e) => set(c.key, e.target.value)} aria-label={c.label} spellCheck={false} />;
-  const opts = c.kind === "toggle" ? ["On", "Off"] : c.options;
-  const cur = c.kind === "toggle" ? (v[c.key] ? "On" : "Off") : (v[c.key] as string);
+  if (c.kind === "toggle") return (
+    <div className="colorCtl switchCtl" onClick={(e) => { if (!(e.target as HTMLElement).closest("button")) set(c.key, !v[c.key]); }}>
+      <span className="colorName">{c.label}</span>
+      <Switch checked={!!v[c.key]} onChange={(x) => set(c.key, x)} label={c.label} />
+    </div>
+  );
+  const opts = c.options;
+  const cur = v[c.key] as string;
   return (
     <div className="group">
       <div className="groupLabel">{c.label}</div>
       <div className="chips" role="radiogroup" aria-label={c.label}>
-        {opts.map((o) => <button key={o} type="button" role="radio" aria-checked={o === cur} className={`chip ${o === cur ? "on" : ""}`} onClick={() => set(c.key, c.kind === "toggle" ? o === "On" : o)}>{o}</button>)}
+        {opts.map((o) => <button key={o} type="button" role="radio" aria-checked={o === cur} className={`chip ${o === cur ? "on" : ""}`} onClick={() => set(c.key, o)}>{o}</button>)}
       </div>
     </div>
   );
