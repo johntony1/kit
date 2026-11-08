@@ -1,9 +1,13 @@
 // DotArt: a live dot matrix illustration that fits its box. Loop pieces always move (while on
 // screen); hover pieces rest and play while the pointer is over them (or `hover` is set).
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useMemo, useState, useSyncExternalStore } from "react";
+import { theme as siteTheme } from "../site/theme";
 import { bounds, paintFrame, THEMES, type DotStyle, type Illustration, type Theme } from "./dots";
 
-export function DotArt({ ill, theme = THEMES[0], hover, fit = 1, maxPitch = 9, look = "halftone" }: { ill: Illustration; theme?: Theme; hover?: boolean; fit?: number; maxPitch?: number; look?: DotStyle }) {
+export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitch = 9, look = "halftone" }: { ill: Illustration; theme?: Theme; hover?: boolean; fit?: number; maxPitch?: number; look?: DotStyle }) {
+  // on a light page white dots would vanish: the White colour becomes ink there
+  const light = useSyncExternalStore(siteTheme.subscribe, () => siteTheme.get() === "light", () => false);
+  const theme: Theme = useMemo(() => (light && chosen.name === "White" ? { ...chosen, a: "#262a31", bg: "#f7f8f9" } : chosen), [light, chosen]);
   const box = useRef<HTMLDivElement>(null);
   const cv = useRef<HTMLCanvasElement>(null);
   const [pitch, setPitch] = useState(5);

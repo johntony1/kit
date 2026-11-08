@@ -7,9 +7,9 @@ export default function Lab({ k }: { k: string }) {
   const C = NATIVE[k];
   if (!C) return <p style={{ color: "#fff", padding: 24 }}>No component "{k}". Have: {Object.keys(NATIVE).join(", ")}</p>;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: 16, background: "#121312", minHeight: "100vh" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: 16, background: "var(--bg)", minHeight: "100vh" }}>
       {BOXES.map(([label, w, h, size]) => (
-        <div key={label} style={{ width: w, height: h, position: "relative", borderRadius: 28, background: "#191a19", boxShadow: "inset 0 1px 0 rgba(255,255,255,.04), 0 0 0 1px rgba(255,255,255,.04)", overflow: "hidden" }}>
+        <div key={label} style={{ width: w, height: h, position: "relative", borderRadius: 28, background: "var(--k-card)", boxShadow: "0 0 0 1px var(--k-line)", overflow: "hidden" }}>
           <C size={size} />
           <span style={{ position: "absolute", left: 12, top: 8, font: "11px monospace", color: "#5d6862", pointerEvents: "none" }}>{label} {w}×{h}</span>
         </div>

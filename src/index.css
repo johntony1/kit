@@ -664,52 +664,67 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .vintage:focus-visible { outline: 2px solid rgba(125, 255, 174, 0.7); outline-offset: 3px; }
 .vintage svg { display: block; }
 
-/* ── light theme ──────────────────────────────────────────── */
+/* ── light theme: a Linear-style scale in OKLCH ─────────────
+ * One cool neutral hue (264) at very low chroma, so every grey belongs to the same family.
+ * Surfaces are white, separated by hairlines and soft layered shadows; ink steps are spaced
+ * evenly in lightness (text 0.22, text2 0.38, muted 0.53, faint 0.69). On the 0.982 page:
+ * text, text2 and muted all clear WCAG AA for body text; faint is for decoration only. */
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f3f4f3;
-  --chrome: #f3f4f3;
-  --sheet: #fbfbfa;
-  --panel: #ffffff;
-  --raised: #ffffff;
-  --line: rgba(0, 0, 0, 0.07);
-  --line2: rgba(0, 0, 0, 0.11);
-  --text: #161816;
-  --text2: #3a3e3b;
-  --muted: #6d746f;
-  --faint: #9aa19c;
-  --sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 50%);
-  --surface: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.05), 0 12px 32px -16px rgba(0, 0, 0, 0.14);
-  --lift: inset 0 1px 0 #fff, 0 0 0 1px rgba(0, 0, 0, 0.09), 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 10px -4px rgba(0, 0, 0, 0.12);
+  --bg: oklch(0.982 0.002 264);
+  --chrome: oklch(0.982 0.002 264);
+  --sheet: oklch(0.994 0.001 264);
+  --panel: oklch(1 0 0);
+  --raised: oklch(1 0 0);
+  --well: oklch(0.962 0.003 264);
+  --line: oklch(0.22 0.008 264 / 0.08);
+  --line2: oklch(0.22 0.008 264 / 0.13);
+  --text: oklch(0.22 0.008 264);
+  --text2: oklch(0.38 0.009 264);
+  --muted: oklch(0.53 0.011 264);
+  --faint: oklch(0.69 0.009 264);
+  --sheen: linear-gradient(180deg, oklch(1 0 0 / 0.6), oklch(1 0 0 / 0) 50%);
+  --surface: 0 0 0 1px oklch(0.22 0.008 264 / 0.07), 0 1px 2px oklch(0.22 0.008 264 / 0.04), 0 8px 24px -12px oklch(0.22 0.008 264 / 0.1);
+  --lift: inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 1px 2px oklch(0.22 0.008 264 / 0.06), 0 2px 6px -2px oklch(0.22 0.008 264 / 0.08);
 }
-:root[data-theme="light"] body::before { opacity: 0.03; mix-blend-mode: multiply; }
+:root[data-theme="light"] body::before { opacity: 0; }
+/* pills, chips, filters: a quiet grey well; the chosen one lifts out in white */
 :root[data-theme="light"] .topLink.on,
 :root[data-theme="light"] .topPill,
 :root[data-theme="light"] .bnPill,
-:root[data-theme="light"] .bnChip { background: rgba(0, 0, 0, 0.045); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.03); }
+:root[data-theme="light"] .bnChip,
+:root[data-theme="light"] .chip { background: var(--well); box-shadow: inset 0 0 0 1px oklch(0.22 0.008 264 / 0.04); color: var(--text2); }
+:root[data-theme="light"] .bnChip, :root[data-theme="light"] .chip { color: var(--muted); }
 :root[data-theme="light"] .topPill:hover,
-:root[data-theme="light"] .bnChip:hover { background: rgba(0, 0, 0, 0.07); }
+:root[data-theme="light"] .bnChip:hover,
+:root[data-theme="light"] .chip:hover { background: oklch(0.945 0.004 264); color: var(--text); }
+:root[data-theme="light"] .topLink.on,
 :root[data-theme="light"] .bnChip.on,
-:root[data-theme="light"] .chip.on { background: #fff; color: var(--text); box-shadow: var(--lift); }
-:root[data-theme="light"] .chip { background: rgba(0, 0, 0, 0.04); box-shadow: none; }
-:root[data-theme="light"] .bnCard { background: var(--sheen), #fafbfa; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04); }
+:root[data-theme="light"] .chip.on { background: var(--panel); color: var(--text); box-shadow: var(--lift); }
+/* cards and the sheet */
+:root[data-theme="light"] .bnCard { background: oklch(0.994 0.001 264); box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.07), 0 1px 2px oklch(0.22 0.008 264 / 0.04); }
+:root[data-theme="light"] .bnCard:hover { box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 1px 2px oklch(0.22 0.008 264 / 0.05), 0 12px 28px -14px oklch(0.22 0.008 264 / 0.16); }
 :root[data-theme="light"] .bnTag,
-:root[data-theme="light"] .bnName { background: rgba(255, 255, 255, 0.85); color: var(--text2); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.05); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-:root[data-theme="light"] .bnGo { background: #161816; color: #fff; }
-:root[data-theme="light"] .bnScrim { background: rgba(240, 241, 240, 0.7); }
-:root[data-theme="light"] .bnSheet { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.07), 0 40px 80px -20px rgba(0, 0, 0, 0.25); }
+:root[data-theme="light"] .bnName { background: oklch(1 0 0 / 0.86); color: var(--text2); box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 1px 2px oklch(0.22 0.008 264 / 0.05); }
+:root[data-theme="light"] .bnGo { background: var(--text); color: oklch(1 0 0); }
+:root[data-theme="light"] .bnScrim { background: oklch(0.96 0.003 264 / 0.72); }
+:root[data-theme="light"] .bnSheet { box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 24px 64px -16px oklch(0.22 0.008 264 / 0.22), 0 4px 12px -4px oklch(0.22 0.008 264 / 0.08); }
 :root[data-theme="light"] .bnClose,
 :root[data-theme="light"] .btn.line,
-:root[data-theme="light"] .segThumb { background: linear-gradient(180deg, #ffffff, #f4f5f4); box-shadow: var(--lift); color: var(--text2); }
-:root[data-theme="light"] .btn.line:hover { background: #fff; }
-:root[data-theme="light"] .seg { background: rgba(0, 0, 0, 0.05); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08); }
+:root[data-theme="light"] .segThumb { background: var(--panel); box-shadow: var(--lift); color: var(--text2); }
+:root[data-theme="light"] .btn.line:hover { background: oklch(0.985 0.002 264); color: var(--text); }
+:root[data-theme="light"] .seg { background: var(--well); box-shadow: inset 0 0 0 1px oklch(0.22 0.008 264 / 0.04); }
+:root[data-theme="light"] .panel { background: var(--panel); box-shadow: var(--surface); }
 :root[data-theme="light"] .colorCtl,
-:root[data-theme="light"] .installPanel .code { background: rgba(0, 0, 0, 0.04); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06); }
-:root[data-theme="light"] .code pre { scrollbar-color: rgba(0, 0, 0, 0.15) transparent; }
-:root[data-theme="light"] .panelHint { background: rgba(255, 255, 255, 0.9); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08); }
+:root[data-theme="light"] .installPanel .code { background: var(--well); box-shadow: inset 0 0 0 1px oklch(0.22 0.008 264 / 0.05); }
+:root[data-theme="light"] .code pre { scrollbar-color: oklch(0.22 0.008 264 / 0.18) transparent; }
+:root[data-theme="light"] .panelHint { background: oklch(1 0 0 / 0.9); box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.08); }
 :root[data-theme="light"] .panel.esBig,
-:root[data-theme="light"] .panel.esContext { background: #f6f7f6; }
-:root[data-theme="light"] .bnQr { background: radial-gradient(80% 70% at 50% 45%, #ffffff, #eef0ee); }
+:root[data-theme="light"] .panel.esContext { background: oklch(0.975 0.002 264); }
+:root[data-theme="light"] .bnQr { background: radial-gradient(80% 70% at 50% 45%, oklch(1 0 0), oklch(0.965 0.003 264)); }
+:root[data-theme="light"] .rocker.isLight .rkBody { background: oklch(0.93 0.004 264); box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 2px 0 oklch(0.72 0.17 150), 0 3px 6px -1px oklch(0.62 0.16 150 / 0.35); }
+:root[data-theme="light"] .rocker.isLight .rkTop { background: linear-gradient(180deg, oklch(0.89 0.004 264), oklch(0.925 0.004 264)); color: var(--muted); box-shadow: inset 0 2px 3px oklch(0.22 0.008 264 / 0.16); }
+:root[data-theme="light"] .rocker.isLight .rkBot { background: linear-gradient(180deg, oklch(1 0 0), oklch(0.965 0.003 264)); color: var(--text2); }
 
 /* the theme change: the new theme grows out of the switch as a circle */
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
@@ -734,3 +749,66 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .rocker.isLight .rkBot { background: linear-gradient(180deg, #ffffff, #f2f3f2); color: #3a3e3b; box-shadow: inset 0 1px 0 #fff, 0 -1px 0 rgba(0, 0, 0, 0.06); }
 .rocker.isLight .rkBot svg { opacity: 0.6; }
 .rocker:active .rkHalf { transform: scale(0.97); }
+
+/* ── component tokens ─────────────────────────────────────────
+ * Every component in src/components paints with these, so each one has a dark and a light look.
+ * Dark values are the original dark palette; light values sit on the same OKLCH neutral (264)
+ * as the page. Accents (green, the brand colours of cards, flags) are not tokens. */
+:root {
+  --k-card: #191a19;                 /* the tile behind a component */
+  --k-surface: #242624;              /* a widget's main body */
+  --k-raised: linear-gradient(180deg, #2b2d2b, #242624); /* buttons, pills, thumbs that stand up */
+  --k-raised-solid: #2b2d2b;
+  --k-raised-hi: #313331;            /* raised, hovered */
+  --k-well: rgba(0, 0, 0, 0.24);     /* inset tracks, inputs, recessed areas */
+  --k-well-solid: #1d1f1d;
+  --k-sunk: #121312;                 /* the deepest inset (slots, holes) */
+  --k-text: #e3e8e3;
+  --k-text2: #c2cbc4;
+  --k-muted: #8b968f;
+  --k-faint: #5d6862;
+  --k-line: rgba(255, 255, 255, 0.07);     /* hairline dividers and inner borders */
+  --k-line2: rgba(255, 255, 255, 0.12);
+  --k-hi: rgba(255, 255, 255, 0.07);       /* the top inner highlight of a raised thing */
+  --k-ring: rgba(0, 0, 0, 0.55);           /* the outer 1px ring of a raised thing */
+  --k-shadow: rgba(0, 0, 0, 0.45);         /* drop shadows */
+  --k-shadow-soft: rgba(0, 0, 0, 0.3);
+  --k-inset: rgba(0, 0, 0, 0.45);          /* inner shadow of a well */
+  --k-lift: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 10px -4px rgba(0, 0, 0, 0.4);
+  --k-float: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 16px 40px rgba(0, 0, 0, 0.45);  /* popovers, menus */
+  --k-on-accent: #ffffff;
+}
+:root[data-theme="light"] {
+  --k-card: oklch(0.994 0.001 264);
+  --k-surface: oklch(1 0 0);
+  --k-raised: linear-gradient(180deg, oklch(1 0 0), oklch(0.975 0.002 264));
+  --k-raised-solid: oklch(1 0 0);
+  --k-raised-hi: oklch(0.985 0.002 264);
+  --k-well: oklch(0.955 0.003 264);
+  --k-well-solid: oklch(0.955 0.003 264);
+  --k-sunk: oklch(0.92 0.004 264);
+  --k-text: oklch(0.22 0.008 264);
+  --k-text2: oklch(0.38 0.009 264);
+  --k-muted: oklch(0.53 0.011 264);
+  --k-faint: oklch(0.69 0.009 264);
+  --k-line: oklch(0.22 0.008 264 / 0.08);
+  --k-line2: oklch(0.22 0.008 264 / 0.13);
+  --k-hi: oklch(1 0 0 / 0.9);
+  --k-ring: oklch(0.22 0.008 264 / 0.1);
+  --k-shadow: oklch(0.22 0.008 264 / 0.12);
+  --k-shadow-soft: oklch(0.22 0.008 264 / 0.07);
+  --k-inset: oklch(0.22 0.008 264 / 0.08);
+  --k-lift: inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 1px 2px oklch(0.22 0.008 264 / 0.06), 0 2px 6px -2px oklch(0.22 0.008 264 / 0.08);
+  --k-float: 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 16px 40px -8px oklch(0.22 0.008 264 / 0.18);
+  --k-on-accent: #ffffff;
+}
+/* wireframe pages in light: white, light grey and a cooler grey page, with ink bars */
+:root[data-theme="light"] .miniWin { box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 2px 4px oklch(0.22 0.008 264 / 0.06), 0 18px 36px -14px oklch(0.22 0.008 264 / 0.2); }
+:root[data-theme="light"] .wf0 { background: oklch(1 0 0); }
+:root[data-theme="light"] .wf1 { background: oklch(0.968 0.003 264); }
+:root[data-theme="light"] .wf2 { background: oklch(0.935 0.005 264); }
+:root[data-theme="light"] .wfBar { background: oklch(0.22 0.008 264 / 0.1); }
+:root[data-theme="light"] .wfLogo, :root[data-theme="light"] .wfAvatar, :root[data-theme="light"] .wfBtn { background: oklch(0.22 0.008 264 / 0.12); box-shadow: none; }
+:root[data-theme="light"] .wfLinks span.on { background: oklch(0.22 0.008 264 / 0.06); }
+:root[data-theme="light"] .wfLinks span.on .wfBar { background: oklch(0.22 0.008 264 / 0.32); }
+:root[data-theme="light"] .wfTile { background: oklch(1 0 0 / 0.6); box-shadow: inset 0 0 0 1px oklch(0.22 0.008 264 / 0.08); }
