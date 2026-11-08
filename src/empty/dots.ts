@@ -184,6 +184,62 @@ export function renderGrid(ill: Illustration, t: number, h: number): Float32Arra
   return out;
 }
 
+/** the scene in grey at display resolution, for the smooth layer. px: pixels per dot */
+let hiCanvas: HTMLCanvasElement | OffscreenCanvas | null = null;
+export function renderHi(ill: Illustration, t: number, h: number, px: number, win: { q0: number; r0: number; w: number; h: number }) {
+  const W = Math.max(1, Math.round(win.w * px)), H = Math.max(1, Math.round(win.h * px));
+  if (!hiCanvas) hiCanvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(W, H) : document.createElement("canvas");
+  if (hiCanvas.width !== W) hiCanvas.width = W;
+  if (hiCanvas.height !== H) hiCanvas.height = H;
+  const c = hiCanvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.fillStyle = "#000"; c.fillRect(0, 0, W, H);
+  const z = ill.zoom ?? 1;
+  c.setTransform(px * z, 0, 0, px * z, -win.q0 * px, -win.r0 * px);
+  ill.draw(new Pen(c, ill.cols / 2 / z, ill.rows / 2 / z), t, h);
+  return c.getImageData(0, 0, W, H);
+}
+
+/** grey to theme colour, alpha from brightness. cap: the brightest the smooth layer gets */
+export function colorize(img: ImageData, theme: Theme, cap = 1, gain = 1) {
+  const A = hex(theme.a), B = hex(theme.b ?? theme.a);
+  const d = img.data, W = img.width, H = img.height;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      // fade out near the window's edges so soft shadows never end in a straight line
+      const ex = Math.min(x, W - 1 - x) / (W * 0.08), ey = Math.min(y, H - 1 - y) / (H * 0.08);
+      const edge = Math.min(1, ex, ey);
+      const v = Math.min(cap, (d[i] / 255) * gain) * (edge < 1 ? edge * edge * (3 - 2 * edge) : 1);
+      const k = (x / W) * 0.6 + (y / H) * 0.4;
+      d[i] = A[0] + (B[0] - A[0]) * k; d[i + 1] = A[1] + (B[1] - A[1]) * k; d[i + 2] = A[2] + (B[2] - A[2]) * k;
+      d[i + 3] = v * 255;
+    }
+  }
+  return img;
+}
+
+export type DotStyle = "dots" | "solid";
+/** the dots style: bodies are a smooth soft tint, only edges and accents (bright parts) become dots */
+export const EDGE_MIN = 0.36;
+export const BODY_CAP = 0.3;
+
+/** paint one frame in a style onto ctx (already scaled so 1 unit = 1 css px). px: css px per dot */
+export function paintFrame(ctx: CanvasRenderingContext2D, ill: Illustration, t: number, h: number, theme: Theme, px: number, style: DotStyle, dpr = 1) {
+  const win = bounds(ill);
+  const smoothPx = px * (style === "solid" ? dpr : Math.min(dpr, 1.25));
+  const img = colorize(renderHi(ill, t, h, smoothPx, win), theme, style === "solid" ? 1 : BODY_CAP, style === "solid" ? 1.15 : 1);
+  if (!layer) layer = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(img.width, img.height) : document.createElement("canvas");
+  layer.width = img.width; layer.height = img.height;
+  (layer.getContext("2d") as CanvasRenderingContext2D).putImageData(img, 0, 0);
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(layer as CanvasImageSource, 0, 0, win.w * px, win.h * px);
+  ctx.restore();
+  if (style === "dots") paintDots(ctx, renderGrid(ill, t, h), ill.cols, ill.rows, theme, px, false, win, EDGE_MIN);
+}
+let layer: HTMLCanvasElement | OffscreenCanvas | null = null;
+
 /** the part of the grid the piece ever lights (sampled over its motion), plus a margin of dots */
 const boundsCache = new Map<string, { q0: number; r0: number; w: number; h: number }>();
 export function bounds(ill: Illustration, margin = 3) {
@@ -237,12 +293,13 @@ export const baseAlpha = (u: number, w: number) => {
 };
 
 /** paint the grid as dots. pitch: px per dot. Returns nothing; draws onto `ctx` at (0,0) */
-export function paintDots(ctx: CanvasRenderingContext2D, grid: Float32Array, cols: number, rows: number, theme: Theme, pitch: number, base = true, win?: { q0: number; r0: number; w: number; h: number }) {
+export function paintDots(ctx: CanvasRenderingContext2D, grid: Float32Array, cols: number, rows: number, theme: Theme, pitch: number, base = true, win?: { q0: number; r0: number; w: number; h: number }, minB = 0) {
   const A = hex(theme.a), B = hex(theme.b ?? theme.a);
   const W = win ?? { q0: 0, r0: 0, w: cols, h: rows };
   for (let r = W.r0; r < W.r0 + W.h; r++) {
     for (let q = W.q0; q < W.q0 + W.w; q++) {
-      const v = dotOf(grid[r * cols + q]);
+      const b0 = grid[r * cols + q];
+      const v = minB ? (b0 < minB ? 0 : dotOf(0.25 + ((b0 - minB) / (1 - minB)) * 0.75)) : dotOf(b0);
       const cx = (q - W.q0 + 0.5) * pitch, cy = (r - W.r0 + 0.5) * pitch;
       if (v === 0) {
         if (!base) continue;
@@ -263,26 +320,27 @@ export function paintDots(ctx: CanvasRenderingContext2D, grid: Float32Array, col
 
 /* ── exports ── */
 
-/** the current frame as an SVG of circles */
-export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pitch = 8) {
-  const g = renderGrid(ill, t, h);
-  const A = hex(theme.a), B = hex(theme.b ?? theme.a);
+/** the current frame as an SVG: the dots as circles over the smooth body (or the solid render) */
+export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pitch = 8, style: DotStyle = "dots") {
   const bx = bounds(ill);
   const W = bx.w * pitch, H = bx.h * pitch;
-  const parts: string[] = [];
-  for (let r = bx.r0; r < bx.r0 + bx.h; r++) {
-    for (let q = bx.q0; q < bx.q0 + bx.w; q++) {
-      const v = dotOf(g[r * ill.cols + q]);
-      const cx = ((q - bx.q0 + 0.5) * pitch).toFixed(1), cy = ((r - bx.r0 + 0.5) * pitch).toFixed(1);
-      if (v === 0) {
-        const a = baseAlpha(((q - bx.q0 + 0.5) / bx.w) * 2 - 1, ((r - bx.r0 + 0.5) / bx.h) * 2 - 1);
-        if (a >= 0.004) parts.push(`<circle cx="${cx}" cy="${cy}" r="${(pitch * 0.14).toFixed(2)}" fill="#fff" fill-opacity="${a.toFixed(3)}"/>`);
-        continue;
+  const img = colorize(renderHi(ill, t, h, pitch * 2, bx), theme, style === "solid" ? 1 : BODY_CAP, style === "solid" ? 1.15 : 1);
+  const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+  cv.getContext("2d")!.putImageData(img, 0, 0);
+  const parts: string[] = [`<image href="${cv.toDataURL("image/png")}" x="0" y="0" width="${W}" height="${H}"/>`];
+  if (style === "dots") {
+    const g = renderGrid(ill, t, h);
+    const A = hex(theme.a), B = hex(theme.b ?? theme.a);
+    for (let r = bx.r0; r < bx.r0 + bx.h; r++) {
+      for (let q = bx.q0; q < bx.q0 + bx.w; q++) {
+        const b0 = g[r * ill.cols + q];
+        if (b0 < EDGE_MIN) continue;
+        const v = dotOf(0.25 + ((b0 - EDGE_MIN) / (1 - EDGE_MIN)) * 0.75);
+        const k = ((q - bx.q0) / bx.w) * 0.6 + ((r - bx.r0) / bx.h) * 0.4;
+        const col = A.map((x, i) => Math.round(x + (B[i] - x) * k).toString(16).padStart(2, "0")).join("");
+        const d = litDot(v);
+        parts.push(`<circle cx="${((q - bx.q0 + 0.5) * pitch).toFixed(1)}" cy="${((r - bx.r0 + 0.5) * pitch).toFixed(1)}" r="${(pitch * d.r).toFixed(2)}" fill="#${col}" fill-opacity="${d.a.toFixed(2)}"/>`);
       }
-      const k = ((q - bx.q0) / bx.w) * 0.6 + ((r - bx.r0) / bx.h) * 0.4;
-      const col = A.map((x, i) => Math.round(x + (B[i] - x) * k).toString(16).padStart(2, "0")).join("");
-      const d = litDot(v);
-      parts.push(`<circle cx="${cx}" cy="${cy}" r="${(pitch * d.r).toFixed(2)}" fill="#${col}" fill-opacity="${d.a.toFixed(2)}"/>`);
     }
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="100%" height="100%" fill="${theme.bg}"/>${parts.join("")}</svg>`;
@@ -298,7 +356,7 @@ export function hoverAt(u: number) {
 }
 
 /** the loop (or the hover played in and out) as an animated GIF */
-export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24): Promise<Blob> {
+export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24, style: DotStyle = "dots"): Promise<Blob> {
   const { GIFEncoder, quantize, applyPalette } = await import("gifenc");
   const dur = ill.kind === "loop" ? ill.period ?? 3 : 3.2;
   const n = Math.round(dur * fps);
@@ -310,9 +368,8 @@ export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24
   let palette: number[][] | null = null;
   for (let i = 0; i < n; i++) {
     const u = i / n;
-    const g = ill.kind === "loop" ? renderGrid(ill, u * dur, 0) : renderGrid(ill, u * dur, hoverAt(u));
     c.fillStyle = theme.bg; c.fillRect(0, 0, W, H);
-    paintDots(c, g, ill.cols, ill.rows, theme, pitch, true, bx);
+    paintFrame(c, ill, u * dur, ill.kind === "loop" ? 0 : hoverAt(u), theme, pitch, style, 1);
     const data = c.getImageData(0, 0, W, H).data;
     palette ??= quantize(data, 64);
     gif.writeFrame(applyPalette(data, palette), W, H, { palette, delay: Math.round(1000 / fps) });

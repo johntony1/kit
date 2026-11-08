@@ -1,9 +1,9 @@
 // DotArt: a live dot matrix illustration that fits its box. Loop pieces always move (while on
 // screen); hover pieces rest and play while the pointer is over them (or `hover` is set).
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { bounds, paintDots, renderGrid, THEMES, type Illustration, type Theme } from "./dots";
+import { bounds, paintFrame, THEMES, type DotStyle, type Illustration, type Theme } from "./dots";
 
-export function DotArt({ ill, theme = THEMES[0], hover, fit = 1, maxPitch = 9 }: { ill: Illustration; theme?: Theme; hover?: boolean; fit?: number; maxPitch?: number }) {
+export function DotArt({ ill, theme = THEMES[0], hover, fit = 1, maxPitch = 9, look = "dots" }: { ill: Illustration; theme?: Theme; hover?: boolean; fit?: number; maxPitch?: number; look?: DotStyle }) {
   const box = useRef<HTMLDivElement>(null);
   const cv = useRef<HTMLCanvasElement>(null);
   const [pitch, setPitch] = useState(5);
@@ -45,18 +45,17 @@ export function DotArt({ ill, theme = THEMES[0], hover, fit = 1, maxPitch = 9 }:
       const moving = ill.kind === "loop" ? !still : h.current !== drawn || (target === 1 && !still);
       if (ill.kind === "loop" || target === 1) t += dt;
       if (moving || drawn < 0) {
-        const g = renderGrid(ill, still ? (ill.period ?? 3) * 0.3 : t, still ? Math.round(h.current) : h.current);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, W, H);
-        paintDots(ctx, g, ill.cols, ill.rows, theme, pitch, true, win);
+        paintFrame(ctx, ill, still ? (ill.period ?? 3) * 0.3 : t, still ? Math.round(h.current) : h.current, theme, pitch, look, dpr);
         drawn = h.current;
       }
       raf = requestAnimationFrame(frame);
     };
     if (seen) raf = requestAnimationFrame(frame);
-    else { const g = renderGrid(ill, 0, 0); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); paintDots(ctx, g, ill.cols, ill.rows, theme, pitch, true, win); }
+    else { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); paintFrame(ctx, ill, 0, 0, theme, pitch, look, dpr); }
     return () => cancelAnimationFrame(raf);
-  }, [ill, theme, pitch, seen]);
+  }, [ill, theme, pitch, seen, look]);
 
   return (
     <div ref={box} className="dotArt" onPointerEnter={() => setOver(true)} onPointerLeave={() => setOver(false)}>

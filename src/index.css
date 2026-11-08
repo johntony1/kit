@@ -657,3 +657,4 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .esEmptyArt { position: relative; width: 240px; height: 210px; }
 .esEmpty h3 { margin: 18px 0 6px; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
 .esEmpty p { margin: 0 0 18px; font-size: 14px; line-height: 1.5; color: var(--muted); text-wrap: pretty; }
+.esSegs { display: flex; gap: 8px; flex-wrap: wrap; }

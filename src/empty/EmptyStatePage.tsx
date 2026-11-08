@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Code, CopyIcon, Seg, useCopy } from "../site/ui";
 import { Later } from "../site/sheet";
 import { DotArt } from "./DotArt";
-import { THEMES, toGIF, toSVG, type Illustration, type Theme } from "./dots";
+import { THEMES, toGIF, toSVG, type DotStyle, type Illustration, type Theme } from "./dots";
 import { ILL_SRC } from "./ills";
 import dotsSrc from "./dots.ts?raw";
 import artSrc from "./DotArt.tsx?raw";
@@ -38,6 +38,7 @@ It is a ${ill.kind === "loop" ? "looping" : "hover"} illustration drawn as a dot
 3D scene is drawn with a pen (boxes, faces, lines), rasterised offscreen, and every cell of a
 ${ill.cols} by ${ill.rows} grid becomes one round dot whose size and brightness follow the scene.
 Unlit dots stay faintly visible. ${ill.kind === "loop" ? `It loops every ${ill.period ?? 3} seconds.` : "It rests, and plays while the pointer is over it."}
+Style: the bodies are a smooth soft tint and only edges and accents become dots (pass look="solid" for a smooth render).
 
 Add the three files below as they are (no dependencies beyond React), then render
 <DotArt ill={${ill.k}} /> inside a positioned box with a size. Keep the dot style, the timings
@@ -72,15 +73,17 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
   const [tab, setTab] = useState<"Preview" | "Code">("Preview");
   const [theme, setTheme] = useState<Theme>(THEMES[0]);
   const [gif, setGif] = useState<"idle" | "busy">("idle");
+  const [look, setLook] = useState<"Dots" | "Solid">("Dots");
+  const style = look.toLowerCase() as DotStyle;
   const prompt = useCopy();
   const file = fileOf(ill.k);
-  const slug = `${ill.k}-${theme.name.toLowerCase()}`;
+  const slug = `${ill.k}-${style}-${theme.name.toLowerCase()}`;
 
-  const svg = () => save(new Blob([toSVG(ill, (ill.period ?? 3) * 0.5, 0, theme)], { type: "image/svg+xml" }), `${slug}.svg`);
+  const svg = () => save(new Blob([toSVG(ill, (ill.period ?? 3) * 0.5, 0, theme, 8, style)], { type: "image/svg+xml" }), `${slug}.svg`);
   const makeGif = async () => {
     if (gif === "busy") return;
     setGif("busy");
-    try { save(await toGIF(ill, theme), `${slug}.gif`); } finally { setGif("idle"); }
+    try { save(await toGIF(ill, theme, 6, 24, style), `${slug}.gif`); } finally { setGif("idle"); }
   };
 
   return (
@@ -88,7 +91,10 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
       <h1 className="h1">{ill.name}</h1>
       <p className="lede">For “{ill.title}”. {ill.kind === "loop" ? "It loops on its own." : "It rests, and plays when you hover it."} Copy the prompt or the code, or download it as an SVG or a GIF.</p>
       <div className="bar">
-        <Seg label="View" value={tab} options={["Preview", "Code"] as const} onChange={setTab} />
+        <div className="esSegs">
+          <Seg label="View" value={tab} options={["Preview", "Code"] as const} onChange={setTab} />
+          <Seg label="Style" value={look} options={["Dots", "Solid"] as const} onChange={setLook} />
+        </div>
         <div className="barRight">
           <div className="esSwatches" role="radiogroup" aria-label="Dot colour">
             {THEMES.map((t) => (
@@ -104,13 +110,13 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
       {tab === "Preview" ? (
         <>
           <div className="panel esBig">
-            <DotArt ill={ill} theme={theme} maxPitch={8} fit={0.92} />
+            <DotArt ill={ill} theme={theme} maxPitch={8} fit={0.92} look={style} />
             {ill.kind === "hover" && <span className="esHint">Hover to play</span>}
           </div>
           <Later>
             <div className="panel esContext">
               <div className="esEmpty">
-                <div className="esEmptyArt"><DotArt ill={ill} theme={theme} fit={1} /></div>
+                <div className="esEmptyArt"><DotArt ill={ill} theme={theme} fit={1} look={style} /></div>
                 <h3>{ill.title}</h3>
                 <p>{ill.body}</p>
                 <button type="button" className="btn primary">Get started</button>
