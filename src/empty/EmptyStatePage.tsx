@@ -34,11 +34,12 @@ export function emptyPrompt(ill: Illustration) {
 
 Use it for: ${ill.title}. ${ill.body}
 
-It is a ${ill.kind === "loop" ? "looping" : "hover"} illustration drawn as a dot matrix: a small isometric
-3D scene is drawn with a pen (boxes, faces, lines), rasterised offscreen, and every cell of a
-${ill.cols} by ${ill.rows} grid becomes one round dot whose size and brightness follow the scene.
-Unlit dots stay faintly visible. ${ill.kind === "loop" ? `It loops every ${ill.period ?? 3} seconds.` : "It rests, and plays while the pointer is over it."}
-Style: the bodies are a smooth soft tint and only edges and accents become dots (pass look="solid" for a smooth render).
+It is a ${ill.kind === "loop" ? "looping" : "hover"} illustration. A small isometric 3D scene is drawn with a pen
+(boxes, faces, lines) and rendered in one of two styles: halftone (each cell of a grid becomes one
+round dot sized by the shading, lit tops full, walls in shade smaller, no outlines, details as gaps)
+or soft (smooth pale volumes with a top-down gradient, fine grain and soft shadows).
+${ill.kind === "loop" ? `It loops every ${ill.period ?? 3} seconds.` : "It rests, and plays while the pointer is over it."}
+Style: halftone, each cell of the grid is one dot sized by the shading, no outlines (pass look="soft" for smooth light volumes with grain).
 
 Add the three files below as they are (no dependencies beyond React), then render
 <DotArt ill={${ill.k}} /> inside a positioned box with a size. Keep the dot style, the timings
@@ -73,7 +74,7 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
   const [tab, setTab] = useState<"Preview" | "Code">("Preview");
   const [theme, setTheme] = useState<Theme>(THEMES[0]);
   const [gif, setGif] = useState<"idle" | "busy">("idle");
-  const [look, setLook] = useState<"Dots" | "Solid">("Dots");
+  const [look, setLook] = useState<"Halftone" | "Soft">("Halftone");
   const style = look.toLowerCase() as DotStyle;
   const prompt = useCopy();
   const file = fileOf(ill.k);
@@ -93,7 +94,7 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
       <div className="bar">
         <div className="esSegs">
           <Seg label="View" value={tab} options={["Preview", "Code"] as const} onChange={setTab} />
-          <Seg label="Style" value={look} options={["Dots", "Solid"] as const} onChange={setLook} />
+          <Seg label="Style" value={look} options={["Halftone", "Soft"] as const} onChange={setLook} />
         </div>
         <div className="barRight">
           <div className="esSwatches" role="radiogroup" aria-label="Dot colour">

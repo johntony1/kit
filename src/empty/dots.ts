@@ -49,7 +49,10 @@ export interface BoxStyle { top?: number; left?: number; right?: number; edge?: 
 export class Pen {
   private m: M = I;
   private stack: M[] = [];
-  constructor(private c: CanvasRenderingContext2D, private ox: number, private oy: number) {}
+  /** tone: faces are filled with light-shaded tones (no outlines), details become darker lines */
+  constructor(private c: CanvasRenderingContext2D, private ox: number, private oy: number, private tone = false, private lineTone = 0.08) {}
+  /** a face's line-art fill to a lit tone: top brightest, left wall mid, right wall darkest */
+  private toneOf(f: number) { return f < 0.05 ? 0.3 : Math.min(1, 0.45 + f * 2.8); }
 
   push() { this.stack.push(this.m); }
   pop() { this.m = this.stack.pop() ?? I; }
@@ -88,6 +91,11 @@ export class Pen {
   /** a flat polygon in 3D, filled with `fill` and outlined with `edge` */
   face(pts: V3[], fill: number, edge = SH.edge, lw = 0.55) {
     this.path(pts);
+    if (this.tone) {
+      if (fill > 0) { this.c.fillStyle = this.g(this.toneOf(fill)); this.c.fill(); }
+      else if (edge > 0) { this.c.strokeStyle = this.g(this.lineTone); this.c.lineWidth = lw; this.c.lineJoin = "round"; this.c.stroke(); }
+      return;
+    }
     if (fill > 0) { this.c.fillStyle = this.g(fill); this.c.fill(); }
     if (edge > 0) { this.c.strokeStyle = this.g(edge); this.c.lineWidth = lw; this.c.lineJoin = "round"; this.c.stroke(); }
   }
@@ -96,7 +104,7 @@ export class Pen {
   /** a line between points */
   line(pts: V3[], shade = SH.edge, lw = 0.55) {
     this.path(pts, false);
-    this.c.strokeStyle = this.g(shade); this.c.lineWidth = lw; this.c.lineCap = "round"; this.c.lineJoin = "round"; this.c.stroke();
+    this.c.strokeStyle = this.g(this.tone ? (shade > 0.9 ? this.lineTone : Math.min(1, 0.45 + shade)) : shade); this.c.lineWidth = lw; this.c.lineCap = "round"; this.c.lineJoin = "round"; this.c.stroke();
   }
   /** a solid dot in 3D */
   dot(p: V3, r: number, shade = SH.glow) {
@@ -186,7 +194,7 @@ export function renderGrid(ill: Illustration, t: number, h: number): Float32Arra
 
 /** the scene in grey at display resolution, for the smooth layer. px: pixels per dot */
 let hiCanvas: HTMLCanvasElement | OffscreenCanvas | null = null;
-export function renderHi(ill: Illustration, t: number, h: number, px: number, win: { q0: number; r0: number; w: number; h: number }) {
+export function renderHi(ill: Illustration, t: number, h: number, px: number, win: { q0: number; r0: number; w: number; h: number }, tone = false, lineTone = 0.08) {
   const W = Math.max(1, Math.round(win.w * px)), H = Math.max(1, Math.round(win.h * px));
   if (!hiCanvas) hiCanvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(W, H) : document.createElement("canvas");
   if (hiCanvas.width !== W) hiCanvas.width = W;
@@ -196,7 +204,7 @@ export function renderHi(ill: Illustration, t: number, h: number, px: number, wi
   c.fillStyle = "#000"; c.fillRect(0, 0, W, H);
   const z = ill.zoom ?? 1;
   c.setTransform(px * z, 0, 0, px * z, -win.q0 * px, -win.r0 * px);
-  ill.draw(new Pen(c, ill.cols / 2 / z, ill.rows / 2 / z), t, h);
+  ill.draw(new Pen(c, ill.cols / 2 / z, ill.rows / 2 / z, tone, lineTone), t, h);
   return c.getImageData(0, 0, W, H);
 }
 
@@ -219,24 +227,70 @@ export function colorize(img: ImageData, theme: Theme, cap = 1, gain = 1) {
   return img;
 }
 
-export type DotStyle = "dots" | "solid";
-/** the dots style: bodies are a smooth soft tint, only edges and accents (bright parts) become dots */
-export const EDGE_MIN = 0.36;
-export const BODY_CAP = 0.3;
+export type DotStyle = "halftone" | "soft";
 
-/** paint one frame in a style onto ctx (already scaled so 1 unit = 1 css px). px: css px per dot */
+/** halftone cell size, in grid dots: bigger cells, fewer and bolder dots */
+export const CELL = 2;
+
+/** the scene as halftone tones: one value per cell over the piece's window */
+export function toneGrid(ill: Illustration, t: number, h: number, cell = CELL) {
+  const win = bounds(ill);
+  const img = renderHi(ill, t, h, SS / cell, win, true, 0.04);
+  const gw = Math.floor(img.width / SS), gh = Math.floor(img.height / SS);
+  const out = new Float32Array(gw * gh), d = img.data;
+  for (let r = 0; r < gh; r++) for (let q = 0; q < gw; q++) {
+    let s = 0;
+    for (let y = 0; y < SS; y++) { const row = ((r * SS + y) * img.width + q * SS) * 4; for (let x = 0; x < SS; x++) s += d[row + x * 4]; }
+    out[r * gw + q] = s / (SS * SS * 255);
+  }
+  return { g: out, gw, gh, cellPx: (px: number) => px * cell };
+}
+
+/** halftone: each cell is one round dot whose size follows the tone. No outlines; details are gaps */
+function eachHalftoneDot(ill: Illustration, t: number, h: number, theme: Theme, px: number, fn: (x: number, y: number, r: number, col: string) => void) {
+  const { g, gw, gh, cellPx } = toneGrid(ill, t, h);
+  const cp = cellPx(px);
+  const A = hex(theme.a), B = hex(theme.b ?? theme.a);
+  for (let r = 0; r < gh; r++) for (let q = 0; q < gw; q++) {
+    const v = g[r * gw + q];
+    if (v < 0.07) continue;
+    // a little stepping keeps it a matrix rather than a blur
+    const s = Math.max(1, Math.round(Math.min(1, v) * 8)) / 8;
+    const k = (r / gh) * 0.75 + (q / gw) * 0.25;
+    const col = `rgb(${A.map((x, i) => Math.round(x + (B[i] - x) * k)).join(",")})`;
+    // lit faces get full dots, walls in shade get smaller ones, so the volume reads from dot size alone
+    fn((q + 0.5) * cp, (r + 0.5) * cp, cp * 0.5 * (0.2 + 0.78 * Math.pow(s, 1.8)), col);
+  }
+}
+
+/** soft: smooth light volumes with a top-down gradient, fine grain and soft shadows */
+function softColor(img: ImageData, theme: Theme) {
+  const tint = hex(theme.a).map((x) => 255 + (x - 255) * 0.16);
+  const d = img.data, W = img.width, H = img.height;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4, v = d[i] / 255;
+    if (v < 0.01) { d[i + 3] = 0; continue; }
+    if (v < 0.24) { d[i] = d[i + 1] = d[i + 2] = 0; d[i + 3] = Math.min(255, v * 900); continue; } // shadow: darkens the card
+    const n = (((x * 73856093) ^ (y * 19349663)) >>> 0) % 1000 / 1000 - 0.5; // static grain
+    const L = Math.min(1, 0.5 + ((v - 0.28) / 0.72) * 0.47 + (0.5 - y / H) * 0.08 + n * 0.05);
+    d[i] = tint[0] * L; d[i + 1] = tint[1] * L; d[i + 2] = tint[2] * L;
+    d[i + 3] = 255 * Math.min(1, (v - 0.24) / 0.08);
+  }
+  return img;
+}
+
+/** paint one frame in a style onto ctx (already scaled so 1 unit = 1 css px). px: css px per grid dot */
 export function paintFrame(ctx: CanvasRenderingContext2D, ill: Illustration, t: number, h: number, theme: Theme, px: number, style: DotStyle, dpr = 1) {
   const win = bounds(ill);
-  const smoothPx = px * (style === "solid" ? dpr : Math.min(dpr, 1.25));
-  const img = colorize(renderHi(ill, t, h, smoothPx, win), theme, style === "solid" ? 1 : BODY_CAP, style === "solid" ? 1.15 : 1);
+  if (style === "halftone") {
+    eachHalftoneDot(ill, t, h, theme, px, (x, y, r, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); });
+    return;
+  }
+  const img = softColor(renderHi(ill, t, h, px * dpr, win, true, 0.55), theme);
   if (!layer) layer = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(img.width, img.height) : document.createElement("canvas");
   layer.width = img.width; layer.height = img.height;
   (layer.getContext("2d") as CanvasRenderingContext2D).putImageData(img, 0, 0);
-  ctx.save();
-  ctx.imageSmoothingEnabled = true;
   ctx.drawImage(layer as CanvasImageSource, 0, 0, win.w * px, win.h * px);
-  ctx.restore();
-  if (style === "dots") paintDots(ctx, renderGrid(ill, t, h), ill.cols, ill.rows, theme, px, false, win, EDGE_MIN);
 }
 let layer: HTMLCanvasElement | OffscreenCanvas | null = null;
 
@@ -267,6 +321,7 @@ export function bounds(ill: Illustration, margin = 3) {
 export interface Theme { name: string; a: string; b?: string; bg: string }
 export const THEMES: Theme[] = [
   { name: "White", a: "#f2f4f2", bg: "#0b0b0b" },
+  { name: "Duotone", a: "#6b74ff", b: "#ff6a3d", bg: "#0b0b0b" },
   { name: "Green", a: "#3ddc84", bg: "#0b0b0b" },
   { name: "Amber", a: "#ffcf6e", b: "#ff7a45", bg: "#0b0b0b" },
   { name: "Blue", a: "#2f8bff", bg: "#0b0b0b" },
@@ -320,28 +375,18 @@ export function paintDots(ctx: CanvasRenderingContext2D, grid: Float32Array, col
 
 /* ── exports ── */
 
-/** the current frame as an SVG: the dots as circles over the smooth body (or the solid render) */
-export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pitch = 8, style: DotStyle = "dots") {
+/** the current frame as an SVG: halftone is pure circles; soft is an embedded image */
+export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pitch = 8, style: DotStyle = "halftone") {
   const bx = bounds(ill);
   const W = bx.w * pitch, H = bx.h * pitch;
-  const img = colorize(renderHi(ill, t, h, pitch * 2, bx), theme, style === "solid" ? 1 : BODY_CAP, style === "solid" ? 1.15 : 1);
-  const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
-  cv.getContext("2d")!.putImageData(img, 0, 0);
-  const parts: string[] = [`<image href="${cv.toDataURL("image/png")}" x="0" y="0" width="${W}" height="${H}"/>`];
-  if (style === "dots") {
-    const g = renderGrid(ill, t, h);
-    const A = hex(theme.a), B = hex(theme.b ?? theme.a);
-    for (let r = bx.r0; r < bx.r0 + bx.h; r++) {
-      for (let q = bx.q0; q < bx.q0 + bx.w; q++) {
-        const b0 = g[r * ill.cols + q];
-        if (b0 < EDGE_MIN) continue;
-        const v = dotOf(0.25 + ((b0 - EDGE_MIN) / (1 - EDGE_MIN)) * 0.75);
-        const k = ((q - bx.q0) / bx.w) * 0.6 + ((r - bx.r0) / bx.h) * 0.4;
-        const col = A.map((x, i) => Math.round(x + (B[i] - x) * k).toString(16).padStart(2, "0")).join("");
-        const d = litDot(v);
-        parts.push(`<circle cx="${((q - bx.q0 + 0.5) * pitch).toFixed(1)}" cy="${((r - bx.r0 + 0.5) * pitch).toFixed(1)}" r="${(pitch * d.r).toFixed(2)}" fill="#${col}" fill-opacity="${d.a.toFixed(2)}"/>`);
-      }
-    }
+  const parts: string[] = [];
+  if (style === "halftone") {
+    eachHalftoneDot(ill, t, h, theme, pitch, (x, y, r, col) => parts.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="${col}"/>`));
+  } else {
+    const img = softColor(renderHi(ill, t, h, pitch * 2, bx, true, 0.55), theme);
+    const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+    cv.getContext("2d")!.putImageData(img, 0, 0);
+    parts.push(`<image href="${cv.toDataURL("image/png")}" x="0" y="0" width="${W}" height="${H}"/>`);
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="100%" height="100%" fill="${theme.bg}"/>${parts.join("")}</svg>`;
 }
@@ -356,7 +401,7 @@ export function hoverAt(u: number) {
 }
 
 /** the loop (or the hover played in and out) as an animated GIF */
-export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24, style: DotStyle = "dots"): Promise<Blob> {
+export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24, style: DotStyle = "halftone"): Promise<Blob> {
   const { GIFEncoder, quantize, applyPalette } = await import("gifenc");
   const dur = ill.kind === "loop" ? ill.period ?? 3 : 3.2;
   const n = Math.round(dur * fps);
