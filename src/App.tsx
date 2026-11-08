@@ -19,6 +19,7 @@ import { TypeCanvas } from "./type/TypeCanvas";
 import { Studio, type StudioLib } from "./site/Studio";
 import { CardPreview, Home, type BentoLib } from "./site/Bento";
 import { VintageSwitch } from "./site/VintageSwitch";
+import { ThemeSwitch } from "./site/ThemeSwitch";
 import { EmptyStatePage } from "./empty/EmptyStatePage";
 import { ILLS, illOf } from "./empty/ills";
 import { ComponentPage } from "./site/ComponentPage";
@@ -322,7 +323,7 @@ function NavItem({ active, icon, children, onClick }: { active: boolean; icon?: 
 function Brand() {
   return (
     <>
-      <span className="brandMark"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="#fff" /><circle cx="12" cy="12" r="6.6" stroke="#fff" strokeOpacity=".7" strokeWidth="1.6" /><circle cx="12" cy="12" r="10" stroke="#fff" strokeOpacity=".35" strokeWidth="1.6" /></svg></span>
+      <span className="brandMark"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="currentColor" /><circle cx="12" cy="12" r="6.6" stroke="currentColor" strokeOpacity=".7" strokeWidth="1.6" /><circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity=".35" strokeWidth="1.6" /></svg></span>
       <span>Effects<span className="dim">.free</span></span>
     </>
   );
@@ -415,6 +416,7 @@ export default function App() {
           <a className="topLink" href={REPO} target="_blank" rel="noopener noreferrer">Source</a>
         </nav>
         <div className="topRight">
+          <ThemeSwitch />
           <SoundToggle />
           <SearchButton go={go} />
           <a className="topPill" href={REPO} target="_blank" rel="noopener noreferrer" aria-label={stars !== null ? `GitHub, ${stars} stars` : "GitHub"}>

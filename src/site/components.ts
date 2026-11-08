@@ -42,6 +42,7 @@ const SOURCES: Record<string, Source> = Object.fromEntries([
   src("transcription", "https://music-transcription-lyart.vercel.app/", "music-transcription"),
   src("bookshelf", "https://bookshelf-six-livid.vercel.app/", "bookshelf", "#ffffff", ["@react-three/fiber", "@react-three/drei", "three", "framer-motion", "next"]),
   src("cube", "https://3d-cube-rotate.vercel.app/", "3d-cube-rotate", "#020513"),
+  src("effects", "https://github.com/johntony1/qr-code-animatio", "qr-code-animatio", "#111", ["framer-motion"]),
   src("shutter", "https://shutter-scroll-plus-curved.vercel.app/", "shutter-scroll-plus-curved", "#0069ed", ["gsap", "lenis", "motion", "tailwindcss"]),
 ]);
 
@@ -66,6 +67,7 @@ const BLOCKS: B[] = [
   ["swipe-delete", "Swipe to delete", "Swipe a member away and the list closes the gap.", "share", "Swipe", 2, 2],
   ["guest-list", "Guest list", "Tap the faces and they open into the guest list.", "calendar", "Press", 3, 3],
   ["slash-menu", "Slash command", "Type a slash and the command menu opens.", "document", "Type", 3, 2],
+  ["toggle-switch", "Toggle switch", "An old panel toggle: flip the lever straight up or down and the lamp lights.", "effects", "Press", 2, 2],
   ["transcription", "Voice note", "Play a voice note: the waveform runs while the words are written out.", "transcription", "Press", 4, 2],
   ["bookshelf", "Bookshelf", "Books on a shelf. Hover one and it turns to show its cover, click to pull it out.", "bookshelf", "Hover", 6, 3],
   ["cube", "Cube deck", "Drag the cube and it rolls to the next screen.", "cube", "Drag", 3, 3],
