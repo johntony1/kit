@@ -25,12 +25,12 @@ const R_INNER_H = 1065;
 const R_SCALE = R_W / R_INNER_W;
 const RECEIPT_INIT_Y = -488;
 
-/* the widget is as tall as the tile allows: the slip shows as far as it fits,
- * and Print again sits in its own row under the slip, never on top of it */
+/* the whole slip always shows: the widget is laid out at full slip height and scaled to fit.
+ * The printer sits at the top and the slider (then Print again) in a row at the bottom. */
 const BASE_W = PW;
-const MIN_H = 300;
-const BTN_ROW = 56;
-const MAX_H = R_TOP + R_H + BTN_ROW; // the whole slip
+const BTN_ROW = 60;
+const SLIP_END = R_TOP + R_H + 14; // room for the 8px float and the bottom scallops
+const FULL_H = SLIP_END + BTN_ROW;
 const CLIP_TOP = 40; // the slip is hidden above this line (inside the printer body)
 
 /* ── dark tokens ── */
@@ -43,7 +43,7 @@ const C = {
 
 function useFit(size: "card" | "big") {
   const ref = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState({ s: size === "big" ? 1.4 : 0.7, H: MIN_H });
+  const [s, setS] = useState(size === "big" ? 1 : 0.5);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -53,17 +53,14 @@ function useFit(size: "card" | "big") {
       // leave room for the card's tag at the top and its name at the bottom
       const availH = size === "big" ? h * 0.86 : h - 112;
       const availW = w - (size === "big" ? 200 : 48);
-      let s = Math.min(availW / BASE_W, size === "big" ? 1.5 : 1);
-      let H = Math.min(MAX_H, availH / s);
-      if (H < MIN_H) { H = MIN_H; s = availH / MIN_H; }
-      setFit({ s: Math.max(0.2, s), H: Math.round(H) });
+      setS(Math.max(0.2, Math.min(availW / BASE_W, availH / FULL_H, size === "big" ? 1.5 : 1)));
     };
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
   }, [size]);
-  return { ref, ...fit };
+  return { ref, s };
 }
 
 /* ── the payslip, laid out at Figma size then scaled ── */
@@ -228,7 +225,8 @@ function SlideButton({ onComplete, scale }: { onComplete: () => void; scale: Rea
 const BODY_PATH = "M6.453 37.318C14.594 15.499 38.726 0.953984 61.536 0.895984C108.174 0.776984 154.813 0.878974 201.452 0.885974L480.59 0.896991L730.13 0.891986C771.31 0.888986 812.84 0.670002 854.03 0.959002C860.55 1.005 867.79 2.18498 873.9 4.43398C888.87 9.83798 900.99 21.132 907.42 35.692C915.2 47.969 914.97 85.885 913.63 100.47C913.68 113.99 914.87 170.736 912.15 180.64C910.61 203.777 911.67 245.055 894.29 261.033C879.54 274.596 856.57 272.256 837.84 272.04L837.83 256.793L837.82 245.209L79.047 245.216L79.05 256.901L79.092 272.008C66.206 272.223 52.641 273.578 40.869 268.495C13.146 256.739 13.016 222.537 8.55298 196.177C-2.92702 174.888 1.21802 120.221 1.30902 94.199C0.445022 78.162 -0.093996 51.577 6.453 37.318Z";
 
 export default function Printer({ size = "card" }: { size?: "card" | "big" }) {
-  const { ref, s, H: BASE_H } = useFit(size);
+  const { ref, s } = useFit(size);
+  const BASE_H = FULL_H;
   const scaleRef = useRef(s);
   scaleRef.current = s;
   const reduced = useReducedMotion();
@@ -276,10 +274,9 @@ export default function Printer({ size = "card" }: { size?: "card" | "big" }) {
     <div ref={ref} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
       <div style={{ width: BASE_W * s, height: BASE_H * s, position: "relative" }}>
         <div data-own-click style={{ pointerEvents: "auto", position: "absolute", left: 0, top: 0, width: BASE_W, height: BASE_H, transform: `scale(${s})`, transformOrigin: "0 0" }}>
-          {/* slip: clipped to the widget, fades out at the bottom */}
+          {/* slip: hidden above the slot, shown in full below it */}
           <div style={{
-            position: "absolute", left: 0, top: CLIP_TOP, width: PW, height: BASE_H - CLIP_TOP - BTN_ROW, overflow: "hidden", pointerEvents: "none",
-            ...(BASE_H < MAX_H ? { WebkitMaskImage: "linear-gradient(180deg, #000 80%, transparent 100%)", maskImage: "linear-gradient(180deg, #000 80%, transparent 100%)" } : {}),
+            position: "absolute", left: 0, top: CLIP_TOP, width: PW, height: SLIP_END - CLIP_TOP, overflow: "hidden", pointerEvents: "none",
           }}>
             <div ref={receiptRef} style={{ position: "absolute", top: R_TOP - CLIP_TOP, left: R_LEFT, width: R_W, height: R_H, filter: "drop-shadow(0 12px 28px rgba(0,0,0,0.45)) drop-shadow(0 3px 8px rgba(0,0,0,0.3))" }}>
               <div style={{ width: R_INNER_W, height: R_INNER_H, transform: `scale(${R_SCALE})`, transformOrigin: "top left" }}>
@@ -323,7 +320,7 @@ export default function Printer({ size = "card" }: { size?: "card" | "big" }) {
           </motion.div>
 
           {/* slider, then Print again */}
-          <div style={{ position: "absolute", left: 0, right: 0, top: BODY_H + 58, display: "flex", justifyContent: "center", zIndex: 30 }}>
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: (BTN_ROW - 44) / 2, display: "flex", justifyContent: "center", zIndex: 30 }}>
             <AnimatePresence mode="wait">
               {phase === "idle" && (
                 <motion.div key={`idle-${run}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.28 }}>
@@ -335,7 +332,7 @@ export default function Printer({ size = "card" }: { size?: "card" | "big" }) {
           <AnimatePresence>
             {phase === "done" && (
               <motion.div key="done" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.15 } }} transition={{ duration: 0.4, delay: 0.2 }}
-                style={{ position: "absolute", left: 0, right: 0, bottom: 8, display: "flex", justifyContent: "center", zIndex: 30 }}>
+                style={{ position: "absolute", left: 0, right: 0, bottom: (BTN_ROW - 34) / 2, display: "flex", justifyContent: "center", zIndex: 30 }}>
                 <motion.button type="button" onClick={() => { play("tap"); replay(); }} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                   style={{ fontFamily: "inherit", background: C.raised, boxShadow: C.shadow, border: "none", borderRadius: 999, padding: "9px 22px", fontSize: 12, fontWeight: 500, letterSpacing: "-0.2px", color: C.sec, cursor: "pointer" }}>
                   Print again

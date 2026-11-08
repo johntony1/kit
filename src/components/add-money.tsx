@@ -1,12 +1,11 @@
 /* Add money. Split out of Card funding, ported from ~/Documents/Card funding (CardFunding.tsx).
- * Tap Add money: the wallet lifts out (y -52, scale .93, 320ms), the sheet springs in
- * from below with staggered rows; the amount rolls like an odometer on +/- (or a drag
- * along the stepper). Add or close drops the wallet back in, ready to go again.
- * Sounds: open as the sheet comes in, tick on +/-, detents while dragging the stepper,
- * chime on Add, close on the close button.
+ * The add money sheet: rows stagger in, the amount rolls like an odometer on +/- or while
+ * you drag the thumb at the end of the stepper's fill (it shows on hover, the cursor turns
+ * into a grabbing hand). Add or close plays the sheet in again.
+ * Sounds: tick on +/-, detents while dragging, chime on Add, close on the close button.
  */
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { motion, AnimatePresence, useReducedMotion, useMotionValue, animate } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion, useMotionValue, useTransform, animate } from "framer-motion";
 import { play } from "../sound/sound";
 
 /* ── timings (verbatim from the source) ── */
@@ -35,8 +34,7 @@ const C = {
 
 /* the widget is laid out at the source's size and scaled to fit the card */
 const BASE_W = 343;
-const BASE_H = 318;
-const LIFT = 58; // room above the wallet for the lifted cards
+const BASE_H = 276;
 
 function useFit(size: "card" | "big") {
   const ref = useRef<HTMLDivElement>(null);
@@ -58,64 +56,57 @@ function useFit(size: "card" | "big") {
   return { ref, s };
 }
 
-function CardBody({ card }: { card: (typeof CARDS)[number] }) {
-  const label: React.CSSProperties = {
-    position: "absolute", top: 14, margin: 0, fontWeight: 700, fontSize: 14, lineHeight: "20px",
-    color: "#fff", letterSpacing: "-0.3px", textShadow: "0 1px 3px rgba(0,0,0,0.25)",
-  };
+/* ── odometer: every place is a reel of 0 to 9 that springs to its digit ──
+ * A reel never swaps elements, so fast drags just spin it further: nothing blanks
+ * or scatters. Places are keyed from the right, so a new hundreds digit rolls in
+ * at the left and the cents stay put. */
+const DIGIT: React.CSSProperties = { fontWeight: 500, fontSize: 56, lineHeight: "64px", color: C.text, letterSpacing: "-0.56px", fontVariantNumeric: "tabular-nums" };
+const REEL = { type: "spring" as const, stiffness: 260, damping: 32, mass: 0.9 };
+function Reel({ digit, still }: { digit: number; still: boolean }) {
   return (
-    <div style={{ width: 309.202, height: 187.257, background: card.color, borderRadius: 11.17, overflow: "hidden", position: "relative", flexShrink: 0 }}>
-      <div aria-hidden style={{
-        position: "absolute", inset: 0, borderRadius: 11.17, pointerEvents: "none",
-        boxShadow: "inset 0 2px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(255,255,255,0.12), inset 2px 0 8px rgba(255,255,255,0.08), inset -2px 0 8px rgba(255,255,255,0.08), inset 0 0 28px rgba(255,255,255,0.06)",
-      }} />
-      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(150deg, rgba(255,255,255,0.18) 0%, transparent 45%)" }} />
-      <p style={{ ...label, left: 16 }}>{card.label}</p>
-      <p style={{ ...label, right: 16, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{card.symbol}{card.amount}</p>
+    <span style={{ display: "inline-block", overflow: "hidden", height: 64, verticalAlign: "bottom",
+      WebkitMaskImage: "linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent)", maskImage: "linear-gradient(180deg, transparent, #000 18%, #000 82%, transparent)" }}>
+      <motion.span initial={false} animate={{ y: -digit * 64 }} transition={still ? { duration: 0 } : REEL} style={{ display: "flex", flexDirection: "column" }}>
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <span key={n} style={{ ...DIGIT, display: "block", height: 64 }}>{n}</span>)}
+      </motion.span>
+    </span>
+  );
+}
+function Amount({ value, still }: { value: number; still: boolean }) {
+  const chars = value.toFixed(2).split("");
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end" }} aria-label={`$${value.toFixed(2)}`} aria-live="polite">
+      <AnimatePresence initial={false} mode="popLayout">
+        {chars.map((ch, i) => {
+          const place = chars.length - i; // from the right
+          return ch === "."
+            ? <motion.span layout key="dot" transition={REEL} style={{ ...DIGIT, display: "inline-block", verticalAlign: "bottom" }}>.</motion.span>
+            : <motion.span layout key={place} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -24 }} transition={REEL} style={{ display: "inline-block" }}>
+                <Reel digit={+ch} still={still} />
+              </motion.span>;
+        })}
+      </AnimatePresence>
     </div>
   );
 }
 
-/* ── odometer digit (0.45s, [0.22,1,0.36,1]) ── */
-type Dir = 1 | -1;
-const DIGIT: React.CSSProperties = { fontWeight: 500, fontSize: 56, lineHeight: "64px", color: C.text, letterSpacing: "-0.56px", fontVariantNumeric: "tabular-nums" };
-function Digit({ char, dir }: { char: string; dir: Dir }) {
-  if (!/\d/.test(char)) return <span style={{ ...DIGIT, display: "inline-block", verticalAlign: "bottom" }}>{char}</span>;
-  return (
-    <span style={{ display: "inline-block", overflow: "hidden", height: 64, verticalAlign: "bottom", position: "relative" }}>
-      <AnimatePresence initial={false} mode="popLayout" custom={dir}>
-        <motion.span
-          key={char}
-          custom={dir}
-          variants={{
-            initial: (d: Dir) => ({ y: d > 0 ? "110%" : "-110%", opacity: 0 }),
-            animate: { y: "0%", opacity: 1 },
-            exit: (d: Dir) => ({ y: d > 0 ? "-110%" : "110%", opacity: 0 }),
-          }}
-          initial="initial" animate="animate" exit="exit"
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          style={{ ...DIGIT, display: "block" }}
-        >{char}</motion.span>
-      </AnimatePresence>
-    </span>
-  );
-}
-
 /* ── add money sheet (distilled: amount, fill stepper, proceed) ── */
-const MIN = 1, MAX = 200, INSET = 4, FILL_H = 52, THUMB_W = 8;
+const MIN = 1, MAX = 200, INSET = 4, FILL_H = 52, THUMB_W = 8, THUMB_H = 44;
 function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
+  const reduced = !!useReducedMotion();
   const [value, setValue] = useState(69);
-  const [dir, setDir] = useState<Dir>(1);
   const prev = useRef(69);
   const track = useRef<HTMLDivElement>(null);
   const fillW = useMotionValue(0);
+  const thumbX = useTransform(fillW, (fw) => Math.max(INSET, fw - THUMB_W - 4));
   const dragging = useRef(false);
+  const [hover, setHover] = useState(false);
+  const [grab, setGrab] = useState(false);
 
   const toFW = useCallback((v: number, tw: number) => INSET + THUMB_W + ((v - MIN) / (MAX - MIN)) * (tw - 2 * INSET - THUMB_W), []);
   useLayoutEffect(() => { if (track.current) fillW.set(toFW(69, track.current.offsetWidth)); }, [fillW, toFW]);
 
   const change = useCallback((next: number, anim = true) => {
-    setDir(next >= prev.current ? 1 : -1);
     prev.current = next;
     setValue(next);
     if (anim && track.current) animate(fillW, toFW(next, track.current.offsetWidth), { type: "spring", visualDuration: 0.3, bounce: 0 });
@@ -157,25 +148,30 @@ function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
 
       <motion.div {...cv(SD.amount)} style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 4, padding: "18px 16px 18px" }}>
         <span style={{ fontWeight: 500, fontSize: 20, lineHeight: "28px", color: C.faint, paddingBottom: 10 }}>$</span>
-        <div style={{ display: "flex", alignItems: "flex-end" }} aria-live="polite">
-          {value.toFixed(2).split("").map((ch, i) => <Digit key={i} char={ch} dir={dir} />)}
+        <div style={{ display: "flex", alignItems: "flex-end" }}>
+          <Amount value={value} still={reduced} />
         </div>
       </motion.div>
 
       <motion.div {...cv(SD.stepper)} style={{ padding: "0 16px" }}>
         <div
           ref={track}
-          onPointerDown={(e) => { if ((e.target as HTMLElement).closest("button")) return; dragging.current = true; e.currentTarget.setPointerCapture(e.pointerId); fromPointer(e); }}
+          onPointerEnter={() => setHover(true)}
+          onPointerLeave={() => { if (!dragging.current) setHover(false); }}
+          onPointerDown={(e) => { if ((e.target as HTMLElement).closest("button")) return; dragging.current = true; setGrab(true); e.currentTarget.setPointerCapture(e.pointerId); fromPointer(e); }}
           onPointerMove={(e) => { if (dragging.current) fromPointer(e); }}
-          onPointerUp={() => { dragging.current = false; }}
-          onPointerCancel={() => { dragging.current = false; }}
+          onPointerUp={(e) => { dragging.current = false; setGrab(false); const r = e.currentTarget.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) setHover(false); }}
+          onPointerCancel={() => { dragging.current = false; setGrab(false); setHover(false); }}
           style={{
             background: "#1d1f1d", borderRadius: 16, height: FILL_H + 2 * INSET, position: "relative", userSelect: "none", touchAction: "none",
-            display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px", cursor: "ew-resize",
+            display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px", cursor: grab ? "grabbing" : "grab",
             boxShadow: "inset 0 1px 2px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05)",
           }}
         >
           <motion.div style={{ position: "absolute", left: INSET, top: INSET, height: FILL_H, borderRadius: 12, background: C.raised, boxShadow: C.shadow, width: fillW, pointerEvents: "none" }} />
+          {/* the thumb: a narrow grip at the fill's right edge, shown while the pointer is on the track */}
+          <motion.div aria-hidden animate={{ opacity: hover || grab ? 1 : 0, scaleY: grab ? 1.06 : 1 }} transition={{ duration: 0.15, ease: "easeOut" }}
+            style={{ position: "absolute", top: (FILL_H + 2 * INSET - THUMB_H) / 2 + 6, height: THUMB_H - 12, left: thumbX, width: 4, borderRadius: 4, background: "rgba(255,255,255,.28)", zIndex: 2, pointerEvents: "none" }} />
           <motion.button type="button" onClick={() => { if (value > MIN) { play("tick"); change(value - 1); } }} whileTap={{ scale: 0.82 }} transition={{ type: "spring", visualDuration: 0.18, bounce: 0 }} aria-label="Decrease amount" style={btn}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M3 8h10" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" /></svg>
           </motion.button>
@@ -203,75 +199,22 @@ function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
 export default function AddMoney({ size = "card" }: { size?: "card" | "big" }) {
   const { ref, s } = useFit(size);
   const reduced = useReducedMotion();
-  const [stage, setStage] = useState<"idle" | "sheet">("idle");
+  const [run, setRun] = useState(0); // Add or close plays the sheet in again
   return (
     <div ref={ref} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
       <div style={{ width: BASE_W * s, height: BASE_H * s, position: "relative" }}>
         <div data-own-click style={{ pointerEvents: "auto", position: "absolute", left: 0, top: 0, width: BASE_W, height: BASE_H, transform: `scale(${s})`, transformOrigin: "0 0", color: C.text }}>
-          <AnimatePresence initial={false}>
-            {stage === "idle" ? (
-              <motion.div
-                key="wallet"
-                style={{ position: "absolute", left: 0, top: LIFT, width: BASE_W, height: 259 }}
-                initial={reduced ? { opacity: 0 } : { opacity: 0, y: 32 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reduced ? { opacity: 0 } : { opacity: 0, y: -52, scale: 0.93, transition: { duration: 0.32, ease: [0.4, 0, 0.55, 1] } }}
-                transition={{ type: "spring", duration: 0.52, bounce: 0.24 }}
-              >
-                <div style={{ position: "relative", width: BASE_W, height: 259 }}>
-                  {/* wallet shell */}
-                  <div style={{ position: "absolute", inset: 0, borderRadius: 32, background: C.raised, boxShadow: C.shadow }} />
-
-                  {/* the three cards at rest, same placement and tilt as the source */}
-                  <div style={{ position: "absolute", left: 12.74, top: -26.42, width: 315.52, height: 197.885, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1, transform: `rotate(${IDLE_ROTATE[0]}deg)` }}>
-                    <CardBody card={CARDS[0]} />
-                  </div>
-                  <div style={{ position: "absolute", left: 9.62, top: 0.12, width: 321.76, height: 208.813, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2, transform: `rotate(${IDLE_ROTATE[1]}deg)` }}>
-                    <CardBody card={CARDS[1]} />
-                  </div>
-                  <div style={{ position: "absolute", left: 17, top: 49, width: 309, height: 146, borderRadius: 11.17, overflow: "hidden", zIndex: 3, boxShadow: "0 0.5px 1.4px rgba(0,0,0,.2), 0 0 0 0.5px rgba(255,255,255,0.1)" }}>
-                    <CardBody card={CARDS[2]} />
-                  </div>
-
-                  {/* frosted pocket, stands in for the source's texture image */}
-                  <div aria-hidden style={{
-                    position: "absolute", left: 0, right: 0, top: 124, bottom: 0, zIndex: 6, pointerEvents: "none",
-                    borderRadius: "8px 8px 32px 32px",
-                    background: "linear-gradient(180deg, rgba(44,46,44,.72) 0%, rgba(38,40,38,.97) 34%, #242624 100%)",
-                    backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)",
-                    boxShadow: "inset 0 1px 0 rgba(255,255,255,.1)",
-                  }} />
-
-                  <motion.div style={{ position: "absolute", left: 0, right: 0, top: 148, zIndex: 7, display: "flex", flexDirection: "column", gap: 14, alignItems: "center" }}
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center" }}>
-                      <p style={{ margin: 0, fontWeight: 500, fontSize: 18, lineHeight: "24px", letterSpacing: "-0.27px", color: C.text, fontVariantNumeric: "tabular-nums" }}>$98,000</p>
-                      <p style={{ margin: 0, fontSize: 12, lineHeight: "16px", color: C.muted }}>Total balance</p>
-                    </div>
-                    <motion.button type="button" onClick={() => { play("open"); setStage("sheet"); }} whileTap={{ scale: 0.96 }} transition={{ type: "spring", visualDuration: 0.2, bounce: 0 }}
-                      style={{
-                        height: 32, padding: "0 14px", borderRadius: 999, border: "none", cursor: "pointer", fontFamily: "inherit",
-                        background: "rgba(255,255,255,.08)", color: C.text, fontSize: 13, fontWeight: 500, letterSpacing: "-0.078px",
-                        boxShadow: "inset 0 1px 0 rgba(255,255,255,.1), 0 0 0 1px rgba(255,255,255,.08), 0 1px 3px rgba(0,0,0,.4)",
-                        backdropFilter: "blur(15px)", WebkitBackdropFilter: "blur(15px)",
-                      }}>
-                      Add money
-                    </motion.button>
-                  </motion.div>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="sheet"
-                style={{ position: "absolute", left: 0, top: 22, width: BASE_W, height: 296 }}
-                initial={reduced ? { opacity: 0 } : { opacity: 0, y: 28 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reduced ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.97, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } }}
-                transition={{ type: "spring", duration: 0.5, bounce: 0.15 }}
-              >
-                <Sheet onClose={() => setStage("idle")} onAdd={() => setStage("idle")} />
-              </motion.div>
-            )}
+          <AnimatePresence initial={false} mode="wait">
+            <motion.div
+              key={run}
+              style={{ position: "absolute", inset: 0 }}
+              initial={reduced ? { opacity: 0 } : { opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduced ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.97, transition: { duration: 0.18, ease: [0.4, 0, 1, 1] } }}
+              transition={{ type: "spring", duration: 0.5, bounce: 0.15 }}
+            >
+              <Sheet onClose={() => setRun((r) => r + 1)} onAdd={() => setRun((r) => r + 1)} />
+            </motion.div>
           </AnimatePresence>
         </div>
       </div>

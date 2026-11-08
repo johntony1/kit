@@ -54,7 +54,7 @@ const BLOCKS: B[] = [
   ["task-tick", "Task tick", "Tick a task: it fills, rings and bursts.", "calendar", "Press", 2, 3],
   ["copy-link", "Copy link", "Copy the link: the button squishes, flips to Copied and throws dots.", "share", "Press", 2, 2],
   ["segmented", "Segmented tabs", "A highlight that slides between tabs. Set status opens a popover and the pill morphs to the status you pick.", "segmented", "Select", 4, 2],
-  ["add-money", "Add money", "Add money: the wallet lifts, the sheet springs up and the amount rolls.", "card-funding", "Press", 3, 3],
+  ["add-money", "Add money", "Drag the amount or tap plus and minus, and the number rolls like an odometer.", "card-funding", "Drag", 3, 3],
   ["scheduler", "Scheduler", "Switch a day on and its hours unfold. Edit the time and the drum picker opens.", "scheduler", "Press", 3, 3],
   ["menu", "Menu expand", "One small Menu pill that opens into the full menu.", "menu", "Press", 2, 3],
   ["week-picker", "Week picker", "Tap the calendar and the task card opens into a week.", "calendar", "Press", 2, 3],
