@@ -302,10 +302,12 @@ export default function Shutter({ size = "card" }: { size?: "card" | "big" }) {
 
   return (
     <div ref={ref} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+      <style>{`.sh-dot{background:rgba(255,255,255,.16)}:root[data-theme="light"] .sh-dot{background:oklch(0.22 0.008 264 / .2)}.sh-frame{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 18px 40px rgba(0,0,0,.45)}:root[data-theme="light"] .sh-frame{box-shadow:0 0 0 1px var(--k-ring), 0 2px 4px var(--k-shadow-soft), 0 18px 40px -10px var(--k-shadow)}`}</style>
       <div style={{ display: "flex", alignItems: "center", gap: 18 * Math.max(0.8, s), transform: size === "card" ? "translateY(2px)" : undefined }}>
         <div style={{ width: 8 }} />
         <div
           ref={wrap}
+          className="sh-frame"
           data-own-click
           role="button"
           tabIndex={0}
@@ -319,7 +321,7 @@ export default function Shutter({ size = "card" }: { size?: "card" | "big" }) {
           onPointerMove={onMove}
           onPointerUp={onUp}
           onPointerCancel={onUp}
-          style={{ pointerEvents: "auto", width: SW * s, height: SH * s, position: "relative", cursor: "grab", touchAction: "none", outline: "none", userSelect: "none", borderRadius: 14 * s, overflow: "hidden", boxShadow: "0 0 0 1px rgba(255,255,255,.08), 0 18px 40px rgba(0,0,0,.45)", isolation: "isolate" }}
+          style={{ pointerEvents: "auto", width: SW * s, height: SH * s, position: "relative", cursor: "grab", touchAction: "none", outline: "none", userSelect: "none", borderRadius: 14 * s, overflow: "hidden", isolation: "isolate" }}
         >
           <div style={{ position: "absolute", left: 0, top: 0, width: SW, height: SH, transform: `scale(${s})`, transformOrigin: "0 0" }}>
             <div ref={scr[0]} style={fill}><HeroScreen /></div>
@@ -329,7 +331,7 @@ export default function Shutter({ size = "card" }: { size?: "card" | "big" }) {
         </div>
         <div aria-hidden style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {[0, 1, 2].map((i) => (
-            <span key={i} style={{ width: 4, height: i === active ? 16 : 4, borderRadius: 2, background: i === active ? "#34b562" : "rgba(255,255,255,.16)", transition: "height 300ms cubic-bezier(.2,.8,.2,1), background 300ms" }} />
+            <span key={i} className="sh-dot" style={{ width: 4, height: i === active ? 16 : 4, borderRadius: 2, background: i === active ? "#34b562" : undefined, transition: "height 300ms cubic-bezier(.2,.8,.2,1), background 300ms" }} />
           ))}
         </div>
       </div>

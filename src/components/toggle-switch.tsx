@@ -41,8 +41,9 @@ export function VintageSwitch({ on, onToggle, label, scale = 1 }: { on: boolean;
   const lamp = useTransform(p, (v) => Math.min(1, Math.max(0, (v - 0.55) / 0.45)));
 
   return (
-    <motion.button type="button" style={{ display: "inline-grid", placeItems: "center", padding: 0, border: 0, background: "none", cursor: "pointer", borderRadius: 10 * scale, filter: `drop-shadow(0 ${scale}px ${scale}px rgba(0,0,0,.5)) drop-shadow(0 ${4 * scale}px ${8 * scale}px rgba(0,0,0,.35))` }} aria-pressed={on} aria-label={label} title={on ? "Sound on" : "Sound off"} onClick={onToggle}
+    <motion.button type="button" style={{ display: "inline-grid", placeItems: "center", padding: 0, border: 0, background: "none", cursor: "pointer", borderRadius: 10 * scale, filter: `drop-shadow(0 ${scale}px ${scale}px var(--ts-sh1)) drop-shadow(0 ${4 * scale}px ${8 * scale}px var(--ts-sh2))` }} className="ts-switch" aria-pressed={on} aria-label={label} title={on ? "Sound on" : "Sound off"} onClick={onToggle}
       whileTap={{ scale: 0.97 }} transition={{ type: "spring", duration: 0.25, bounce: 0 }}>
+      <style>{`.ts-switch{--ts-sh1:rgba(0,0,0,.5);--ts-sh2:rgba(0,0,0,.35)}:root[data-theme="light"] .ts-switch{--ts-sh1:oklch(0.22 0.008 264 / .28);--ts-sh2:oklch(0.22 0.008 264 / .16)}`}</style>
       <svg viewBox={`0 0 ${W} ${H}`} width={W * scale} height={H * scale} aria-hidden="true">
         <defs>
           <linearGradient id={`${id}-rim`} x1="0" y1="0" x2="0" y2="1">

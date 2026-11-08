@@ -251,6 +251,7 @@ export default function Cube({ size = "card" }: { size?: "card" | "big" }) {
   const W = FW * s, H = FH * s;
   return (
     <div ref={ref} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+      <style>{`.cube-dot{background:rgba(255,255,255,.16)}:root[data-theme="light"] .cube-dot{background:oklch(0.22 0.008 264 / .2)}`}</style>
       <div style={{ display: "flex", alignItems: "center", gap: 18 * Math.max(0.8, s), transform: size === "card" ? "translateY(2px)" : undefined }}>
         <div style={{ width: 8 }} />
         <div
@@ -292,7 +293,7 @@ export default function Cube({ size = "card" }: { size?: "card" | "big" }) {
         {/* which face is square to the camera */}
         <div aria-hidden style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {FACES.map((f, i) => (
-            <span key={f.key} style={{ width: 4, height: i === active ? 16 : 4, borderRadius: 2, background: i === active ? "#34b562" : "rgba(255,255,255,.16)", transition: "height 300ms cubic-bezier(.2,.8,.2,1), background 300ms" }} />
+            <span key={f.key} className="cube-dot" style={{ width: 4, height: i === active ? 16 : 4, borderRadius: 2, background: i === active ? "#34b562" : undefined, transition: "height 300ms cubic-bezier(.2,.8,.2,1), background 300ms" }} />
           ))}
         </div>
       </div>

@@ -111,9 +111,9 @@ function LyricsBlock({ lyrics, currentSeconds, onSeekToLine, height, tabbable }:
               onClick={() => onSeekToLine(line.time)}
               aria-current={isActive ? "true" : undefined}
               className="transcription-line"
-              animate={{ color: isActive ? "#e3e8e3" : isPast ? "#5d6862" : "#8b968f", opacity: isActive ? 1 : isPast ? 0.6 : 0.9, filter: isActive ? "blur(0px)" : "blur(0.2px)" }}
+              animate={{ opacity: isActive ? 1 : isPast ? 0.6 : 0.9, filter: isActive ? "blur(0px)" : "blur(0.2px)" }}
               transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-              style={{ display: "block", width: "100%", textAlign: "left", cursor: "pointer", background: "transparent", border: 0, margin: "0 -2px", padding: "0 2px", borderRadius: 6, font: "inherit", letterSpacing: "inherit", lineHeight: `${LYRIC_LINE_HEIGHT}px`, whiteSpace: "nowrap", willChange: "color, opacity" }}
+              style={{ color: isActive ? "var(--k-text)" : isPast ? "var(--k-faint)" : "var(--k-muted)", transition: "color 350ms cubic-bezier(0.22, 1, 0.36, 1), scale 150ms", display: "block", width: "100%", textAlign: "left", cursor: "pointer", background: "transparent", border: 0, margin: "0 -2px", padding: "0 2px", borderRadius: 6, font: "inherit", letterSpacing: "inherit", lineHeight: `${LYRIC_LINE_HEIGHT}px`, whiteSpace: "nowrap", willChange: "color, opacity" }}
             >
               {line.text}
             </motion.button>
@@ -235,7 +235,7 @@ export default function Transcription({ size = "card" }: { size?: "card" | "big"
 
   return (
     <MotionConfig reducedMotion="user" transformPagePoint={(p) => ({ x: p.x / scaleRef.current, y: p.y / scaleRef.current })}>
-      <style>{`.transcription-line:not([aria-current="true"]):hover{color:#c2cbc4 !important}.transcription-line:active{scale:.98}.transcription-line{transition:scale 150ms}.transcription-root button:focus-visible,.transcription-root [role=slider]:focus-visible{outline:2px solid rgba(52,181,98,.55);outline-offset:2px}.transcription-press{transition:transform 150ms}.transcription-press:active{transform:scale(.96)}`}</style>
+      <style>{`.transcription-line:not([aria-current="true"]):hover{color:var(--k-text2) !important}.transcription-line:active{scale:.98}.transcription-root button:focus-visible,.transcription-root [role=slider]:focus-visible{outline:2px solid rgba(52,181,98,.55);outline-offset:2px}.transcription-press{transition:transform 150ms}.transcription-press:active{transform:scale(.96)}.transcription-root{--tx-shell:rgba(32,33,32,1);--tx-shell-sh:inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(255,255,255,.05), 0 0 0 0 transparent;--tx-play-sh:0 0 0 2px rgba(0,0,0,.35), 0 2px 4px rgba(0,0,0,.4), 0 8px 14px -6px rgba(0,0,0,.5)}:root[data-theme="light"] .transcription-root{--tx-shell:oklch(0.975 0.002 264);--tx-shell-sh:inset 0 1px 0 var(--k-hi), 0 0 0 1px var(--k-ring), 0 8px 24px -12px var(--k-shadow);--tx-play-sh:0 0 0 2px var(--k-raised-solid), 0 0 0 3px var(--k-ring), 0 2px 4px var(--k-shadow-soft), 0 8px 14px -6px var(--k-shadow)}`}</style>
       <div ref={rootRef} className="transcription-root" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
         <div style={{ position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center center", paddingTop: 22 }}>
           <div data-own-click="" style={{ position: "relative", display: "inline-flex", flexDirection: "column", alignItems: "center", userSelect: "none", WebkitUserSelect: "none", pointerEvents: "auto" }}>
@@ -250,7 +250,7 @@ export default function Transcription({ size = "card" }: { size?: "card" | "big"
                   transition={SPRING}
                   style={{ position: "absolute", left: "50%", x: "-50%", top: -22, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "8px 8px 0 0", padding: "4px 8px", background: "rgba(52,181,98,.16)", pointerEvents: "none", willChange: "transform, opacity, filter" }}
                 >
-                  <p style={{ margin: 0, fontSize: 12, lineHeight: "18px", letterSpacing: "-0.072px", color: "#e3e8e3", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                  <p style={{ margin: 0, fontSize: 12, lineHeight: "18px", letterSpacing: "-0.072px", color: "var(--k-text)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
                     {formatTime(currentSeconds)} / {formatTime(durationSeconds)}
                   </p>
                 </motion.div>
@@ -261,8 +261,8 @@ export default function Transcription({ size = "card" }: { size?: "card" | "big"
             <div
               style={{
                 display: "flex", flexDirection: "column", alignItems: "stretch",
-                backgroundColor: expanded ? "rgba(32,33,32,1)" : "rgba(32,33,32,0)",
-                boxShadow: expanded ? "inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(255,255,255,.05)" : "inset 0 1px 0 rgba(255,255,255,0), 0 0 0 1px rgba(255,255,255,0)",
+                backgroundColor: expanded ? "var(--tx-shell)" : "transparent",
+                boxShadow: expanded ? "var(--tx-shell-sh)" : "inset 0 1px 0 transparent, 0 0 0 1px transparent, 0 0 0 0 transparent",
                 borderRadius: expanded ? 20 : 16,
                 padding: expanded ? "12px 4px 4px" : "0px 0px 0px",
                 transition: `background-color ${dur} ${ease}, padding ${dur} ${ease}, border-radius ${dur} ${ease}, box-shadow ${dur} ${ease}`,
@@ -280,7 +280,7 @@ export default function Transcription({ size = "card" }: { size?: "card" | "big"
                         aria-label="Close transcript"
                         tabIndex={expanded ? 0 : -1}
                         className="transcription-press"
-                        style={{ position: "relative", width: 20, height: 20, overflow: "hidden", color: "#8b968f", cursor: "pointer", border: "none", background: "transparent", padding: 0, borderRadius: 999 }}
+                        style={{ position: "relative", width: 20, height: 20, overflow: "hidden", color: "var(--k-muted)", cursor: "pointer", border: "none", background: "transparent", padding: 0, borderRadius: 999 }}
                       >
                         <div style={{ position: "absolute", inset: "12.5%" }}><CloseCircleIcon /></div>
                       </button>
@@ -296,7 +296,7 @@ export default function Transcription({ size = "card" }: { size?: "card" | "big"
               <div
                 onMouseEnter={() => setHovering(true)}
                 onMouseLeave={() => setHovering(false)}
-                style={{ position: "relative", display: "flex", alignItems: "center", gap: 8, borderRadius: 16, padding: "8px 12px 8px 8px", background: "linear-gradient(180deg,#2b2d2b,#242624)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)" }}
+                style={{ position: "relative", display: "flex", alignItems: "center", gap: 8, borderRadius: 16, padding: "8px 12px 8px 8px", background: "var(--k-raised)", boxShadow: "var(--k-lift)" }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -305,7 +305,7 @@ export default function Transcription({ size = "card" }: { size?: "card" | "big"
                       onClick={() => { play(playing ? "pause" : "play"); togglePlay(); }}
                       aria-label={playing ? "Pause" : "Play"}
                       className="transcription-press"
-                      style={{ position: "relative", width: 40, height: 40, borderRadius: 999, flexShrink: 0, cursor: "pointer", border: "none", padding: 0, background: "radial-gradient(circle at 30% 25%, #f6c48f 0%, transparent 55%), radial-gradient(circle at 75% 80%, #34b562 0%, transparent 60%), linear-gradient(135deg,#5b4a7d,#1f3a33)", boxShadow: "0 0 0 2px rgba(0,0,0,.35), 0 2px 4px rgba(0,0,0,.4), 0 8px 14px -6px rgba(0,0,0,.5)" }}
+                      style={{ position: "relative", width: 40, height: 40, borderRadius: 999, flexShrink: 0, cursor: "pointer", border: "none", padding: 0, background: "radial-gradient(circle at 30% 25%, #f6c48f 0%, transparent 55%), radial-gradient(circle at 75% 80%, #34b562 0%, transparent 60%), linear-gradient(135deg,#5b4a7d,#1f3a33)", boxShadow: "var(--tx-play-sh)" }}
                     >
                       <div style={{ position: "absolute", inset: 0, borderRadius: 999, boxShadow: "inset 0 -2.384px 2.384px -1.192px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,.18)" }} />
                       <motion.div
@@ -317,8 +317,8 @@ export default function Transcription({ size = "card" }: { size?: "card" | "big"
                       </motion.div>
                     </button>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", whiteSpace: "nowrap", fontSize: 12, letterSpacing: "-0.072px", width: 95 }}>
-                      <p style={{ margin: 0, fontWeight: 500, lineHeight: "18px", color: "#e3e8e3" }}>{TITLE}</p>
-                      <p style={{ margin: 0, lineHeight: "18px", color: "#8b968f" }}>{ARTIST}</p>
+                      <p style={{ margin: 0, fontWeight: 500, lineHeight: "18px", color: "var(--k-text)" }}>{TITLE}</p>
+                      <p style={{ margin: 0, lineHeight: "18px", color: "var(--k-muted)" }}>{ARTIST}</p>
                     </div>
                   </div>
 
@@ -343,15 +343,13 @@ export default function Transcription({ size = "card" }: { size?: "card" | "big"
                       else if (e.key === " " || e.key === "Enter") { e.preventDefault(); togglePlay(); }
                     }}
                   >
-                    <motion.div
-                      style={{ position: "absolute", left: WAVEFORM_INSET_LEFT, top: 0.27, width: 218.535, height: 35.47 }}
-                      animate={{ color: showScan ? "#5d6862" : "#e3e8e3" }}
-                      transition={{ duration: 0.2, ease: EASE }}
+                    <div
+                      style={{ position: "absolute", left: WAVEFORM_INSET_LEFT, top: 0.27, width: 218.535, height: 35.47, color: showScan ? "var(--k-faint)" : "var(--k-text)", transition: "color 200ms cubic-bezier(0.2, 0, 0, 1)" }}
                     >
                       <WaveformSvg />
-                    </motion.div>
+                    </div>
                     <motion.div
-                      style={{ position: "absolute", pointerEvents: "none", color: "#e3e8e3", left: WAVEFORM_INSET_LEFT, top: 0.27, width: 218.535, height: 35.47, clipPath: playedClipPath }}
+                      style={{ position: "absolute", pointerEvents: "none", color: "var(--k-text)", left: WAVEFORM_INSET_LEFT, top: 0.27, width: 218.535, height: 35.47, clipPath: playedClipPath }}
                       animate={{ opacity: showScan ? 1 : 0 }}
                       transition={{ duration: 0.18 }}
                     >
@@ -381,9 +379,9 @@ export default function Transcription({ size = "card" }: { size?: "card" | "big"
                   className="transcription-press"
                   style={{ position: "relative", width: 24, height: 24, overflow: "hidden", flexShrink: 0, cursor: "pointer", border: "none", background: "transparent", padding: 0, borderRadius: 999 }}
                 >
-                  <motion.div style={{ position: "absolute", inset: "12.5%" }} animate={{ color: expanded ? "#e3e8e3" : "#8b968f" }} transition={{ duration: 0.18 }}>
+                  <div style={{ position: "absolute", inset: "12.5%", color: expanded ? "var(--k-text)" : "var(--k-muted)", transition: "color 180ms ease-out" }}>
                     <ChatIcon />
-                  </motion.div>
+                  </div>
                 </button>
               </div>
             </div>

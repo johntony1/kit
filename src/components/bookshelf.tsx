@@ -72,6 +72,10 @@ const CSS = `
 .bs-title{position:relative;z-index:11;writing-mode:vertical-rl;transform:rotate(180deg);font-size:9px;font-weight:600;letter-spacing:2px;text-transform:uppercase;white-space:nowrap;overflow:hidden;user-select:none;margin-top:12px;color:#fff;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
 .bs-plank{position:relative;height:22px;border-radius:3px;background-color:#c89968;background-image:linear-gradient(to bottom,#ecc995 0%,#dcb37a 22%,#6e4622 30%,#4a2d12 32%,#8c6238 34%,#c79865 38%,#b6884f 70%,#9c6e3a 100%);box-shadow:inset 0 1px 0 rgba(255,244,218,.85),inset 0 -1px 0 rgba(40,22,6,.45),0 6px 10px -3px rgba(0,0,0,.55),0 22px 36px -10px rgba(0,0,0,.6);filter:saturate(.85) brightness(.82)}
 .bs-shadow{height:36px;margin-top:4px;background:radial-gradient(ellipse 60% 100% at top,rgba(0,0,0,.4) 0%,rgba(0,0,0,.16) 40%,transparent 80%)}
+:root[data-theme="light"] .bs-plank{filter:saturate(.9) brightness(.97);box-shadow:inset 0 1px 0 rgba(255,244,218,.85),inset 0 -1px 0 rgba(40,22,6,.35),0 0 0 .5px oklch(0.3 0.04 60 / .25),0 6px 10px -4px oklch(0.22 0.008 264 / .22),0 18px 30px -12px oklch(0.22 0.008 264 / .2)}
+:root[data-theme="light"] .bs-shadow{background:radial-gradient(ellipse 60% 100% at top,oklch(0.22 0.008 264 / .14) 0%,oklch(0.22 0.008 264 / .05) 40%,transparent 80%)}
+:root[data-theme="light"] .bs-btn::after{background:radial-gradient(closest-side,oklch(0.22 0.008 264 / .22),transparent)}
+:root[data-theme="light"] .bs-row.has-open .bs-wrap:not(.is-open){opacity:.68}
 @media (prefers-reduced-motion: reduce){.bs-wrap,.bs-btn,.bs-spine,.bs-cover,.bs-btn::after{transition:none!important}}
 `;
 
