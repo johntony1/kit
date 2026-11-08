@@ -18,6 +18,7 @@ import { typePrompt } from "./type/prompt";
 import { TypeCanvas } from "./type/TypeCanvas";
 import { Studio, type StudioLib } from "./site/Studio";
 import { CardPreview, Home, type BentoLib } from "./site/Bento";
+import { VintageSwitch } from "./site/VintageSwitch";
 import { EmptyStatePage } from "./empty/EmptyStatePage";
 import { ILLS, illOf } from "./empty/ills";
 import { ComponentPage } from "./site/ComponentPage";
@@ -25,7 +26,7 @@ import { compOf, COMPS } from "./site/components";
 import { TRANS_KEYS, TRANS_META, TransInstall, TransPlayground, TransPreview, transPrompt } from "./site/TransitionPage";
 import type { TransitionKind } from "./transitions/transitions";
 import { Later } from "./site/sheet";
-import { sound } from "./sound/sound";
+import { play, sound } from "./sound/sound";
 
 const REPO = "https://github.com/johntony1/qr-code-animatio";
 
@@ -331,16 +332,7 @@ function Brand() {
 /** sounds on or off, remembered */
 function SoundToggle() {
   const on = useSyncExternalStore(sound.subscribe, sound.enabled, () => true);
-  return (
-    <button type="button" className="topPill soundPill" aria-pressed={on} aria-label={on ? "Sound on. Turn it off" : "Sound off. Turn it on"} title={on ? "Sound on" : "Sound off"} onClick={() => sound.toggle()}>
-      <svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M3.5 7.5h2.6L10 4.2v11.6l-3.9-3.3H3.5z" fill="currentColor" stroke="none" />
-        <path d="M13 7.2a4 4 0 0 1 0 5.6" style={{ opacity: on ? 1 : 0, transition: "opacity 160ms ease" }} />
-        <path d="M15.3 5a7.2 7.2 0 0 1 0 10" style={{ opacity: on ? 1 : 0, transition: "opacity 160ms ease 40ms" }} />
-        <path d="M13.2 7.6l4.4 4.8M17.6 7.6l-4.4 4.8" style={{ opacity: on ? 0 : 1, transition: "opacity 160ms ease" }} />
-      </svg>
-    </button>
-  );
+  return <VintageSwitch on={on} onToggle={() => { if (on) play("off", { force: true }); sound.toggle(); }} label={on ? "Sound on. Turn it off" : "Sound off. Turn it on"} />;
 }
 
 function useStars() {
