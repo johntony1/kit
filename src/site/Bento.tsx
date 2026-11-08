@@ -32,7 +32,7 @@ export const TILES: Tile[] = [
   { k: "burn", group: "Transitions", c: 2, r: 2, tag: "New" }, { k: "paper", group: "Transitions", c: 2, r: 2, tag: "New" }, { k: "liquid", group: "Type", c: 2, r: 2 },
   { k: "rings", group: "Type", c: 2, r: 2 },
   { k: "slice", group: "Type", c: 2, r: 2 },
-  ...ILLS.slice(0, 6).map((i) => ({ k: `es-${i.k}` as BentoLib, group: "Empty states" as Group, c: 2, r: 2 })),
+  ...ILLS.slice(0, 6).map((i, n) => ({ k: `es-${i.k}` as BentoLib, group: "Empty states" as Group, c: n < 4 && ILLS.length % 3 === 1 ? 3 : 2, r: 2 })),
   { k: "reveal", group: "Transitions", c: 3, r: 2 }, { k: "ink", group: "Transitions", c: 3, r: 2 },
   { k: "curtain", group: "Transitions", c: 2, r: 2 }, { k: "pixels", group: "Transitions", c: 2, r: 2 },
   ...COMPS.slice(12).map((c) => ({ k: `cmp-${c.k}` as BentoLib, group: "Components" as Group, c: c.c, r: c.r })),
