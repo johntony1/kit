@@ -4,7 +4,10 @@ export type Theme = "light" | "dark";
 const KEY = "effects-theme";
 const subs = new Set<() => void>();
 
+/** the site is dark only for now (light mode lives on as a component); a stored choice is ignored */
+export const SITE_LIGHT_ENABLED = false;
 export function readTheme(): Theme {
+  if (!SITE_LIGHT_ENABLED) return "dark";
   try { const v = localStorage.getItem(KEY); if (v === "light" || v === "dark") return v; } catch { /* private mode */ }
   return "dark";
 }

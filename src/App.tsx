@@ -19,7 +19,6 @@ import { TypeCanvas } from "./type/TypeCanvas";
 import { Studio, type StudioLib } from "./site/Studio";
 import { CardPreview, Home, type BentoLib } from "./site/Bento";
 import { VintageSwitch } from "./site/VintageSwitch";
-import { ThemeSwitch } from "./site/ThemeSwitch";
 import { EmptyStatePage } from "./empty/EmptyStatePage";
 import { ILLS, illOf } from "./empty/ills";
 import { ComponentPage } from "./site/ComponentPage";
@@ -416,7 +415,6 @@ export default function App() {
           <a className="topLink" href={REPO} target="_blank" rel="noopener noreferrer">Source</a>
         </nav>
         <div className="topRight">
-          <ThemeSwitch />
           <SoundToggle />
           <SearchButton go={go} />
           <a className="topPill" href={REPO} target="_blank" rel="noopener noreferrer" aria-label={stars !== null ? `GitHub, ${stars} stars` : "GitHub"}>
