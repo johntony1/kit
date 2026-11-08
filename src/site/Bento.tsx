@@ -28,7 +28,7 @@ export const TILES: Tile[] = [
   ...COMPS.slice(0, 12).map((c) => ({ k: `cmp-${c.k}` as BentoLib, group: "Components" as Group, c: c.c, r: c.r })),
   { k: "bubble", group: "Type", c: 3, r: 2 }, { k: "lens", group: "Type", c: 3, r: 2 },
   { k: "burn", group: "Transitions", c: 2, r: 2, tag: "New" }, { k: "paper", group: "Transitions", c: 2, r: 2, tag: "New" }, { k: "liquid", group: "Type", c: 2, r: 2 },
-  { k: "rings", group: "Type", c: 2, r: 2 }, { k: "contour", group: "Type", c: 4, r: 2 },
+  { k: "rings", group: "Type", c: 2, r: 2 },
   { k: "slice", group: "Type", c: 2, r: 2 },
   { k: "reveal", group: "Transitions", c: 3, r: 2 }, { k: "ink", group: "Transitions", c: 3, r: 2 },
   { k: "curtain", group: "Transitions", c: 2, r: 2 }, { k: "pixels", group: "Transitions", c: 2, r: 2 }, { k: "zoom", group: "Transitions", c: 2, r: 2 },
