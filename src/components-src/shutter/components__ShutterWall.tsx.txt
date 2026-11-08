@@ -1,0 +1,130 @@
+import { forwardRef } from 'react'
+import { SLAT_COUNT, SLAT_OVERHANG, STAGE_H, STAGE_W } from '../lib/shutter'
+import { PANEL_BG, slatBack } from '../lib/panel'
+
+/**
+ * The 24 louvers.
+ *
+ * At rest each one is exactly the Figma slat: a `to-left` white-10% gradient
+ * over the hero. Under scroll the same elements ride a concave cylinder and
+ * flip 180° to show their back face, which carries a vertical strip of the
+ * incoming panel — so the 24 backs reassemble into one seamless full-bleed
+ * surface.
+ *
+ * Two things are deliberately *not* here:
+ *
+ * - The Figma slats specify a 25px backdrop blur. It only ever sits over a
+ *   smooth gradient (the sparkles render above the slats), so it is a visual
+ *   no-op, and backdrop filters collapse unpredictably inside `preserve-3d`.
+ *
+ * - Shading is painted by overlay elements rather than `filter: brightness()`
+ *   on the slat. A `filter` forces its element to flatten, which would destroy
+ *   the two-sided card and with it the whole flip.
+ */
+
+export const SLAT_FRONT =
+  'linear-gradient(to left, rgba(248,247,248,0.10) 0%, rgba(248,247,248,0) 100%)'
+
+export const ShutterWall = forwardRef<
+  HTMLDivElement,
+  { stageW?: number; stageH?: number }
+>(function ShutterWall({ stageW = STAGE_W, stageH = STAGE_H }, ref) {
+  return (
+    <div
+      ref={ref}
+      data-shutter-wall
+      className="absolute inset-0"
+      style={{ perspective: '1150px', perspectiveOrigin: '50% 46%', zIndex: 1 }}
+    >
+      {/* Backing plane.
+       *
+       * A louver caught side-on is only a pixel or two wide, so a closing wall
+       * has real gaps between its slats — physically right for a blind, but it
+       * lets the hero leak through in bands. This sits behind them and
+       * solidifies slightly ahead of the flip, so the gaps show the panel the
+       * wall is becoming. Fully transparent at rest. */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: PANEL_BG, opacity: 'var(--wall-fill, 0)' }}
+      />
+
+      <div className="absolute inset-0" style={{ transformStyle: 'preserve-3d' }}>
+        {Array.from({ length: SLAT_COUNT }, (_, i) => (
+          <div
+            key={i}
+            data-slat={i}
+            className="absolute"
+            style={{
+              // Proportional, not a hard 60px: on the 1440 artboard this
+              // resolves to exactly the Figma slat, and it still divides the
+              // frame evenly when the stage runs fluid on small screens.
+              left: `${(i / SLAT_COUNT) * 100}%`,
+              width: `${100 / SLAT_COUNT}%`,
+              // Overhang top and bottom so a bent arc — whose centre projects
+              // at ~78% — still reaches past the viewport edges. Clipped at
+              // rest, so the resting hero renders exactly as designed.
+              top: `${((1 - SLAT_OVERHANG) / 2) * 100}%`,
+              height: `${SLAT_OVERHANG * 100}%`,
+              transformStyle: 'preserve-3d',
+              willChange: 'transform',
+            }}
+          >
+            {/* front — the Figma glass slat.
+             * Figma draws a 1px fully-transparent right border here. Carrying
+             * it over is not harmless: `background-origin` defaults to
+             * padding-box, so the border would shrink the gradient tile to 59px
+             * and the 60th column would show the next tile's transparent
+             * start — a visible seam one pixel wide. */}
+            <div
+              className="absolute inset-0"
+              style={{ backfaceVisibility: 'hidden', background: SLAT_FRONT }}
+            >
+              <Shade />
+            </div>
+
+            {/* back — one vertical strip of the incoming panel. Sizing its
+             * highlight to the full artboard and offsetting it per slat is what
+             * makes the 24 backs line up as a single lit surface. */}
+            <div
+              data-slat-back
+              className="absolute inset-0"
+              style={{
+                backfaceVisibility: 'hidden',
+                transform: 'rotateY(180deg)',
+              }}
+            >
+              {/* Re-mirrored, because the rotateY(180deg) above flips whatever
+               * this face paints. Without undoing it, each strip shows a
+               * mirrored slice and the wall's highlight cannot line up. */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  transform: 'scaleX(-1)',
+                  ...slatBack(i, SLAT_COUNT, stageW, stageH),
+                }}
+              />
+              <Shade />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+})
+
+/**
+ * Per-face lighting, driven by `--dark` and `--glint` set on the slat.
+ * `--dark` deepens as the face turns away from camera; `--glint` fires as it
+ * passes edge-on, so the louvers catch light as they swing.
+ */
+function Shade() {
+  return (
+    <div
+      className="pointer-events-none absolute inset-0"
+      style={{
+        background:
+          'linear-gradient(90deg, rgba(255,255,255,var(--glint,0)) 0%, rgba(255,255,255,0) 55%), rgb(2 10 26 / var(--dark, 0))',
+      }}
+    />
+  )
+}

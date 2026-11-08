@@ -1,0 +1,11 @@
+import { MenuExpand } from './components/MenuExpand'
+
+function App() {
+  return (
+    <main className="min-h-screen w-full grid place-items-center px-6">
+      <MenuExpand />
+    </main>
+  )
+}
+
+export default App

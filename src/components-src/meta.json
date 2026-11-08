@@ -1,0 +1,135 @@
+{
+ "card-funding": {
+  "files": [
+   "src/components/CardFunding.tsx",
+   "src/App.tsx"
+  ],
+  "deps": [
+   "framer-motion",
+   "gsap"
+  ]
+ },
+ "currency": {
+  "files": [
+   "src/CurrencySwap.tsx",
+   "src/TransactionSummary.tsx",
+   "src/TransactionSuccess.tsx"
+  ],
+  "deps": [
+   "@mingcute/react",
+   "framer-motion"
+  ]
+ },
+ "menu": {
+  "files": [
+   "src/components/MenuExpand.tsx",
+   "src/App.tsx"
+  ],
+  "deps": [
+   "autoprefixer",
+   "framer-motion",
+   "postcss",
+   "tailwindcss"
+  ]
+ },
+ "document": {
+  "files": [
+   "src/components/ChatInput.tsx",
+   "src/components/ImageIcon.tsx",
+   "src/components/ArrowUpIcon.tsx"
+  ],
+  "deps": [
+   "framer-motion"
+  ]
+ },
+ "scheduler": {
+  "files": [
+   "src/components/DayRow.tsx",
+   "src/components/TimePicker.tsx",
+   "src/components/ClockIcon.tsx"
+  ],
+  "deps": [
+   "@mingcute/react",
+   "framer-motion",
+   "gsap"
+  ]
+ },
+ "printer": {
+  "files": [
+   "src/PrinterAnimation.tsx"
+  ],
+  "deps": [
+   "framer-motion",
+   "gsap"
+  ]
+ },
+ "share": {
+  "files": [
+   "src/ShareModal.tsx",
+   "src/App.tsx"
+  ],
+  "deps": [
+   "@tailwindcss/vite",
+   "framer-motion",
+   "gsap",
+   "tailwindcss"
+  ]
+ },
+ "calendar": {
+  "files": [
+   "src/CalendarExpanded.tsx",
+   "src/TaskWidget.tsx",
+   "src/CardRipple.tsx"
+  ],
+  "deps": [
+   "framer-motion"
+  ]
+ },
+ "chat": {
+  "files": [
+   "src/ChatbotIdle.tsx",
+   "src/App.tsx"
+  ],
+  "deps": [
+   "framer-motion"
+  ]
+ },
+ "balance": {
+  "files": [
+   "src/components/BalanceCard.tsx",
+   "src/components/ShareSection.tsx",
+   "src/components/BarChart.tsx"
+  ],
+  "deps": [
+   "@iconify/react",
+   "motion"
+  ]
+ },
+ "transcription": {
+  "files": [
+   "src/components/MusicTranscription.tsx",
+   "src/App.tsx"
+  ],
+  "deps": [
+   "@tailwindcss/vite",
+   "framer-motion",
+   "tailwindcss",
+   "vite-plugin-svgr"
+  ]
+ },
+ "cube": {
+  "files": [
+   "src/components/CubeDeck.tsx",
+   "src/components/illustration/IllustrationScene.tsx",
+   "src/components/insights/InsightsSection.tsx"
+  ],
+  "deps": [
+   "@fontsource-variable/geist",
+   "@react-three/drei",
+   "@react-three/fiber",
+   "lenis",
+   "motion",
+   "three"
+  ]
+ }
+}

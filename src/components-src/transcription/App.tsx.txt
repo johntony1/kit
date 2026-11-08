@@ -1,0 +1,11 @@
+import { MusicTranscription } from "./components/MusicTranscription";
+
+function App() {
+  return (
+    <main className="min-h-dvh flex items-center justify-center bg-white p-6">
+      <MusicTranscription />
+    </main>
+  );
+}
+
+export default App;

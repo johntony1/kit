@@ -1,0 +1,209 @@
+import { motion, AnimatePresence } from 'framer-motion'
+import { UpSmallLine, DownSmallLine } from '@mingcute/react'
+
+/* ─────────────────────────────────────────────────────────
+ * STORYBOARD — TimePicker mount
+ *
+ *    0ms   card: scaleY 0→1, opacity 0→1 (spring, origin: top center)
+ *   50ms   hour drum: y 10→0, opacity 0→1 (spring)
+ *   70ms   minute drum: y 10→0, opacity 0→1 (spring, +20ms)
+ *  100ms   AM/PM pills: scale 0→1 (spring bounce, +50ms)
+ *
+ * Drum scroll:
+ *   strip y springs to: ITEM_H * (1 - index) (stiff:280 damp:28)
+ *   selected item: font-size 18px #171717
+ *   adjacent items: font-size 14px #c4c4c4
+ * ─────────────────────────────────────────────────────────*/
+
+const ITEM_H = 40
+const DRUM_VISIBLE = 3
+const DRUM_H = ITEM_H * DRUM_VISIBLE
+
+const HOURS   = ['01','02','03','04','05','06','07','08','09','10','11','12']
+const MINUTES = ['00','05','10','15','20','25','30','35','40','45','50','55']
+
+const CARD_SPRING   = { type: 'spring', stiffness: 320, damping: 30 } as const
+const DRUM_SPRING   = { type: 'spring', stiffness: 280, damping: 28 } as const
+const BOUNCE_SPRING = { type: 'spring', stiffness: 460, damping: 20 } as const
+
+export type TimeValue = {
+  hour: number    // index into HOURS (0-11)
+  minute: number  // index into MINUTES (0-11)
+  period: 'AM' | 'PM'
+}
+
+interface DrumProps {
+  values: string[]
+  index: number
+  onChange: (i: number) => void
+  delay?: number
+}
+
+function Drum({ values, index, onChange, delay = 0 }: DrumProps) {
+  const dec = () => onChange((index - 1 + values.length) % values.length)
+  const inc = () => onChange((index + 1) % values.length)
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...CARD_SPRING, delay }}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, userSelect: 'none' }}
+    >
+      {/* up */}
+      <motion.button
+        onClick={dec}
+        whileHover={{ scale: 1.15 }}
+        whileTap={{ scale: 0.85 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: '#c4c4c4', borderRadius: 6 }}
+      >
+        <UpSmallLine size={16} />
+      </motion.button>
+
+      {/* drum window */}
+      <div style={{ position: 'relative', width: 52, height: DRUM_H }}>
+        {/* selection highlight — sits behind the masked strip */}
+        <div style={{
+          position: 'absolute', top: ITEM_H, left: 0, right: 0, height: ITEM_H,
+          backgroundColor: '#f7f7f7', borderRadius: 8, zIndex: 0,
+        }} />
+
+        {/* scrolling strip — masked at edges */}
+        <div style={{
+          position: 'absolute', inset: 0, overflow: 'hidden',
+          maskImage: 'linear-gradient(to bottom, transparent 0%, black 28%, black 72%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 28%, black 72%, transparent 100%)',
+          zIndex: 1,
+        }}>
+          <motion.div
+            animate={{ y: ITEM_H * (1 - index) }}
+            transition={DRUM_SPRING}
+            style={{ position: 'absolute', left: 0, right: 0 }}
+          >
+            {values.map((v, i) => {
+              const dist = Math.min(
+                Math.abs(i - index),
+                values.length - Math.abs(i - index),
+              )
+              const isSelected = dist === 0
+              return (
+                <div
+                  key={i}
+                  onClick={() => onChange(i)}
+                  style={{
+                    height: ITEM_H,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: isSelected ? 18 : 14,
+                    fontWeight: 500,
+                    letterSpacing: '-0.04em',
+                    color: isSelected ? '#171717' : '#c4c4c4',
+                    transition: 'font-size 0.18s ease, color 0.18s ease',
+                    cursor: 'pointer',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {v}
+                </div>
+              )
+            })}
+          </motion.div>
+        </div>
+      </div>
+
+      {/* down */}
+      <motion.button
+        onClick={inc}
+        whileHover={{ scale: 1.15 }}
+        whileTap={{ scale: 0.85 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: '#c4c4c4', borderRadius: 6 }}
+      >
+        <DownSmallLine size={16} />
+      </motion.button>
+    </motion.div>
+  )
+}
+
+interface TimePickerProps {
+  value: TimeValue
+  onChange: (v: TimeValue) => void
+}
+
+export default function TimePicker({ value, onChange }: TimePickerProps) {
+  const set = (patch: Partial<TimeValue>) => onChange({ ...value, ...patch })
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        key="picker-card"
+        initial={{ scaleY: 0, opacity: 0 }}
+        animate={{ scaleY: 1, opacity: 1 }}
+        exit={{ scaleY: 0, opacity: 0 }}
+        transition={CARD_SPRING}
+        style={{
+          transformOrigin: 'top center',
+          backgroundColor: '#ffffff',
+          border: '1px solid #ebebeb',
+          borderRadius: 12,
+          padding: 12,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 4,
+        }}
+      >
+        {/* hour drum */}
+        <Drum values={HOURS} index={value.hour} onChange={h => set({ hour: h })} delay={0.05} />
+
+        {/* colon */}
+        <motion.span
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1, duration: 0.2 }}
+          style={{ fontSize: 18, fontWeight: 600, color: '#c4c4c4', paddingBottom: 2, userSelect: 'none', lineHeight: 1 }}
+        >
+          :
+        </motion.span>
+
+        {/* minute drum */}
+        <Drum values={MINUTES} index={value.minute} onChange={m => set({ minute: m })} delay={0.07} />
+
+        {/* spacer */}
+        <div style={{ width: 8 }} />
+
+        {/* AM / PM pills */}
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ ...BOUNCE_SPRING, delay: 0.1 }}
+          style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+        >
+          {(['AM', 'PM'] as const).map(p => (
+            <motion.button
+              key={p}
+              onClick={() => set({ period: p })}
+              animate={{
+                backgroundColor: value.period === p ? '#171717' : '#f7f7f7',
+                color: value.period === p ? '#ffffff' : '#a3a3a3',
+              }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+              style={{
+                border: 'none', cursor: 'pointer', borderRadius: 8,
+                padding: '6px 12px',
+                fontSize: 13, fontWeight: 500, letterSpacing: '-0.03em',
+                minWidth: 44,
+              }}
+            >
+              {p}
+            </motion.button>
+          ))}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
+export { HOURS, MINUTES }

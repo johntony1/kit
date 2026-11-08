@@ -1,0 +1,228 @@
+import { motion } from 'motion/react'
+import {
+  ASSETS,
+  CLOSER,
+  INSIGHTS_ASSETS,
+  INSIGHTS_BG_LIGHT,
+  LEDE,
+  PANEL,
+  RULES,
+  asset,
+} from '../../lib/design'
+import { useFaceStage, useReached } from '../../lib/faceStage'
+import { INSIGHTS_DELAY, SPRING_ENTER, SPRING_POP } from '../../lib/motion'
+import { FancyButton } from '../FancyButton'
+import { WipeHeading, type Line } from '../WipeHeading'
+import { AsciiFigure } from './AsciiFigure'
+
+/**
+ * Insights section — node 204223:100729, the 1512 x 1129 frame directly under
+ * the hero.
+ *
+ * A blue backplate with a rounded near-black panel inset 24px, and inside it,
+ * bottom to top: the looping ASCII figure, three hairlines, an ambient wash
+ * spilling in over the top edge, then the two blocks of copy.
+ *
+ * Coordinates below the panel are panel-relative, matching Figma.
+ */
+
+/**
+ * Both headings are one wrapping text node in Figma with a colour change
+ * mid-sentence. The line breaks are the ones the design's own face produces —
+ * see WipeHeading for why they are declared rather than left to the browser.
+ */
+const LEDE_LINES: Line[] = [
+  [{ text: 'Introducing Moonlytics' }],
+  [{ text: 'Smart insights for', muted: true }],
+  [{ text: 'every', muted: true }, { text: ' memecoin' }],
+  [{ text: 'move.' }],
+]
+
+const CLOSER_LINES: Line[] = [
+  [{ text: 'Track any token down to a' }],
+  [{ text: 'single holder,' }, { text: ' and spot the', muted: true }],
+  [{ text: 'moves before they happen.', muted: true }],
+]
+
+const LEDE_PARAGRAPH = 'A new analytics platform that tracks and predicts memecoin markets in real time.'
+
+const CLOSER_PARAGRAPH =
+  'The first-of-its-kind trading intelligence system that visualizes wallet flows, sentiment spikes, and on-chain patterns all in one clean, data-driven interface.'
+
+/** Shared by the two body paragraphs — Geist 20/1.45, text/sub. */
+const BODY = { fontSize: 20, lineHeight: 1.45, letterSpacing: '-0.4px' } as const
+
+/**
+ * A 1px hairline, drawn from its export at native size.
+ *
+ * All three are horizontal `<line>` SVGs in Figma; the vertical pair is rotated
+ * into place. The rotation happens about the image's own top-left corner and is
+ * pushed back by its 1px thickness, rather than centred on a zero-width flex
+ * box the way codegen writes it — centring lands the odd-length right-hand rule
+ * across two columns at half strength, which reads as a smudge instead of a
+ * line. Nothing is scaled either way: `preserveAspectRatio="none"` on these
+ * exports would distort the stroke along with the geometry.
+ */
+function Rule({
+  src,
+  x,
+  y,
+  length,
+  vertical,
+}: {
+  src: string
+  x: number
+  y: number
+  length: number
+  vertical?: boolean
+}) {
+  return (
+    <div
+      className="absolute overflow-hidden"
+      style={{ left: x, top: y, width: vertical ? 1 : length, height: vertical ? length : 1 }}
+      aria-hidden
+    >
+      <img
+        src={asset(src)}
+        alt=""
+        className="block max-w-none"
+        style={
+          vertical
+            ? { width: length, height: 1, transformOrigin: '0 0', transform: 'translateX(1px) rotate(90deg)' }
+            : { width: length, height: 1 }
+        }
+      />
+    </div>
+  )
+}
+
+export function InsightsSection({ still }: { still: boolean }) {
+  // The two blocks are ~750px apart, so they earn separate cues: the lede when
+  // the cube lands on this face, the closer once the reader has scrolled down
+  // to it. On a viewport tall enough to show the whole section at once, `step`
+  // is pinned at 1 and both fire together.
+  const { arrived, step } = useFaceStage()
+  const closerIn = useReached(step, 0.35)
+  const show = still || arrived
+
+  return (
+    <section className="relative size-full" aria-labelledby="insights-heading">
+      {/* Blue backplate — the frame's own image fill, bleeding past the panel
+          on every side. */}
+      <img
+        src={asset(INSIGHTS_ASSETS.backplate)}
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute inset-0 size-full max-w-none object-cover"
+      />
+
+      {/* `isolate` keeps the figure's `lighten` blending inside the panel, so it
+          composites against the panel fill and never against the backplate. */}
+      <div
+        className="absolute isolate overflow-hidden bg-canvas"
+        style={{
+          left: PANEL.x,
+          top: PANEL.y,
+          width: PANEL.width,
+          height: PANEL.height,
+          borderRadius: PANEL.radius,
+        }}
+      >
+        <AsciiFigure still={still} show={show} />
+
+        <Rule src={INSIGHTS_ASSETS.rule.top} {...RULES.top} />
+        <Rule src={INSIGHTS_ASSETS.rule.left} {...RULES.left} vertical />
+        <Rule src={INSIGHTS_ASSETS.rule.right} {...RULES.right} vertical />
+
+        {/* Ambient wash, hung off the top edge — the same export the hero uses
+            below its own fold. */}
+        <div
+          className="absolute"
+          style={{
+            left: INSIGHTS_BG_LIGHT.x,
+            top: INSIGHTS_BG_LIGHT.y,
+            width: INSIGHTS_BG_LIGHT.width,
+            height: INSIGHTS_BG_LIGHT.height,
+          }}
+          aria-hidden
+        >
+          <div
+            className="absolute"
+            style={{ inset: `${INSIGHTS_BG_LIGHT.inset.y}% ${INSIGHTS_BG_LIGHT.inset.x}%` }}
+          >
+            <img src={asset(ASSETS.bgLight)} alt="" className="block size-full max-w-none" />
+          </div>
+        </div>
+
+        {/* ── Lede ────────────────────────────────────────────────────────── */}
+        <div
+          className="absolute flex flex-col items-start"
+          style={{ left: LEDE.x, top: LEDE.y, width: LEDE.width, gap: LEDE.gap }}
+        >
+          <WipeHeading
+            lines={LEDE_LINES}
+            size={52}
+            leading={1.1}
+            tracking="-1.04px"
+            width={LEDE.headingWidth}
+            height={LEDE.headingHeight}
+            still={still}
+            show={show}
+            delay={INSIGHTS_DELAY.heading}
+            id="insights-heading"
+          />
+
+          <div className="flex flex-col items-start" style={{ gap: LEDE.stackGap }}>
+            <motion.p
+              className="text-text-body"
+              style={{ width: LEDE.paragraphWidth, ...BODY }}
+              initial={still ? false : { opacity: 0, y: 14 }}
+              animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
+              transition={{ ...SPRING_ENTER, delay: INSIGHTS_DELAY.paragraph }}
+            >
+              {LEDE_PARAGRAPH}
+            </motion.p>
+
+            <FancyButton
+              tone="neutral"
+              interactive={!still}
+              initial={still ? false : { opacity: 0, scale: 0.92 }}
+              animate={show ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.92 }}
+              transition={{ ...SPRING_POP, delay: INSIGHTS_DELAY.cta }}
+            >
+              Explore Dashboard
+            </FancyButton>
+          </div>
+        </div>
+
+        {/* ── Closer ──────────────────────────────────────────────────────── */}
+        <div
+          className="absolute flex items-end"
+          style={{ left: CLOSER.x, top: CLOSER.y, gap: CLOSER.gap }}
+        >
+          <WipeHeading
+            lines={CLOSER_LINES}
+            size={38}
+            leading={1.2}
+            tracking="-0.76px"
+            width={CLOSER.headingWidth}
+            height={CLOSER.headingHeight}
+            still={still}
+            show={show && closerIn}
+            delay={INSIGHTS_DELAY.closerHeading}
+          />
+
+          <motion.p
+            className="text-text-body"
+            style={{ width: CLOSER.paragraphWidth, ...BODY }}
+            initial={still ? false : { opacity: 0, y: 14 }}
+            animate={show && closerIn ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
+            transition={{ ...SPRING_ENTER, delay: INSIGHTS_DELAY.closerParagraph }}
+          >
+            {CLOSER_PARAGRAPH}
+          </motion.p>
+        </div>
+      </div>
+    </section>
+  )
+}

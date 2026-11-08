@@ -1,0 +1,342 @@
+import { useState } from 'react'
+import './MenuExpand.css'
+import menuIcon from '../assets/menu-4-line.svg'
+import dashboardIcon from '../assets/dashboard-horizontal-line.svg'
+import userIcon from '../assets/user-6-line.svg'
+import reservedIcon from '../assets/reserved-line.svg'
+import settingsIcon from '../assets/settings-3-line.svg'
+import chevronIcon from '../assets/arrow-down-s-line.svg'
+import coinsIcon from '../assets/coins-line.svg'
+import coinIcon from '../assets/coin-line.svg'
+import giftIcon from '../assets/gift-2-line.svg'
+import swapIcon from '../assets/swap-3-line.svg'
+import imageCircleIcon from '../assets/image-circle-line.svg'
+import collageIcon from '../assets/collage-line.svg'
+import folderOpenIcon from '../assets/folder-open-line.svg'
+import listUnorderedIcon from '../assets/list-unordered.svg'
+import fileIcon from '../assets/file-line.svg'
+import headphoneIcon from '../assets/headphone-line.svg'
+import fileListIcon from '../assets/file-list-3-line.svg'
+import graduationCapIcon from '../assets/graduation-cap-line.svg'
+import walletIcon from '../assets/wallet-line.svg'
+import mailStarIcon from '../assets/mail-star-line.svg'
+import settings6Icon from '../assets/settings-6-line.svg'
+
+/* ─────────────────────────────────────────────────────────
+ * MENU EXPAND — animation storyboard
+ *
+ *  CARD            46 (pill) → 183 (open)
+ *                        + 152 per expanded section (335, 487)
+ *  EASE            cubic-bezier(0.22, 1, 0.36, 1) — single curve
+ *
+ *  OPEN
+ *      0ms        pill content blurs+fades out (100ms)
+ *      0ms        card resize tween starts
+ *    140ms        dashboard row enters (y/blur/opacity)
+ *   +60ms         profile, resources, settings rows stagger in
+ *
+ *  EXPAND ANY SECTION (Dashboard or Profile)
+ *      0ms        chevron rotates 180° on the resize ease
+ *      0ms        drawer height 0 → 142, margin-top 0 → 10
+ *    120ms        first sub-row enters
+ *   +50ms         remaining sub-rows stagger
+ *
+ *  CLOSE
+ *    Rows fade out together (no stagger), drawer collapses,
+ *    card shrinks back — all on the same easing curve.
+ * ───────────────────────────────────────────────────────── */
+
+type IconBox = { src: string; inset: string }
+type SubItem = { id: string; label: string; icon: IconBox }
+type SectionId = 'dashboard' | 'profile' | 'resources' | 'settings'
+
+type MainItem = {
+  id: 'dashboard' | 'profile' | 'resources' | 'settings'
+  label: string
+  radius: number
+  icon: IconBox
+  elevated?: boolean
+  subItems?: SubItem[]
+}
+
+const MAIN_ITEMS: MainItem[] = [
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    radius: 16,
+    icon: { src: dashboardIcon, inset: '18.75% 18.75% 18.75% 18.75%' },
+    subItems: [
+      {
+        id: 'collection',
+        label: 'Collection',
+        icon: { src: coinsIcon, inset: '12.5% 12.49% 12.51% 12.51%' },
+      },
+      {
+        id: 'token',
+        label: 'Token',
+        icon: { src: coinIcon, inset: '20% 8.75% 20% 8.75%' },
+      },
+      {
+        id: 'rewards',
+        label: 'Rewards',
+        icon: { src: giftIcon, inset: '12.49% 12.5% 12.5% 12.5%' },
+      },
+      {
+        id: 'swap',
+        label: 'Swap',
+        icon: { src: swapIcon, inset: '19.02% 19.67% 19.02% 19.67%' },
+      },
+    ],
+  },
+  {
+    id: 'profile',
+    label: 'Profile',
+    radius: 24,
+    elevated: true,
+    icon: { src: userIcon, inset: '12.5% 17.72% 13.26% 17.73%' },
+    subItems: [
+      {
+        id: 'galleries',
+        label: 'Galleries',
+        icon: { src: imageCircleIcon, inset: '18.75% 18.75% 18.75% 18.75%' },
+      },
+      {
+        id: 'items',
+        label: 'Items',
+        icon: { src: collageIcon, inset: '16.25% 16.25% 16.25% 16.25%' },
+      },
+      {
+        id: 'portfolio',
+        label: 'Portfolio',
+        icon: { src: folderOpenIcon, inset: '16.25% 10.62% 16.25% 12.5%' },
+      },
+      {
+        id: 'listings',
+        label: 'Listings',
+        icon: { src: listUnorderedIcon, inset: '18.12% 16.25% 18.5% 16.25%' },
+      },
+    ],
+  },
+  {
+    id: 'resources',
+    label: 'Resources',
+    radius: 6,
+    icon: { src: reservedIcon, inset: '16.25% 16.25% 16.25% 16.25%' },
+    subItems: [
+      {
+        id: 'learn',
+        label: 'Learn',
+        icon: { src: fileIcon, inset: '12.5% 16.25% 12.5% 16.25%' },
+      },
+      {
+        id: 'help-center',
+        label: 'Help center',
+        icon: { src: headphoneIcon, inset: '12.5% 12.5% 16.25% 12.5%' },
+      },
+      {
+        id: 'blog',
+        label: 'Blog',
+        icon: { src: fileListIcon, inset: '12.5% 12.5% 12.5% 12.5%' },
+      },
+      {
+        id: 'careers',
+        label: 'Careers',
+        icon: { src: graduationCapIcon, inset: '18.75% 12.5% 18.75% 12.5%' },
+      },
+    ],
+  },
+  {
+    id: 'settings',
+    label: 'Settings',
+    radius: 6,
+    icon: { src: settingsIcon, inset: '12.49% 13.86% 12.49% 13.86%' },
+    subItems: [
+      {
+        id: 'settings-profile',
+        label: 'Profile',
+        icon: { src: userIcon, inset: '12.5% 17.72% 13.26% 17.73%' },
+      },
+      {
+        id: 'linked-wallets',
+        label: 'Linked wallets',
+        icon: { src: walletIcon, inset: '16.25% 12.5% 16.25% 12.5%' },
+      },
+      {
+        id: 'email',
+        label: 'Email',
+        icon: { src: mailStarIcon, inset: '16.25% 5.82% 8.22% 12.5%' },
+      },
+      {
+        id: 'customize',
+        label: 'Customize',
+        icon: { src: settings6Icon, inset: '14.28% 8.75% 14.28% 8.75%' },
+      },
+    ],
+  },
+]
+
+function Icon({ box }: { box: IconBox }) {
+  return (
+    <span className="menu-icon" aria-hidden="true">
+      <span style={{ inset: box.inset }}>
+        <img src={box.src} alt="" />
+      </span>
+    </span>
+  )
+}
+
+function Chevron() {
+  return (
+    <span className="menu-chevron" aria-hidden="true">
+      <span className="menu-icon">
+        <span style={{ inset: '35.83% 26.13% 35% 26.14%' }}>
+          <img src={chevronIcon} alt="" />
+        </span>
+      </span>
+    </span>
+  )
+}
+
+export function MenuExpand() {
+  const [open, setOpen] = useState(false)
+  const [openSections, setOpenSections] = useState<Set<SectionId>>(new Set())
+
+  const isSectionOpen = (id: SectionId) => openSections.has(id)
+
+  const toggleSection = (id: SectionId, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setOpenSections((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleCardClick = () => {
+    if (!open) setOpen(true)
+  }
+
+  const cardClasses = ['menu-card', open ? 'is-open' : '']
+    .filter(Boolean)
+    .join(' ')
+
+  const cardStyle = {
+    ['--open-count' as string]: openSections.size,
+  } as React.CSSProperties
+
+  const closeAll = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setOpenSections(new Set())
+    setOpen(false)
+  }
+
+  return (
+    <div className={`menu-wrapper ${open ? 'is-open' : ''}`}>
+    <div
+      className={cardClasses}
+      style={cardStyle}
+      onClick={handleCardClick}
+      role={open ? undefined : 'button'}
+      tabIndex={open ? -1 : 0}
+      onKeyDown={(e) => {
+        if (!open && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          setOpen(true)
+        }
+        if (open && e.key === 'Escape') {
+          setOpenSections(new Set())
+          setOpen(false)
+        }
+      }}
+      aria-expanded={open}
+      aria-label={open ? 'Menu' : 'Open menu'}
+    >
+      <div className="menu-card__layer menu-card__layer--collapsed">
+        <Icon box={{ src: menuIcon, inset: '20% 16.25% 20% 16.25%' }} />
+        <span className="menu-collapsed__label">Menu</span>
+      </div>
+
+      <ul className="menu-card__layer menu-card__layer--expanded">
+        {MAIN_ITEMS.map((item) => {
+          const expandable = !!item.subItems
+          const sectionId = item.id as SectionId
+          const sectionState =
+            expandable && isSectionOpen(sectionId) ? 'open' : 'closed'
+
+          const row = (
+            <div
+              className={[
+                'menu-row',
+                item.elevated ? 'menu-row--elevated' : '',
+                expandable ? 'menu-row--expandable' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              data-row={item.id}
+              style={{ borderRadius: item.radius }}
+              onClick={
+                expandable ? (e) => toggleSection(sectionId, e) : undefined
+              }
+            >
+              <span className="menu-row__group">
+                <Icon box={item.icon} />
+                <span className="menu-row__label">{item.label}</span>
+              </span>
+              <Chevron />
+            </div>
+          )
+
+          if (expandable && item.subItems) {
+            return (
+              <li
+                key={item.id}
+                className="menu-section"
+                data-section={item.id}
+                data-state={sectionState}
+                style={{ listStyle: 'none' }}
+              >
+                {row}
+                <div
+                  className="menu-submenu"
+                  role="region"
+                  aria-label={`${item.label} sub-menu`}
+                >
+                  {item.subItems.map((sub) => (
+                    <div key={sub.id} className="submenu-row">
+                      <Icon box={sub.icon} />
+                      <span className="submenu-row__label">{sub.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </li>
+            )
+          }
+
+          return (
+            <li key={item.id} style={{ listStyle: 'none', width: '100%' }}>
+              {row}
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+      <button
+        type="button"
+        className="menu-close"
+        onClick={closeAll}
+        aria-label="Close menu"
+        tabIndex={open ? 0 : -1}
+      >
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M6 6L18 18M18 6L6 18"
+            stroke="currentColor"
+            strokeWidth="2.25"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
+    </div>
+  )
+}

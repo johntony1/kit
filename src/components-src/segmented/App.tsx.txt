@@ -1,0 +1,6 @@
+import "./index.css";
+import { SegmentedTab } from "./components/SegmentedTab";
+
+export default function App() {
+  return <SegmentedTab />;
+}

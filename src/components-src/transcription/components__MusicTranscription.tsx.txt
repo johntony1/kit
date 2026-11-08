@@ -1,0 +1,597 @@
+import {
+  AnimatePresence,
+  motion,
+  useMotionValue,
+  useMotionValueEvent,
+  useTransform,
+} from "framer-motion";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+
+import albumArt from "../assets/album.jpg";
+import WaveformSvg from "../assets/waveform.svg?react";
+import ChatIcon from "../assets/chat-icon.svg?react";
+import CloseCircleIcon from "../assets/close-icon.svg?react";
+
+import { fetchSyncedLyrics, placeholderLyrics, type Lyric } from "./lyrics";
+
+type Props = {
+  title?: string;
+  artist?: string;
+  artworkSrc?: string;
+  audioSrc?: string;
+  fallbackDurationSeconds?: number;
+  lyrics?: Lyric[];
+  onSeek?: (seconds: number) => void;
+};
+
+const WAVEFORM_WIDTH = 225.333;
+const WAVEFORM_INSET_LEFT = 6.8;
+const WAVEFORM_HEIGHT = 36;
+
+const LYRIC_LINE_HEIGHT = 32;
+const LYRIC_VIEWPORT_HEIGHT = 289;
+const LYRIC_VIEWPORT_WIDTH = 349;
+
+const SPRING = { type: "spring" as const, stiffness: 420, damping: 38, mass: 0.7 };
+const FAST_SPRING = { type: "spring" as const, stiffness: 540, damping: 40, mass: 0.6 };
+
+/**
+ * Default audio: "Shop Vac" by Jonathan Coulton, released under
+ * CC BY-NC 3.0 (https://creativecommons.org/licenses/by-nc/3.0/),
+ * hosted on the Internet Archive. Full-length track so the LRCLIB
+ * timestamps line up from 0:00 — unlike a 30-second mid-song preview.
+ */
+const DEFAULT_AUDIO =
+  "https://archive.org/download/ThingAWeek/04ShopVac.mp3";
+const DEFAULT_TITLE = "Shop Vac";
+const DEFAULT_ARTIST = "Jonathan Coulton";
+
+function formatTime(seconds: number) {
+  const s = Math.max(0, Math.floor(seconds));
+  const mm = Math.floor(s / 60).toString().padStart(2, "0");
+  const ss = (s % 60).toString().padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+
+function PlayGlyph({ playing }: { playing: boolean }) {
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      {playing ? (
+        <motion.svg
+          key="pause"
+          viewBox="0 0 12 12"
+          className="size-3 text-white drop-shadow"
+          initial={{ opacity: 0, scale: 0.25, filter: "blur(4px)" }}
+          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+          exit={{ opacity: 0, scale: 0.25, filter: "blur(4px)" }}
+          transition={{ type: "spring", duration: 0.3, bounce: 0 }}
+        >
+          <rect x="2.5" y="2" width="2.4" height="8" rx="0.6" fill="currentColor" />
+          <rect x="7.1" y="2" width="2.4" height="8" rx="0.6" fill="currentColor" />
+        </motion.svg>
+      ) : (
+        <motion.svg
+          key="play"
+          viewBox="0 0 12 12"
+          className="size-3 text-white drop-shadow"
+          initial={{ opacity: 0, scale: 0.25, filter: "blur(4px)" }}
+          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+          exit={{ opacity: 0, scale: 0.25, filter: "blur(4px)" }}
+          transition={{ type: "spring", duration: 0.3, bounce: 0 }}
+        >
+          <path d="M3.5 2.3v7.4c0 .4.4.7.8.5l5.6-3.7a.6.6 0 0 0 0-1L4.3 1.8a.6.6 0 0 0-.8.5Z" fill="currentColor" />
+        </motion.svg>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function LyricsBlock({
+  lyrics,
+  currentSeconds,
+  onSeekToLine,
+}: {
+  lyrics: Lyric[];
+  currentSeconds: number;
+  onSeekToLine: (seconds: number) => void;
+}) {
+  // Active index = last lyric whose time <= currentSeconds
+  const activeIndex = useMemo(() => {
+    let idx = 0;
+    for (let i = 0; i < lyrics.length; i++) {
+      if (lyrics[i].time <= currentSeconds) idx = i;
+      else break;
+    }
+    return idx;
+  }, [lyrics, currentSeconds]);
+
+  // Keep one line of past context visible above the active line.
+  const translateY = -Math.max(0, activeIndex - 1) * LYRIC_LINE_HEIGHT;
+
+  return (
+    <div
+      className="overflow-hidden"
+      style={{
+        height: LYRIC_VIEWPORT_HEIGHT,
+        width: LYRIC_VIEWPORT_WIDTH,
+        maskImage:
+          "linear-gradient(to bottom, transparent 0, #000 12%, #000 76%, transparent 100%)",
+        WebkitMaskImage:
+          "linear-gradient(to bottom, transparent 0, #000 12%, #000 76%, transparent 100%)",
+      }}
+    >
+      <motion.div
+        animate={{ y: translateY }}
+        transition={{ type: "spring", stiffness: 220, damping: 32, mass: 0.9 }}
+        className="font-display"
+        style={{
+          fontWeight: 500,
+          fontSize: 20,
+          letterSpacing: "-0.12px",
+          fontVariationSettings: "'wdth' 100",
+          textWrap: "pretty",
+        }}
+      >
+        {lyrics.map((line, i) => {
+          const isActive = i === activeIndex;
+          const isPast = i < activeIndex;
+          return (
+            <motion.button
+              key={i}
+              type="button"
+              onClick={() => onSeekToLine(line.time)}
+              aria-current={isActive ? "true" : undefined}
+              animate={{
+                color: isActive
+                  ? "#171717"
+                  : isPast
+                    ? "#c8c8c8"
+                    : "#a3a3a3",
+                opacity: isActive ? 1 : isPast ? 0.6 : 0.9,
+                filter: isActive ? "blur(0px)" : "blur(0.2px)",
+              }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="block w-full text-left cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-blue)] rounded-[6px] px-[2px] -mx-[2px] hover:[&:not([aria-current='true'])]:text-[#737373]"
+              style={{
+                background: "transparent",
+                border: 0,
+                margin: 0,
+                font: "inherit",
+                letterSpacing: "inherit",
+                lineHeight: `${LYRIC_LINE_HEIGHT}px`,
+                transitionProperty: "scale, color",
+                transitionDuration: "150ms",
+                willChange: "color, opacity",
+              }}
+            >
+              {line.text}
+            </motion.button>
+          );
+        })}
+      </motion.div>
+    </div>
+  );
+}
+
+export function MusicTranscription({
+  title = DEFAULT_TITLE,
+  artist = DEFAULT_ARTIST,
+  artworkSrc = albumArt,
+  audioSrc = DEFAULT_AUDIO,
+  fallbackDurationSeconds = 211,
+  lyrics: lyricsProp,
+  onSeek,
+}: Props) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const waveRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+  const wasPlayingBeforeDragRef = useRef(false);
+
+  const [hovering, setHovering] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [durationSeconds, setDurationSeconds] = useState(fallbackDurationSeconds);
+  const [currentSeconds, setCurrentSeconds] = useState(0);
+  const [fetchedLyrics, setFetchedLyrics] = useState<Lyric[] | null>(null);
+
+  const lyrics = lyricsProp ?? fetchedLyrics ?? placeholderLyrics;
+
+  useEffect(() => {
+    if (lyricsProp) return;
+    const ctrl = new AbortController();
+    fetchSyncedLyrics(title, artist, ctrl.signal).then((result) => {
+      if (result) setFetchedLyrics(result);
+    });
+    return () => ctrl.abort();
+  }, [title, artist, lyricsProp]);
+
+  const progress = useMotionValue(0);
+
+  const playheadX = useTransform(
+    progress,
+    (p) => WAVEFORM_INSET_LEFT + p * (WAVEFORM_WIDTH - WAVEFORM_INSET_LEFT * 2)
+  );
+  const playedClipPath = useTransform(
+    progress,
+    (p) => `inset(0 ${(1 - p) * 100}% 0 0)`
+  );
+
+  useMotionValueEvent(progress, "change", (p) => {
+    setCurrentSeconds(p * durationSeconds);
+  });
+
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const a = audioRef.current;
+      if (a && a.duration && !draggingRef.current) {
+        progress.set(a.currentTime / a.duration);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    if (playing) raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, progress]);
+
+  const seekFromPointer = useCallback(
+    (clientX: number) => {
+      const el = waveRef.current;
+      const a = audioRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const raw = (clientX - rect.left) / rect.width;
+      const clamped = Math.max(0, Math.min(1, raw));
+      progress.set(clamped);
+      if (a && a.duration) a.currentTime = clamped * a.duration;
+      onSeek?.(clamped * durationSeconds);
+    },
+    [durationSeconds, onSeek, progress]
+  );
+
+  const seekToSeconds = useCallback(
+    async (seconds: number) => {
+      const a = audioRef.current;
+      const dur = a?.duration || durationSeconds;
+      const clamped = Math.max(0, Math.min(dur, seconds));
+      progress.set(clamped / dur);
+      if (a && a.duration) {
+        a.currentTime = clamped;
+        if (a.paused) {
+          try {
+            await a.play();
+          } catch {
+            /* gesture missing */
+          }
+        }
+      }
+      onSeek?.(clamped);
+    },
+    [durationSeconds, onSeek, progress]
+  );
+
+  const togglePlay = async () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (a.paused) {
+      try {
+        await a.play();
+      } catch {
+        /* gesture missing */
+      }
+    } else {
+      a.pause();
+    }
+  };
+
+  const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    draggingRef.current = true;
+    wasPlayingBeforeDragRef.current = playing;
+    audioRef.current?.pause();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    seekFromPointer(e.clientX);
+  };
+
+  const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (draggingRef.current) seekFromPointer(e.clientX);
+  };
+
+  const endDrag = async (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* noop */
+    }
+    if (wasPlayingBeforeDragRef.current) {
+      try {
+        await audioRef.current?.play();
+      } catch {
+        /* noop */
+      }
+    }
+  };
+
+  const showScan = hovering || playing;
+
+  return (
+    <div className="relative inline-flex flex-col items-center select-none">
+      <audio
+        ref={audioRef}
+        src={audioSrc}
+        preload="metadata"
+        crossOrigin="anonymous"
+        onLoadedMetadata={(e) => {
+          const d = e.currentTarget.duration;
+          if (Number.isFinite(d) && d > 0) setDurationSeconds(d);
+        }}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => {
+          setPlaying(false);
+          progress.set(0);
+          if (audioRef.current) audioRef.current.currentTime = 0;
+        }}
+      />
+
+      {/* Time pill — absolutely positioned, follows the top of whichever surface is visible */}
+      <AnimatePresence initial={false}>
+        {showScan && (
+          <motion.div
+            key="time-pill"
+            initial={{ opacity: 0, y: 6, scale: 0.92, filter: "blur(4px)" }}
+            animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, y: 4, scale: 0.94, filter: "blur(3px)" }}
+            transition={SPRING}
+            className="absolute left-1/2 -translate-x-1/2 -top-[22px] z-10 flex items-center justify-center rounded-t-[8px] px-[8px] py-[4px] bg-[var(--color-brand-blue-16)] pointer-events-none"
+            style={{ willChange: "transform, opacity, filter" }}
+          >
+            <p
+              className="text-[12px] leading-[18px] tracking-[-0.072px] text-[var(--color-text-strong)] tabular-nums"
+              style={{ fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0" }}
+            >
+              {formatTime(currentSeconds)} / {formatTime(durationSeconds)}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Outer shell — pure CSS transition per /transitions-dev card-resize.
+          padding, background-color and border-radius all tween on the same
+          --resize-dur / --resize-ease curve. */}
+      <div
+        data-expanded={expanded}
+        className="t-resize-shell flex flex-col items-stretch"
+        style={{
+          backgroundColor: expanded
+            ? "rgba(247,247,247,1)"
+            : "rgba(247,247,247,0)",
+          borderRadius: expanded ? 20 : 16,
+          padding: expanded ? "12px 4px 4px" : "0px 0px 0px",
+        }}
+      >
+        {/* Lyrics block — grid-rows 0fr ↔ 1fr CSS resize trick.
+            Height tweens on the same curve as the shell padding/bg. */}
+        <div
+          className="t-resize-rows"
+          data-open={expanded ? "true" : "false"}
+          aria-hidden={!expanded}
+        >
+          <div className="t-resize-row-inner">
+            <div
+              className="flex flex-col pb-[12px]"
+              style={{
+                /* The fade matches the resize curve so contents read in as
+                   the shell grows — purely CSS, no JS sequencing. */
+                opacity: expanded ? 1 : 0,
+                transition:
+                  "opacity var(--resize-dur) var(--resize-ease)",
+              }}
+            >
+              {/* Close button row */}
+              <div className="flex items-center justify-end px-[12px] pb-[12px]">
+                <button
+                  type="button"
+                  onClick={() => setExpanded(false)}
+                  aria-label="Close lyrics"
+                  tabIndex={expanded ? 0 : -1}
+                  className="relative size-[20px] overflow-hidden text-[#5c5c5c] cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-blue)] rounded-full active:scale-[0.96] transition-transform"
+                >
+                  <div className="absolute inset-[12.5%]">
+                    <CloseCircleIcon className="block size-full" />
+                  </div>
+                </button>
+              </div>
+
+              {/* Lyrics */}
+              <div className="px-[16px]">
+                <LyricsBlock
+                  lyrics={lyrics}
+                  currentSeconds={currentSeconds}
+                  onSeekToLine={seekToSeconds}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Music card */}
+        <div
+          onMouseEnter={() => setHovering(true)}
+          onMouseLeave={() => setHovering(false)}
+          className="relative flex items-center gap-[8px] rounded-[16px] pl-[8px] pr-[12px] py-[8px] bg-white border border-solid border-[#ebebeb]"
+        >
+          <div className="flex items-center gap-[4px]">
+            <div className="flex items-center gap-[8px]">
+              {/* Album art / play button */}
+              <button
+                type="button"
+                onClick={togglePlay}
+                aria-label={playing ? "Pause" : "Play"}
+                className="group relative size-[40px] rounded-full shrink-0 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-blue)] active:scale-[0.96] transition-transform"
+                style={{
+                  boxShadow:
+                    "0 0 0 2.384px rgba(51,51,51,0.04), 0 2.384px 2.384px 1.192px rgba(51,51,51,0.04), 0 7.151px 7.151px -3.575px rgba(51,51,51,0.02), 0 14.302px 14.302px -7.151px rgba(51,51,51,0.04), 0 28.603px 28.603px -14.302px rgba(51,51,51,0.04), 0 57.207px 57.207px -28.603px rgba(51,51,51,0.04), 0 114.413px 114.413px -57.207px rgba(51,51,51,0.04), 0 228.826px 228.826px -76.275px rgba(51,51,51,0.06)",
+                }}
+              >
+                <img
+                  src={artworkSrc}
+                  alt=""
+                  className="absolute inset-0 size-full rounded-full object-cover"
+                  draggable={false}
+                />
+                <div
+                  className="absolute inset-0 rounded-full"
+                  style={{
+                    boxShadow:
+                      "inset 0 -2.384px 2.384px -1.192px rgba(51,51,51,0.06)",
+                  }}
+                />
+                <motion.div
+                  className="absolute inset-0 rounded-full flex items-center justify-center"
+                  animate={{
+                    opacity: hovering || playing ? 1 : 0,
+                    backgroundColor:
+                      hovering || playing
+                        ? "rgba(0,0,0,0.35)"
+                        : "rgba(0,0,0,0)",
+                  }}
+                  transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
+                >
+                  <PlayGlyph playing={playing} />
+                </motion.div>
+              </button>
+
+              {/* Title / artist */}
+              <div
+                className="flex flex-col items-start whitespace-nowrap text-[12px] tracking-[-0.072px]"
+                style={{ fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0" }}
+              >
+                <p className="font-medium leading-[18px] text-[var(--color-text-strong)]">
+                  {title}
+                </p>
+                <p className="font-normal leading-[18px] text-[var(--color-text-sub)]">
+                  {artist}
+                </p>
+              </div>
+            </div>
+
+            {/* Waveform area */}
+            <div
+              ref={waveRef}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              className="relative shrink-0 touch-none cursor-pointer"
+              style={{ width: WAVEFORM_WIDTH, height: WAVEFORM_HEIGHT }}
+              role="slider"
+              aria-label="Seek"
+              aria-valuemin={0}
+              aria-valuemax={Math.round(durationSeconds)}
+              aria-valuenow={Math.round(currentSeconds)}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                const step = 5 / durationSeconds;
+                if (e.key === "ArrowRight") {
+                  e.preventDefault();
+                  const next = Math.min(1, progress.get() + step);
+                  progress.set(next);
+                  if (audioRef.current?.duration)
+                    audioRef.current.currentTime =
+                      next * audioRef.current.duration;
+                } else if (e.key === "ArrowLeft") {
+                  e.preventDefault();
+                  const next = Math.max(0, progress.get() - step);
+                  progress.set(next);
+                  if (audioRef.current?.duration)
+                    audioRef.current.currentTime =
+                      next * audioRef.current.duration;
+                } else if (e.key === " " || e.key === "Enter") {
+                  e.preventDefault();
+                  togglePlay();
+                }
+              }}
+            >
+              <motion.div
+                className="absolute"
+                style={{
+                  left: WAVEFORM_INSET_LEFT,
+                  top: 0.27,
+                  width: 218.535,
+                  height: 35.47,
+                }}
+                animate={{ color: showScan ? "#a4a4a4" : "#171717" }}
+                transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
+              >
+                <WaveformSvg className="block w-full h-full" />
+              </motion.div>
+
+              <motion.div
+                className="absolute pointer-events-none text-[#171717]"
+                style={{
+                  left: WAVEFORM_INSET_LEFT,
+                  top: 0.27,
+                  width: 218.535,
+                  height: 35.47,
+                  clipPath: playedClipPath,
+                }}
+                animate={{ opacity: showScan ? 1 : 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                <WaveformSvg className="block w-full h-full" />
+              </motion.div>
+
+              <AnimatePresence>
+                {showScan && (
+                  <motion.div
+                    key="playhead"
+                    initial={{ opacity: 0, scaleY: 0.6 }}
+                    animate={{ opacity: 1, scaleY: 1 }}
+                    exit={{ opacity: 0, scaleY: 0.7 }}
+                    transition={FAST_SPRING}
+                    className="absolute top-0 bottom-0 pointer-events-none"
+                    style={{
+                      x: playheadX,
+                      width: 1,
+                      marginLeft: -0.5,
+                      background: "var(--color-brand-blue)",
+                      transformOrigin: "center",
+                      willChange: "transform",
+                    }}
+                  />
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          {/* Chat icon — toggles lyrics panel */}
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-label={expanded ? "Hide lyrics" : "Show lyrics"}
+            aria-expanded={expanded}
+            className="relative size-[24px] overflow-hidden text-[var(--color-icon-default)] shrink-0 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-blue)] rounded-full active:scale-[0.94] transition-transform"
+          >
+            <motion.div
+              className="absolute inset-[12.5%]"
+              animate={{ color: expanded ? "#171717" : "#a4a4a4" }}
+              transition={{ duration: 0.18 }}
+            >
+              <ChatIcon className="block size-full" />
+            </motion.div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default MusicTranscription;

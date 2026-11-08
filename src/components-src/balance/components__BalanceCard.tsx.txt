@@ -1,0 +1,537 @@
+import { useEffect, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { Icon } from '@iconify/react'
+import { AnimatedLabel } from './AnimatedLabel'
+import { AutoResize } from './AutoResize'
+import { BarChart } from './BarChart'
+import { DateWheel } from './DateWheel'
+import { ShareCard, UserRow } from './ShareSection'
+import {
+  RANGE_DATASETS,
+  RANGE_SUBTITLE,
+  SPRING,
+  SPRING_SNAPPY,
+  TIMING,
+  type RangeKey,
+} from '../lib/storyboard'
+
+const RANGES: readonly RangeKey[] = ['Today', 'Week', 'Month', 'Year']
+type Range = RangeKey
+
+const BREAKDOWN = [
+  { label: 'Income', amount: '+$3,420.00', tone: 'pos' as const },
+  { label: 'Expenses', amount: '−$438.00', tone: 'neg' as const },
+  { label: 'Net change', amount: '+$2,982.00', tone: 'pos' as const },
+]
+
+// Pinned for the demo so the chart labels and "Today" stay coherent.
+const TODAY = new Date(2026, 3, 27) // Apr 27, 2026
+
+function formatDateLabel(date: Date): string {
+  const today = TODAY
+  const dayMs = 86400000
+  const diff = Math.round(
+    (today.getTime() - new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()) /
+      dayMs,
+  )
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Yesterday'
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+const fadeUp = (delay: number, reduced: boolean) =>
+  reduced
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
+    : {
+        initial: { opacity: 0, y: 8, filter: 'blur(4px)' },
+        animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+        exit: { opacity: 0, y: 4, filter: 'blur(2px)' },
+        transition: { ...SPRING_SNAPPY, delay },
+      }
+
+export function BalanceCard() {
+  const [open, setOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [selectedDate, setSelectedDate] = useState<Date>(TODAY)
+  const [range, setRange] = useState<Range>('Today')
+  const reduced = useReducedMotion() ?? false
+  const dateLabel = formatDateLabel(selectedDate)
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [open])
+
+  const openModal = () => {
+    setPickerOpen(false)
+    setShareOpen(false)
+    setOpen(true)
+  }
+
+  const openShare = () => {
+    setPickerOpen(false)
+    setShareOpen(true)
+  }
+
+  return (
+    <>
+      {/* ── Trigger shell — morphs in place between balance / share ── */}
+      {!open && (
+        <motion.div
+          layoutId="balance-shell"
+          aria-expanded={open}
+          className="outline-none"
+          style={{
+            background: 'var(--color-bg-weak-25)',
+            padding: '4px 4px 12px 4px',
+            borderRadius: 24,
+            width: 354,
+            willChange: 'transform',
+          }}
+          transition={SPRING}
+        >
+          <CardSurface>
+            <AnimatePresence mode="popLayout" initial={false}>
+              {shareOpen ? (
+                <motion.div
+                  key="share"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
+                  className="w-full"
+                >
+                  <ShareCard onClose={() => setShareOpen(false)} />
+                </motion.div>
+              ) : (
+                <motion.button
+                  key="balance"
+                  type="button"
+                  onClick={openModal}
+                  aria-label="Open total balance details"
+                  whileTap={{ scale: 0.985 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
+                  className="flex w-full flex-col gap-[11px] rounded-[12px] text-left outline-none focus-visible:ring-2 focus-visible:ring-black/15"
+                  style={{ willChange: 'transform' }}
+                >
+                  <Header />
+                  <ValueRow />
+                  <BarChart maxHeight={102} />
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </CardSurface>
+
+          <AutoResize className="mt-3">
+            <AnimatePresence mode="popLayout" initial={false}>
+              {pickerOpen ? (
+                <motion.div
+                  key="picker"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
+                >
+                  <DateWheel
+                    today={TODAY}
+                    selected={selectedDate}
+                    onChange={setSelectedDate}
+                    label={dateLabel}
+                    onClose={() => setPickerOpen(false)}
+                    reduced={reduced}
+                  />
+                </motion.div>
+              ) : shareOpen ? (
+                <motion.div
+                  key="user"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
+                >
+                  <UserRow />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="actions"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
+                >
+                  <ActionRow
+                    label={dateLabel}
+                    onTodayClick={() => {
+                      setShareOpen(false)
+                      setPickerOpen(true)
+                    }}
+                    onShareClick={openShare}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </AutoResize>
+        </motion.div>
+      )}
+
+      {/* ── Modal ────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {open && (
+          <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
+            <motion.div
+              className="absolute inset-0 bg-black/35 backdrop-blur-[2px]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              onClick={() => setOpen(false)}
+            />
+
+            <motion.div
+              layoutId="balance-shell"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Total balance details"
+              className="relative w-[440px] max-w-[calc(100vw-32px)]"
+              style={{
+                background: 'var(--color-bg-weak-25)',
+                padding: '4px 4px 12px 4px',
+                borderRadius: 28,
+                willChange: 'transform',
+              }}
+              transition={SPRING}
+            >
+              <CardSurface expanded>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <Header expanded />
+                    <motion.p
+                      {...fadeUp(TIMING.subtitle, reduced)}
+                      className="mt-1 text-[13px] leading-[18px] text-text-sub-600"
+                    >
+                      <AnimatePresence mode="wait" initial={false}>
+                        <motion.span
+                          key={range}
+                          initial={
+                            reduced
+                              ? { opacity: 0 }
+                              : { opacity: 0, y: 4, filter: 'blur(3px)' }
+                          }
+                          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                          exit={
+                            reduced
+                              ? { opacity: 0 }
+                              : { opacity: 0, y: -4, filter: 'blur(3px)' }
+                          }
+                          transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
+                          className="inline-block"
+                        >
+                          {RANGE_SUBTITLE[range]}
+                        </motion.span>
+                      </AnimatePresence>
+                    </motion.p>
+                  </div>
+                  <motion.button
+                    onClick={() => setOpen(false)}
+                    aria-label="Close"
+                    initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.94 }}
+                    transition={{ ...SPRING_SNAPPY, delay: TIMING.closeBtn }}
+                    className="grid h-9 w-9 place-items-center rounded-full bg-bg-weak-25 text-text-sub-600 outline-none ring-1 ring-stroke-soft-200 transition-colors hover:bg-bg-soft-200 focus-visible:ring-2 focus-visible:ring-black/15"
+                    style={{ willChange: 'transform' }}
+                  >
+                    <Icon icon="mingcute:close-line" width={18} height={18} />
+                  </motion.button>
+                </div>
+
+                <ValueRow expanded delta="+$72.40 vs last period" reduced={reduced} />
+
+                <BarChart
+                  maxHeight={196}
+                  className="mt-2"
+                  dataset={RANGE_DATASETS[range]}
+                />
+
+                <Tabs range={range} onSelect={setRange} reduced={reduced} />
+              </CardSurface>
+
+              <Breakdown reduced={reduced} />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────
+ * Sub-pieces — kept tiny on purpose
+ * ───────────────────────────────────────────────────────── */
+
+function CardSurface({
+  children,
+  expanded = false,
+}: {
+  children: React.ReactNode
+  expanded?: boolean
+}) {
+  return (
+    <div
+      className="relative w-full bg-white"
+      style={{
+        borderRadius: expanded ? 24 : 20,
+        padding: expanded ? 20 : 16,
+        boxShadow:
+          '0 4px 8px -2px rgba(51,51,51,0.06), 0 2px 4px 0 rgba(51,51,51,0.04), 0 1px 2px 0 rgba(51,51,51,0.04), 0 0 0 1px var(--color-state-faded-lighter), inset 0 -1px 1px -0.5px rgba(51,51,51,0.06)',
+      }}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-[inherit]"
+        style={{
+          backgroundImage:
+            'linear-gradient(90deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.2) 100%), linear-gradient(181deg, rgb(255,255,255) 1.32%, rgb(255,255,255) 84%, rgba(187,201,236,0.01) 165.67%)',
+        }}
+      />
+      <AutoResize>
+        <div className="relative flex flex-col gap-[11px]">{children}</div>
+      </AutoResize>
+    </div>
+  )
+}
+
+function Header({ expanded = false }: { expanded?: boolean }) {
+  return (
+    <motion.div layout="position" className="flex items-center gap-2">
+      <span
+        className="font-medium text-text-strong-950"
+        style={{
+          fontSize: expanded ? 18 : 16,
+          lineHeight: '22px',
+          letterSpacing: '-0.18px',
+          fontWeight: 475,
+        }}
+      >
+        Total Balance
+      </span>
+      <Icon
+        icon="mingcute:information-line"
+        width={18}
+        height={18}
+        className="text-icon-soft-400"
+      />
+      {!expanded && (
+        <span className="ml-auto text-icon-soft-400">
+          <Icon icon="mingcute:more-2-fill" width={20} height={20} />
+        </span>
+      )}
+    </motion.div>
+  )
+}
+
+function ValueRow({
+  expanded = false,
+  delta,
+  reduced = false,
+}: {
+  expanded?: boolean
+  delta?: string
+  reduced?: boolean
+}) {
+  return (
+    <motion.div layout="position" className="flex items-center gap-2">
+      <span
+        className="tabular font-semibold text-text-strong-950"
+        style={{
+          fontSize: expanded ? 40 : 32,
+          lineHeight: 1.1,
+          letterSpacing: '-1.2px',
+        }}
+      >
+        2,982
+      </span>
+      <span
+        className="tabular inline-flex h-[20px] items-center rounded-[5px] bg-green-200 px-[6px] text-[12px] leading-[18px] text-green-1000"
+        style={{ fontFamily: '"Public Sans", Inter, sans-serif' }}
+      >
+        2.45%
+      </span>
+      {expanded && delta && (
+        <motion.span
+          {...(reduced
+            ? { initial: { opacity: 0 }, animate: { opacity: 1 } }
+            : {
+                initial: { opacity: 0, x: -4, filter: 'blur(4px)' },
+                animate: { opacity: 1, x: 0, filter: 'blur(0px)' },
+                transition: { ...SPRING_SNAPPY, delay: TIMING.subtitle + 0.06 },
+              })}
+          className="tabular ml-1 text-[12px] leading-[18px] text-text-sub-600"
+        >
+          {delta}
+        </motion.span>
+      )}
+    </motion.div>
+  )
+}
+
+function ActionRow({
+  label,
+  onTodayClick,
+  onShareClick,
+}: {
+  label: string
+  onTodayClick: () => void
+  onShareClick: () => void
+}) {
+  return (
+    <div className="flex w-full items-start justify-between px-3">
+      <button
+        type="button"
+        onClick={onTodayClick}
+        aria-label="Open date picker"
+        className="inline-flex items-center gap-[10px] rounded-[16px] bg-bg-soft-200 py-[6px] pl-2 pr-3 outline-none transition-[scale] active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-black/15"
+        style={{ willChange: 'transform' }}
+      >
+        <Icon
+          icon="mingcute:calendar-2-line"
+          width={18}
+          height={18}
+          className="text-text-sub-600"
+        />
+        <AnimatedLabel
+          value={label}
+          className="tabular text-text-sub-600"
+          style={{
+            fontWeight: 500,
+            fontSize: 14,
+            lineHeight: '20px',
+            letterSpacing: '-0.084px',
+          }}
+        />
+      </button>
+      <button
+        type="button"
+        onClick={onShareClick}
+        aria-label="Open share modal"
+        className="inline-flex items-center justify-center rounded-full bg-white px-3 py-[6px] text-text-sub-600 outline-none transition-[scale] active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-black/15"
+        style={{
+          fontWeight: 500,
+          fontSize: 14,
+          lineHeight: '20px',
+          letterSpacing: '-0.084px',
+          boxShadow:
+            '0 0 0 1px var(--color-stroke-soft-200), 0 1px 3px 0 rgba(14,18,27,0.12)',
+          willChange: 'transform',
+        }}
+      >
+        Share
+      </button>
+    </div>
+  )
+}
+
+function Tabs({
+  range,
+  onSelect,
+  reduced,
+}: {
+  range: Range
+  onSelect: (r: Range) => void
+  reduced: boolean
+}) {
+  return (
+    <motion.div
+      layout="position"
+      className="mt-3 flex items-center gap-1 rounded-full bg-bg-weak-25 p-1"
+    >
+      {RANGES.map((r, i) => (
+        <motion.button
+          key={r}
+          onClick={() => onSelect(r)}
+          {...(reduced
+            ? { initial: { opacity: 0 }, animate: { opacity: 1 } }
+            : {
+                initial: { opacity: 0, y: 6, filter: 'blur(4px)' },
+                animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+                transition: {
+                  ...SPRING_SNAPPY,
+                  delay: TIMING.tabsStart + i * TIMING.tabsStagger,
+                },
+              })}
+          className="relative flex-1 rounded-full px-3 py-1.5 text-[13px] font-medium text-text-sub-600 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-black/15"
+          style={{ willChange: 'transform' }}
+          whileTap={{ scale: 0.96 }}
+        >
+          {range === r && (
+            <motion.span
+              layoutId="tab-pill"
+              className="absolute inset-0 rounded-full bg-white"
+              style={{
+                boxShadow:
+                  '0 0 0 1px var(--color-stroke-soft-200), 0 1px 2px 0 rgba(14,18,27,0.06)',
+              }}
+              transition={SPRING_SNAPPY}
+            />
+          )}
+          <span
+            className={
+              'relative z-10 ' +
+              (range === r ? 'text-text-strong-950' : 'text-text-sub-600')
+            }
+          >
+            {r}
+          </span>
+        </motion.button>
+      ))}
+    </motion.div>
+  )
+}
+
+function Breakdown({ reduced }: { reduced: boolean }) {
+  return (
+    <div className="mt-3 flex flex-col gap-1 px-3">
+      {BREAKDOWN.map((row, i) => (
+        <motion.div
+          key={row.label}
+          {...(reduced
+            ? { initial: { opacity: 0 }, animate: { opacity: 1 } }
+            : {
+                initial: { opacity: 0, y: 8, filter: 'blur(4px)' },
+                animate: { opacity: 1, y: 0, filter: 'blur(0px)' },
+                transition: {
+                  ...SPRING_SNAPPY,
+                  delay: TIMING.rowsStart + i * TIMING.rowsStagger,
+                },
+              })}
+          className="flex items-center justify-between py-1.5"
+        >
+          <span className="text-[14px] leading-[20px] text-text-sub-600">
+            {row.label}
+          </span>
+          <span
+            className={
+              'tabular text-[14px] leading-[20px] font-medium ' +
+              (row.tone === 'pos' ? 'text-green-1000' : 'text-text-strong-950')
+            }
+          >
+            {row.amount}
+          </span>
+        </motion.div>
+      ))}
+    </div>
+  )
+}

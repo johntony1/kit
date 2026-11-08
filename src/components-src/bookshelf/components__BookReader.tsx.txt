@@ -1,0 +1,822 @@
+'use client'
+
+import {
+  AnimatePresence,
+  animate,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+  type MotionValue,
+  type PanInfo,
+} from 'framer-motion'
+import { ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Book } from '@/lib/types'
+
+/* ─────────────────────────────────────────────────────────────────
+ * PAGE-FLIP STORYBOARD
+ *
+ *   t=0           Trigger fires. Flipper mounts at start angle.
+ *                 Static layer beneath shows the FUTURE state of the
+ *                 side being uncovered (so it reveals as the flipper
+ *                 passes over it — no jump cut).
+ *
+ *   0–150ms       LIFT. Driven by the same rotation motion-value:
+ *                   • translateZ rises off the plane (peaks 90px at 90°)
+ *                   • rotateZ kicks the leading corner up (~4°)
+ *                   • rotateX adds a soft arch (~16°)
+ *                 Edge leads, body follows.
+ *
+ *   0–1200ms      HINGE SWEEP. rotateY 0° → ∓180° around the spine.
+ *                   • next: 0 → -180  (right page swings left)
+ *                   • prev: 0 →  180  (left page swings right)
+ *                 skewY peaks ±5° at 90° (paper "flap").
+ *                 Curl-highlight band brightens at 90°.
+ *                 Front face fades out at |rotY|>86°; back face fades in
+ *                 at |rotY|>94° (8° edge-on band — invisible since
+ *                 cos(86°) ≈ 0.07 width).
+ *
+ *   ~1200ms       SETTLE. spring(visualDuration:1.2, bounce:0.16)
+ *                 → tiny realistic overshoot as paper relaxes flat.
+ *
+ *   onComplete    Commit: spread index advances, flipper unmounts.
+ *                 The flipper's back face content matches the new
+ *                 static page that takes its place → no flash.
+ *
+ *   prefers-reduced-motion: skip the flipper, advance instantly.
+ * ───────────────────────────────────────────────────────────────── */
+
+const TIMING = {
+  // Slow enough to see the curl/lift, fast enough that the 90° edge-on
+  // moment passes quickly. Bounce 0 = critically damped: the rotation
+  // decelerates to exactly -180° and stops — no overshoot, no
+  // oscillation. ANY bounce >0 makes the page visibly wobble past
+  // target then back, which reads as "shaking" at landing.
+  flipDurationS: 0.95,
+  flipBounce:    0,
+  // Fast spring for the book-open transition and other small UI moves.
+  uiDurationS:   0.50,
+  uiBounce:      0.18,
+  charsPerPage:  1600,
+}
+
+const FLIP_SPRING = {
+  type: 'spring' as const,
+  visualDuration: TIMING.flipDurationS,
+  bounce: TIMING.flipBounce,
+}
+
+const SPRING = {
+  type: 'spring' as const,
+  visualDuration: TIMING.uiDurationS,
+  bounce: TIMING.uiBounce,
+}
+
+const CURL = {
+  liftZpx:    34,   // peak translateZ at 90° — page lifts off the spread.
+                    // Was 90px; that high a lift made the page float away
+                    // from the spread plane, breaking the "anchored at
+                    // spine" feel of a real book.
+  archXdeg:    5,   // peak rotateX at 90°  — very soft arch toward viewer.
+                    // Real book pages are mostly rigid; a subtle arch
+                    // sells the bend without distorting geometry.
+  leanZdeg:    0,   // rotateZ disabled. Direction-dependent diagonal tilt
+                    // of the whole page made the bottom look like it was
+                    // "falling off" relative to the top — not how real
+                    // book pages move (they rotate cleanly around the spine).
+  flapYdeg:    0,   // skewY disabled. Vertical-edge shear made the
+                    // bottom misalign from the top during the flip.
+                    // Real paper deformation is internal, not a whole-
+                    // page skew.
+  highlight:  0.85, // peak curl-band opacity
+}
+
+// Page-block thickness shown at each outer edge. Width animates with
+// flip rotation so weight visibly transfers from one stack to the other.
+const STACK = {
+  minPx:    6,    // thinnest stack (= "almost no pages this side")
+  maxPx:   22,    // thickest stack (= "most of the book this side")
+  pulsePx:  9,    // temporary growth/shrink during each flip — sells the
+                  // "page being added to the stack" feel even when the
+                  // long-term ratio change per spread is small.
+}
+
+function stackWidths(spread: number, total: number): { left: number; right: number } {
+  if (total <= 1) return { left: STACK.minPx, right: STACK.minPx }
+  const ratio = spread / (total - 1)
+  const span = STACK.maxPx - STACK.minPx
+  return {
+    left:  STACK.minPx + span * ratio,
+    right: STACK.minPx + span * (1 - ratio),
+  }
+}
+
+interface FlipState {
+  dir: 'next' | 'prev'
+  from: number
+  to: number
+}
+
+interface BookReaderProps {
+  book: Book | null
+  onClose: () => void
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * PAGINATION
+ *
+ * Leaf indexing (used everywhere below):
+ *   leaf 0          = title page
+ *   leaf k (k≥1)    = pages[k - 1], printed page number = k + 1
+ *
+ * Spread N occupies leaves { 2N, 2N+1 } (so spread 0 = title + page 1).
+ * The flipping sheet between spread N and N+1 is leaves
+ *   front = 2N+1, back = 2N+2  → consecutive (same physical sheet).
+ * ─────────────────────────────────────────────────────────────── */
+
+function paginate(text: string): string[] {
+  if (!text) return []
+  const paragraphs = text
+    .replace(/\r\n/g, '\n')
+    .split(/\n{2,}/)
+    .map((p) => p.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+
+  const pages: string[] = []
+  let buf = ''
+  for (const p of paragraphs) {
+    const next = buf ? buf + '\n\n' + p : p
+    if (next.length > TIMING.charsPerPage && buf) {
+      pages.push(buf)
+      buf = p
+    } else {
+      buf = next
+    }
+  }
+  if (buf) pages.push(buf)
+  return pages
+}
+
+export function BookReader({ book, onClose }: BookReaderProps) {
+  const [text, setText] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [spread, setSpread] = useState(0)
+  const [flip, setFlip] = useState<FlipState | null>(null)
+  const requestKey = useRef<number | null>(null)
+  const reduced = useReducedMotion()
+
+  const pages = useMemo(() => paginate(text), [text])
+  const leafCount = pages.length + 1
+  const totalSpreads = Math.max(1, Math.ceil(leafCount / 2))
+
+  // Lifted rotation MotionValue. Drives the flipper rotation, the static
+  // overlay swap, AND a dim mask that peaks at 90° to absorb any visible
+  // swap artifact.
+  const flipRotY = useMotionValue(0)
+
+  // BINARY swap — no crossfade. Any partial-opacity window blends two
+  // different bodies of text into "ghost" text, which is the actual glitch
+  // the user sees. With binary swap, exactly one layer renders at any
+  // moment. The swap happens at 90° where the flipper is edge-on (zero
+  // width in true 3D), so the swap underneath is masked by physics.
+  const oldOverlayOpacity = useTransform(flipRotY, (v): number =>
+    Math.abs(v) >= 90 ? 0 : 1
+  )
+
+  // Soft warm dim across the entire spread, peaks at 90° (sin² curve).
+  // Sits above the static layer + overlay but below the flipper. Subtle
+  // (15% peak) — the stacks now do the heavy lifting visually, the dim
+  // just absorbs any single-frame swap artifact.
+  const dimOpacity = useTransform(flipRotY, (v) => {
+    const a = Math.min(180, Math.abs(v))
+    const s = Math.sin((a / 180) * Math.PI)
+    return s * s * 0.15
+  })
+
+  // ── Page-block stacks ─────────────────────────────────────────
+  // Two visual blocks at the outer edges of the spread that show how
+  // many pages are still stacked on each side. As the flip progresses:
+  //   • long-term ratio interpolates from current spread to next spread
+  //     (small per-spread shift over the whole book)
+  //   • a sin-shaped pulse temporarily grows the destination side and
+  //     shrinks the source side during the flip, so each individual
+  //     flip has visible weight transfer (the user's brain "believes
+  //     the transfer" before the page lands).
+  // On commit, a quick scaleY pulse simulates paper compressing under
+  // the just-landed weight, then releasing.
+  const baseStack   = stackWidths(spread, totalSpreads)
+  const targetStack = flip ? stackWidths(flip.to, totalSpreads) : baseStack
+  const flipDir     = flip?.dir === 'prev' ? -1 : 1   // next: +, prev: -
+
+  const leftStackWidth = useTransform(flipRotY, (v) => {
+    const a    = Math.min(180, Math.abs(v))
+    const t    = a / 180                                  // 0 → 1
+    const curl = Math.sin((a / 180) * Math.PI)            // 0 → 1 → 0
+    const lerp = baseStack.left + (targetStack.left - baseStack.left) * t
+    return Math.max(0, lerp + curl * STACK.pulsePx * flipDir)
+  })
+  const rightStackWidth = useTransform(flipRotY, (v) => {
+    const a    = Math.min(180, Math.abs(v))
+    const t    = a / 180
+    const curl = Math.sin((a / 180) * Math.PI)
+    const lerp = baseStack.right + (targetStack.right - baseStack.right) * t
+    return Math.max(0, lerp - curl * STACK.pulsePx * flipDir)
+  })
+
+  // Compress→release pulse on the stacks at the moment the flipping
+  // page lands. Triggered from the flip useEffect's onComplete.
+  const stackPulse = useMotionValue(1)
+
+  // Fetch full text via API route (CORS-safe)
+  useEffect(() => {
+    if (!book) return
+    const id = book.gutenbergId
+    requestKey.current = id
+    setLoading(true)
+    setError(null)
+    setText('')
+    setSpread(0)
+    setFlip(null)
+    flipRotY.jump(0)
+    stackPulse.jump(1)
+
+    fetch(`/api/book/${id}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then((data: { text: string }) => {
+        if (requestKey.current !== id) return
+        setText(data.text || '')
+      })
+      .catch((e: Error) => {
+        if (requestKey.current !== id) return
+        setError(e.message)
+      })
+      .finally(() => {
+        if (requestKey.current === id) setLoading(false)
+      })
+  }, [book])
+
+  const goNext = () => {
+    if (flip || spread + 1 >= totalSpreads) return
+    if (reduced) { setSpread(spread + 1); return }
+    // CRITICAL: reset SYNCHRONOUSLY before setFlip. After a previous flip
+    // flipRotY sits at ±180. If we don't reset before re-render, the
+    // overlay's useTransform reads -180 → opacity 0 → new content flashes
+    // through for one paint frame. Resetting in useEffect is too late.
+    flipRotY.jump(0)
+    setFlip({ dir: 'next', from: spread, to: spread + 1 })
+  }
+  const goPrev = () => {
+    if (flip || spread <= 0) return
+    if (reduced) { setSpread(spread - 1); return }
+    flipRotY.jump(0)
+    setFlip({ dir: 'prev', from: spread, to: spread - 1 })
+  }
+
+  // Drive the rotation here so the same motion-value powers the static
+  // overlay swap AND the stack widths. flipRotY was already reset to 0
+  // synchronously in the click handler, so the first paint after setFlip
+  // already shows the overlay at opacity 1.
+  //
+  // Skipped while a drag-initiated flip is in progress — the pan handler
+  // controls flipRotY directly and runs its own commit/cancel animation
+  // on pan-end.
+  useEffect(() => {
+    if (!flip) return
+    if (draggingRef.current) return
+    const target = flip.dir === 'next' ? -180 : 180
+    const ctrl = animate(flipRotY, target, {
+      ...FLIP_SPRING,
+      onComplete: () => {
+        setSpread(flip.to)
+        setFlip(null)
+        // Stack settle: monotonic compress→back-to-rest. No over-extend
+        // (e.g. 1.005) — that adds a second wobble after the rotation
+        // has already settled, which is what reads as "shaking".
+        animate(stackPulse, [1, 0.97, 1], {
+          duration: 0.32,
+          ease: [0.2, 0, 0, 1],
+        })
+      },
+    })
+    return () => ctrl.stop()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flip])
+
+  // ── Drag-to-turn-page ───────────────────────────────────────────
+  // Pan on the right half + drag left → start a 'next' flip and let
+  // the drag offset drive the rotation directly. Mirror for prev.
+  // On pan-end: commit if past 50% rotation OR if the release was a
+  // fast horizontal flick; otherwise spring back to flat and cancel.
+  const draggingRef  = useRef(false)
+  const dragFlipRef  = useRef<FlipState | null>(null)
+  const bookRef      = useRef<HTMLDivElement>(null)
+
+  const handlePan = (
+    _e: PointerEvent | MouseEvent | TouchEvent,
+    info: PanInfo,
+  ) => {
+    if (reduced) return
+    const el = bookRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+
+    if (!draggingRef.current) {
+      // First pan event after gesture starts — decide whether this drag
+      // turns a page. Initial pointer position determines which side
+      // the user grabbed; offset sign determines drag direction.
+      if (flip) return
+      const startX     = info.point.x - info.offset.x
+      const fromRight  = startX > rect.left + rect.width / 2
+      const goingLeft  = info.offset.x < 0
+      const dir: 'next' | 'prev' | null =
+        fromRight && goingLeft   ? 'next' :
+        !fromRight && !goingLeft ? 'prev' :
+        null
+      if (!dir) return
+      if (dir === 'next' && spread + 1 >= totalSpreads) return
+      if (dir === 'prev' && spread <= 0) return
+
+      const newFlip: FlipState = {
+        dir,
+        from: spread,
+        to:   dir === 'next' ? spread + 1 : spread - 1,
+      }
+      draggingRef.current = true
+      dragFlipRef.current = newFlip
+      flipRotY.jump(0)
+      setFlip(newFlip)
+    }
+
+    // Map drag distance → rotation. Half the book width = full flip.
+    const halfWidth = rect.width / 2
+    const sign      = info.offset.x < 0 ? -1 : 1
+    const progress  = Math.min(1, Math.abs(info.offset.x) / halfWidth)
+    flipRotY.set(sign * 180 * progress)
+  }
+
+  const handlePanEnd = (
+    _e: PointerEvent | MouseEvent | TouchEvent,
+    info: PanInfo,
+  ) => {
+    if (!draggingRef.current) return
+    draggingRef.current = false
+    const currentFlip = dragFlipRef.current
+    dragFlipRef.current = null
+    if (!currentFlip) return
+
+    const current  = flipRotY.get()
+    const progress = Math.abs(current) / 180
+    const isFlick  =
+      (currentFlip.dir === 'next' && info.velocity.x < -400) ||
+      (currentFlip.dir === 'prev' && info.velocity.x >  400)
+    const shouldCommit = progress > 0.5 || isFlick
+
+    if (shouldCommit) {
+      const target = currentFlip.dir === 'next' ? -180 : 180
+      animate(flipRotY, target, {
+        ...FLIP_SPRING,
+        onComplete: () => {
+          setSpread(currentFlip.to)
+          setFlip(null)
+          animate(stackPulse, [1, 0.97, 1], {
+            duration: 0.32,
+            ease: [0.2, 0, 0, 1],
+          })
+        },
+      })
+    } else {
+      animate(flipRotY, 0, {
+        ...FLIP_SPRING,
+        onComplete: () => setFlip(null),
+      })
+    }
+  }
+
+  useEffect(() => {
+    if (!book) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowLeft') goPrev()
+      else if (e.key === 'ArrowRight') goNext()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book, spread, totalSpreads, flip, reduced])
+
+  // ── Static layer with two-layer overlay (BOTH sides) ──────────
+  // Base layers   = NEW spread content (visible after 90°)
+  // Overlay layers = OLD spread content (visible until 90°)
+  //
+  // Both sides need overlays. Previously only the "changing" side did,
+  // which is exactly what produced the mid-flip mismatch (e.g. title +
+  // page 3 at 90°): the unchanged side's base never transitioned, so
+  // at the swap moment one side was still OLD while the other had just
+  // gone NEW. With overlays on BOTH sides, Phase 1 is fully OLD and
+  // Phase 2 is fully NEW — there is no frame where the spread is half
+  // old / half new.
+  let baseLeft:    number
+  let baseRight:   number
+  let overlayLeft:  number | null = null
+  let overlayRight: number | null = null
+
+  if (!flip) {
+    baseLeft  = 2 * spread
+    baseRight = 2 * spread + 1
+  } else if (flip.dir === 'next') {
+    baseLeft     = 2 * spread + 2   // newLeft  (post-flip left)
+    baseRight    = 2 * spread + 3   // newRight (post-flip right)
+    overlayLeft  = 2 * spread       // oldLeft  (current left)
+    overlayRight = 2 * spread + 1   // oldRight (current right)
+  } else {
+    baseLeft     = 2 * spread - 2   // newLeft
+    baseRight    = 2 * spread - 1   // newRight
+    overlayLeft  = 2 * spread       // oldLeft
+    overlayRight = 2 * spread + 1   // oldRight
+  }
+
+  // Mount via portal to <body> so position:fixed cannot be broken by an
+  // ancestor with `transform`, `filter`, or `will-change: transform`
+  // (framer-motion sometimes adds these to parent motion.* nodes, which
+  // creates a containing block for fixed descendants — the reader then
+  // falls out of the viewport overlay and lands at the bottom of the page).
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
+  const tree = (
+    <AnimatePresence>
+      {book && (
+        <motion.div
+          className="reader-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25, ease: [0.2, 0, 0, 1] }}
+          onClick={onClose}
+        >
+          <button
+            type="button"
+            aria-label="Close reader"
+            onClick={(e) => { e.stopPropagation(); onClose() }}
+            className="reader-close"
+          >
+            <X size={18} />
+          </button>
+
+          <motion.div
+            ref={bookRef}
+            className="reader-book"
+            initial={{ scale: 0.86, y: 18, opacity: 0 }}
+            animate={{ scale: 1, y: 0, opacity: 1 }}
+            exit={{ scale: 0.92, y: 10, opacity: 0 }}
+            transition={SPRING}
+            onClick={(e) => e.stopPropagation()}
+            onPan={handlePan}
+            onPanEnd={handlePanEnd}
+            style={{ touchAction: 'pan-y', cursor: flip ? 'grabbing' : 'grab' }}
+          >
+            <PageSurface
+              side="left"
+              leafIdx={baseLeft}
+              pages={pages}
+              book={book}
+              loading={loading && spread === 0}
+              error={error}
+            />
+
+            <div className="reader-gutter" aria-hidden />
+
+            <PageSurface
+              side="right"
+              leafIdx={baseRight}
+              pages={pages}
+              book={book}
+              loading={false}
+              error={null}
+            />
+
+            {/* Old-content overlays — fade out exactly at the 90° edge-on
+                moment, so old/new swap is hidden by the flipper itself. */}
+            {overlayLeft !== null && (
+              <PageSurface
+                side="left"
+                leafIdx={overlayLeft}
+                pages={pages}
+                book={book}
+                loading={false}
+                error={null}
+                isOverlay
+                opacity={oldOverlayOpacity}
+              />
+            )}
+            {overlayRight !== null && (
+              <PageSurface
+                side="right"
+                leafIdx={overlayRight}
+                pages={pages}
+                book={book}
+                loading={false}
+                error={null}
+                isOverlay
+                opacity={oldOverlayOpacity}
+              />
+            )}
+
+            {/* Soft warm dim — peaks at 90° to absorb any swap artifact.
+                Below the flipper (z 6) so the flipper still casts shadow. */}
+            {flip && (
+              <motion.div
+                className="reader-dim"
+                style={{ opacity: dimOpacity }}
+                aria-hidden
+              />
+            )}
+
+            {flip && (
+              <Flipper
+                key={`flip-${flip.from}-${flip.dir}`}
+                flip={flip}
+                rotY={flipRotY}
+                pages={pages}
+                book={book}
+              />
+            )}
+
+            {/* Page-block stacks at outer edges. z above flipper so the
+                flipping page visually "lands into" the stack on the
+                landing side. Width animates with rotation; scaleY pulses
+                on commit. */}
+            <motion.div
+              className="reader-stack reader-stack--left"
+              style={{ width: leftStackWidth, scaleY: stackPulse }}
+              aria-hidden
+            />
+            <motion.div
+              className="reader-stack reader-stack--right"
+              style={{ width: rightStackWidth, scaleY: stackPulse }}
+              aria-hidden
+            />
+          </motion.div>
+
+          <button
+            type="button"
+            aria-label="Previous page"
+            onClick={(e) => { e.stopPropagation(); goPrev() }}
+            disabled={spread === 0 || !!flip}
+            className="reader-nav reader-nav--prev"
+          >
+            <ChevronLeft size={22} />
+          </button>
+          <button
+            type="button"
+            aria-label="Next page"
+            onClick={(e) => { e.stopPropagation(); goNext() }}
+            disabled={spread + 1 >= totalSpreads || !!flip}
+            className="reader-nav reader-nav--next"
+          >
+            <ChevronRight size={22} />
+          </button>
+
+          <div className="reader-footer" onClick={(e) => e.stopPropagation()}>
+            <span className="tabular">
+              {book.title} · {book.author} · spread {spread + 1} of {totalSpreads}
+            </span>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+
+  if (!mounted) return null
+  return createPortal(tree, document.body)
+}
+
+interface PageSurfaceProps {
+  side: 'left' | 'right'
+  leafIdx: number
+  pages: string[]
+  book: Book
+  loading: boolean
+  error: string | null
+  isOverlay?: boolean
+  opacity?: MotionValue<number> | number
+}
+
+function PageSurface({
+  side,
+  leafIdx,
+  pages,
+  book,
+  loading,
+  error,
+  isOverlay,
+  opacity,
+}: PageSurfaceProps) {
+  const className = `reader-page reader-page--${side}${
+    isOverlay ? ' reader-page--overlay' : ''
+  }`
+  return (
+    <motion.div
+      className={className}
+      style={opacity !== undefined ? { opacity } : undefined}
+    >
+      <div className="reader-page-inner">
+        {loading ? (
+          <Loading />
+        ) : error ? (
+          <ErrorState message={error} title={book.title} />
+        ) : (
+          <LeafContent idx={leafIdx} pages={pages} book={book} />
+        )}
+      </div>
+      <PageNumber idx={leafIdx} side={side} pageCount={pages.length} />
+    </motion.div>
+  )
+}
+
+interface FlipperProps {
+  flip: FlipState
+  rotY: MotionValue<number>
+  pages: string[]
+  book: Book
+}
+
+function Flipper({ flip, rotY, pages, book }: FlipperProps) {
+  const isNext = flip.dir === 'next'
+
+  // Curl: 0 at flat, 1 at 90° — drives all secondary motion.
+  const curl = useTransform(rotY, (v) => {
+    const a = Math.min(180, Math.abs(v))
+    return Math.sin((a / 180) * Math.PI)
+  })
+
+  const z    = useTransform(curl, [0, 1], [0, CURL.liftZpx])
+  const rotX = useTransform(curl, [0, 1], [0, CURL.archXdeg])
+  // Leading corner lifts diagonally — flips sign by direction
+  const rotZ  = useTransform(curl, [0, 1], [0, isNext ? -CURL.leanZdeg : CURL.leanZdeg])
+  // Paper "flap" — skewY peaks mid-flip then unwinds. Sign is direction-dependent
+  // so the trailing edge lags the leading edge naturally.
+  const skewY = useTransform(curl, [0, 1], [0, isNext ?  CURL.flapYdeg : -CURL.flapYdeg])
+
+  // ── Opacity-based face hiding ───────────────────────────────────
+  // backface-visibility can't be trusted (filter, mix-blend-mode, mask, or
+  // `will-change: filter` silently coerces preserve-3d to flat). Gate at a
+  // single 90° threshold: exactly one face is always shown. The page is
+  // edge-on (zero width in true 3D) at 90° anyway, so the swap is invisible.
+  // No dead-band — that caused a midpoint blink/glitch.
+  const frontOpacity = useTransform(rotY, (v): number => (Math.abs(v) >= 90 ? 0 : 1))
+  const backOpacity  = useTransform(rotY, (v): number => (Math.abs(v) >= 90 ? 1 : 0))
+
+  const highlightOpacity = useTransform(curl, [0, 1], [0, CURL.highlight])
+
+  // Front/back leaf content: consecutive (same physical sheet)
+  const N = flip.from
+  const frontIdx = isNext ? 2 * N + 1 : 2 * N
+  const backIdx  = isNext ? 2 * N + 2 : 2 * N - 1
+
+  // Geometry: the book has a 14px gutter centered at 50%, so static
+  // pages occupy [0, 50%-7px] and [50%+7px, 100%]. The flipper's
+  // bounding box must match those exact bounds so its rotated position
+  // at ±180° lands on the OTHER side's static page exactly. The pivot
+  // sits 7px OUTSIDE the bounding box, at the gutter centerline (50%);
+  // that way the mirrored content fills the other static page's area
+  // with zero misalignment when the flipper unmounts.
+  const positionStyle: React.CSSProperties = isNext
+    ? {
+        left:           'calc(50% + 7px)',
+        right:          0,
+        transformOrigin: '-7px 50%',
+      }
+    : {
+        left:           0,
+        right:          'calc(50% + 7px)',
+        transformOrigin: 'calc(100% + 7px) 50%',
+      }
+
+  // The rotation animation runs in the parent so the same MotionValue
+  // can drive both the flipper and the static overlay crossfade.
+
+  return (
+    <motion.div
+      className="reader-flipper"
+      style={{
+        ...positionStyle,
+        rotateY: rotY,
+        rotateX: rotX,
+        rotateZ: rotZ,
+        skewY,
+        translateZ: z,
+      }}
+    >
+      <motion.div
+        className={`reader-flipper-face reader-flipper-face--front reader-flipper-face--${isNext ? 'right' : 'left'}`}
+        style={{ opacity: frontOpacity }}
+      >
+        <div className="reader-page-inner">
+          <LeafContent idx={frontIdx} pages={pages} book={book} />
+        </div>
+        <PageNumber
+          idx={frontIdx}
+          side={isNext ? 'right' : 'left'}
+          pageCount={pages.length}
+        />
+        <motion.div
+          className={`reader-curl reader-curl--${isNext ? 'leading-right' : 'leading-left'}`}
+          style={{ opacity: highlightOpacity }}
+          aria-hidden
+        />
+      </motion.div>
+
+      <motion.div
+        className={`reader-flipper-face reader-flipper-face--back reader-flipper-face--${isNext ? 'left' : 'right'}`}
+        /* rotateY(180) MUST be inline. Framer Motion writes its own transform
+           on motion.div nodes (e.g. translateZ(0) for GPU compositing) which
+           silently overrides the CSS class's `transform: rotateY(180deg)`,
+           leaving the back face un-flipped — that's the mid-flip mirror
+           flash. Setting it via motion's style prop composes correctly. */
+        style={{ opacity: backOpacity, rotateY: 180 }}
+      >
+        <div className="reader-page-inner">
+          <LeafContent idx={backIdx} pages={pages} book={book} />
+        </div>
+        <PageNumber
+          idx={backIdx}
+          side={isNext ? 'left' : 'right'}
+          pageCount={pages.length}
+        />
+        <motion.div
+          className={`reader-curl reader-curl--${isNext ? 'leading-left' : 'leading-right'}`}
+          style={{ opacity: highlightOpacity }}
+          aria-hidden
+        />
+      </motion.div>
+    </motion.div>
+  )
+}
+
+function LeafContent({ idx, pages, book }: { idx: number; pages: string[]; book: Book }) {
+  if (idx < 0 || idx > pages.length) return null
+  if (idx === 0) return <TitlePageContent book={book} />
+  return <PageText text={pages[idx - 1] ?? ''} />
+}
+
+function PageNumber({
+  idx,
+  side,
+  pageCount,
+}: { idx: number; side: 'left' | 'right'; pageCount: number }) {
+  if (idx <= 0 || idx > pageCount) return null
+  return (
+    <div className={`reader-page-number reader-page-number--${side} tabular`}>{idx}</div>
+  )
+}
+
+function PageText({ text }: { text: string }) {
+  if (!text) return null
+  const paras = text.split(/\n{2,}/)
+  return (
+    <div className="reader-prose">
+      {paras.map((p, i) => (
+        <p key={i}>{p}</p>
+      ))}
+    </div>
+  )
+}
+
+function TitlePageContent({ book }: { book: Book }) {
+  return (
+    <div className="reader-title-page">
+      <div className="reader-title-rule" />
+      <h1>{book.title}</h1>
+      <div className="reader-title-rule reader-title-rule--short" />
+      <p className="reader-title-author">{book.author}</p>
+      <p className="reader-title-meta">
+        from Project Gutenberg · {book.pages ?? '—'} pages
+      </p>
+    </div>
+  )
+}
+
+function Loading() {
+  return (
+    <div className="reader-state">
+      <Loader2 size={20} className="animate-spin mb-3" />
+      <p className="text-[12px] italic">Opening the book…</p>
+    </div>
+  )
+}
+
+function ErrorState({ message, title }: { message: string; title: string }) {
+  return (
+    <div className="reader-state">
+      <p className="text-[13px] italic mb-2">Could not load “{title}”.</p>
+      <p className="text-[11px] opacity-70">{message}</p>
+    </div>
+  )
+}

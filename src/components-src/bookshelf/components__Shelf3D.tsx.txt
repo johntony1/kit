@@ -1,0 +1,128 @@
+'use client'
+
+import { Canvas, useThree } from '@react-three/fiber'
+import { RoundedBox } from '@react-three/drei'
+import { Suspense } from 'react'
+
+/**
+ * 3D wooden floating shelf — matches reference photo of a thin honey-pine
+ * plank coming out of a white wall.
+ *
+ * The trick is the camera angle: we look DOWN at the plank from above
+ * (~30° tilt) so the TOP face dominates and we see only a thin sliver
+ * of the front edge. That's what makes it read as a 3D slab and not a
+ * flat brown rectangle.
+ *
+ * Lighting is soft daylight (high ambient + gentle key from upper-front)
+ * — the reference has no harsh contrast, the wood reads naturally.
+ *
+ * Wall shadow comes from a transparent plane behind the plank that only
+ * renders where light is blocked (shadowMaterial), giving the soft
+ * fading shadow on the page background.
+ */
+
+function Plank() {
+  const { viewport } = useThree()
+  // Thin wide slab — like a real floating shelf, not a chunky beam
+  const w = viewport.width * 1.0
+  const h = 0.10   // thickness (top-to-bottom) — kept thin
+  const d = 0.40   // depth (front-to-back)
+  // Shift the plank UP in world space so it renders near the TOP of
+  // the canvas — leaves room below for the wall shadow to fade, and
+  // puts the plank's top edge right against the books sitting above.
+  const cy = 0.18
+
+  return (
+    <>
+      {/* Wall plane behind the plank — invisible except for the shadow it
+          catches. Sits a hair behind the plank's back face so the shadow
+          has room to soften before fading out. Wall plane is centered
+          at y=0 (canvas center) so the shadow has full room below the
+          plank to fade naturally. */}
+      <mesh position={[0, 0, -d / 2 - 0.02]} receiveShadow>
+        <planeGeometry args={[viewport.width * 6, viewport.height * 6]} />
+        <shadowMaterial transparent opacity={0.05} color="#2a1a08" />
+      </mesh>
+
+      {/* The plank itself — RoundedBox gives it the slight bevel on edges
+          that catches a highlight and stops it looking CG-stiff. */}
+      <RoundedBox
+        args={[w, h, d]}
+        radius={0.015}
+        smoothness={4}
+        castShadow
+        receiveShadow
+        position={[0, cy, 0]}
+      >
+        <meshStandardMaterial
+          color="#d9a064"
+          roughness={0.62}
+          metalness={0}
+        />
+      </RoundedBox>
+    </>
+  )
+}
+
+export function Shelf3D() {
+  return (
+    <div
+      style={{
+        width: '100%',
+        height: 110,
+        // Strong negative margin pulls the canvas up so the plank's
+        // top edge meets the bottom of the books sitting above. The
+        // plank is shifted up inside the canvas (cy=0.32) so it sits
+        // near the canvas top, leaving the rest of the canvas to
+        // catch the wall shadow fading downward.
+        marginTop: -13,
+      }}
+    >
+      <Canvas
+        shadows
+        frameloop="demand"
+        dpr={[1, 2]}
+        // Camera high-front, looking down at the plank. The Y/Z ratio
+        // sets the tilt: 0.95/1.5 ≈ 32° downward — top face dominates,
+        // front edge visible as a thin sliver.
+        camera={{ position: [0, 0.95, 1.5], fov: 22, near: 0.1, far: 50 }}
+        onCreated={({ camera }) => camera.lookAt(0, 0, 0)}
+        gl={{ antialias: true, alpha: true }}
+        style={{ pointerEvents: 'none' }}
+      >
+        {/* Soft daylight — high ambient floods the wood evenly so the
+            front face doesn't go dark. Key light from upper-front gives
+            just enough top/front gradient to read as 3D, plus throws
+            the wall shadow. */}
+        <ambientLight intensity={0.62} />
+        <directionalLight
+          position={[0.5, 6, 2.5]}
+          intensity={0.85}
+          color="#fff7e8"
+          castShadow
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-camera-near={0.5}
+          shadow-camera-far={20}
+          shadow-camera-left={-8}
+          shadow-camera-right={8}
+          shadow-camera-top={4}
+          shadow-camera-bottom={-4}
+          shadow-bias={-0.0003}
+          shadow-radius={80}
+        />
+        {/* Cool fill from opposite side balances out the warm key so
+            the shadow side of the plank doesn't go muddy. */}
+        <directionalLight
+          position={[-2, 1.5, 2]}
+          intensity={0.22}
+          color="#ffffff"
+        />
+
+        <Suspense fallback={null}>
+          <Plank />
+        </Suspense>
+      </Canvas>
+    </div>
+  )
+}

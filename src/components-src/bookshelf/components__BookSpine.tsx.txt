@@ -1,0 +1,115 @@
+'use client'
+
+import { useState } from 'react'
+import Image from 'next/image'
+import { Book } from '@/lib/types'
+
+interface BookSpineProps {
+  book: Book
+  index: number
+  onOpen: (book: Book) => void
+}
+
+const TILTS = [-2.2, 1.4, -1.0, 2.6, -1.7, 0.9, -2.4, 1.1, -0.5, 2.1]
+const tiltFor = (i: number) => TILTS[i % TILTS.length]
+
+const coverUrl = (isbn: string) =>
+  `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`
+
+export function BookSpine({ book, index, onOpen }: BookSpineProps) {
+  const [imgError, setImgError] = useState(false)
+  const [hovered, setHovered] = useState(false)
+
+  const spineW = book.width ?? 36
+  const height = book.height ?? 210
+  const coverW = Math.round(height * 0.68)
+  const openW = spineW + coverW
+
+  // Use mouseenter (JS), not CSS :hover. mouseenter only fires when the
+  // cursor *actually moves into* the element — not when the element
+  // happens to be under a stationary cursor at page load or after a
+  // viewport resize. That's the bug we're fixing: CSS :hover applies
+  // any time the cursor sits over the book, including when the user
+  // hasn't done anything. Also ignore mouseenter while the page is
+  // scrolling, so books passing under the cursor mid-scroll don't open.
+  const onEnter = () => {
+    if (typeof document !== 'undefined' && document.body.classList.contains('is-scrolling')) return
+    setHovered(true)
+  }
+  const onLeave = () => setHovered(false)
+
+  return (
+    <div
+      className={`shelf-book-wrap${hovered ? ' is-hovered' : ''}`}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      style={
+        {
+          '--book-tilt': `${tiltFor(index)}deg`,
+          '--book-closed-w': `${spineW}px`,
+          '--book-open-w': `${openW}px`,
+        } as React.CSSProperties
+      }
+    >
+      <button
+        type="button"
+        aria-label={`Open ${book.title}`}
+        className="shelf-book-btn"
+        onClick={(e) => {
+          e.currentTarget.blur()
+          onOpen(book)
+        }}
+        style={{
+          perspective: '1000px',
+          WebkitPerspective: '1000px',
+        }}
+      >
+        <div
+          className="shelf-book-spine"
+          style={{
+            width: spineW,
+            height,
+            background: book.color,
+            color: '#ffffff',
+          }}
+        >
+          <span className="book-linen shelf-book-paper" style={{ backgroundColor: book.color }} />
+          <span className="shelf-book-spine-title" style={{ maxHeight: height - 24 }}>
+            {book.title}
+          </span>
+        </div>
+
+        <div
+          className="shelf-book-cover"
+          style={{
+            width: coverW,
+            height,
+          }}
+        >
+          {!imgError ? (
+            <Image
+              src={coverUrl(book.isbn)}
+              alt={book.title}
+              fill
+              className="object-cover"
+              sizes={`${coverW}px`}
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div
+              className="absolute inset-0 flex flex-col justify-end p-3"
+              style={{ background: book.color }}
+            >
+              <p className="text-white text-[13px] font-semibold leading-snug line-clamp-3">
+                {book.title}
+              </p>
+              <p className="text-white/60 text-[11px] mt-1">{book.author}</p>
+            </div>
+          )}
+          <span className="shelf-book-paper" />
+          <span className="shelf-book-binding" />
+        </div>
+      </button>
+    </div>
+  )
+}

@@ -1,0 +1,220 @@
+import { useEffect, useState } from 'react'
+import { RevealWipe } from './CurvedShutterWipe'
+import { Nav } from './Nav'
+import { MaskRevealLines } from './AnimatedText'
+import { SEC3_GRADIENT } from '../lib/sec3Gradient'
+
+/**
+ * Figma node 204242:107883 — "Get more with Moonlytics", three tilted cards on
+ * the hero gradient flipped upside down. The stops are measured off this
+ * node's own render (scripts/extract-sec3-gradient.mjs): Figma declares the
+ * hero's three stops reversed, but renders them differently enough (Δ19/255
+ * mid-ramp) that mirroring the hero measurement is not good enough.
+ *
+ * The white curved shutter wipe hangs from the top of this section and peels
+ * upward as it scrolls in — the panel that covered page one leaving with a
+ * trailing curve to reveal page two.
+ */
+
+const CARDS = [
+  {
+    title: 'Send and receive money at low cost',
+    titleWidth: 230,
+    body: 'Sending and receiving money across the globe has never been more affordable, giving you a seamless, cost-effective way to transfer funds.',
+    bodyOpacity: 0.8,
+    icon: 'wallet' as const,
+    fill: 'left',
+    rotate: -5,
+    // Figma stacks a plain fill under the texture; the hue-blend layer on top
+    // is what recolours the green noise per card.
+    base: '#e5e5e5',
+    hue: null,
+  },
+  {
+    title: 'NO IBANS, SWIFTS, OR BANK ACCOUNTS',
+    titleWidth: 313,
+    body: 'Effortlessly send money to anyone, anywhere, by simply knowing their phone number—no complicated details, no hassle.',
+    bodyOpacity: 0.7,
+    // Chrome's Suisse metrics run ~2px wider than Figma's here, dropping "by"
+    // to the second line at the Figma width; 359 restores the exact breaks.
+    bodyWidth: 359,
+    icon: 'building' as const,
+    fill: 'mid',
+    rotate: 0,
+    base: '#eeeff0',
+    hue: '#172180',
+  },
+  {
+    title: 'Instant\nglobal transfers',
+    titleWidth: 230,
+    body: 'Seamlessly send money to anyone, anywhere in the world, with just a few taps—fast, secure, and hassle-free, all in a matter of seconds.',
+    bodyOpacity: 0.8,
+    icon: 'wallet' as const,
+    fill: 'right',
+    rotate: 5,
+    base: null,
+    hue: '#f8d9ea',
+  },
+]
+
+export function GetMoreSection() {
+  return (
+    <section
+      id="get-more"
+      aria-label="Get more with Moonlytics"
+      className="relative flex min-h-[100svh] items-center justify-center overflow-hidden px-4 py-24"
+      style={{ background: SEC3_GRADIENT }}
+    >
+      <div className="flex w-full max-w-[1310px] flex-col items-center gap-14 lg:gap-20">
+        <MaskRevealLines
+          as="h2"
+          lines={['Get more with', 'Moonlytics']}
+          className="headline-shadow text-center font-display text-[clamp(40px,4.45vw,64px)] leading-[1.1] font-normal tracking-[-0.04em] text-white"
+        />
+
+        {/* Figma's row, verbatim: the outer cards sit centred in fixed
+         * 460 × 535.5 boxes (the bounding size their ∓5° rotation produces) and
+         * every card is pulled 14px into the next, so they overlap — later
+         * siblings painting on top, as in the Figma layer order. Below lg they
+         * stack without rotation. */}
+        <div className="flex w-full flex-col items-center lg:flex-row lg:justify-center">
+          {CARDS.map((c, i) => (
+            <div
+              key={i}
+              className={
+                'relative flex items-center justify-center lg:mr-[-14px] lg:shrink-0 lg:last:mr-0 ' +
+                // Only the rotated cards get the fixed bounding box — it exists
+                // to reserve the extra space their 5° tilt sweeps. Boxing the
+                // straight middle card too widens the row by 42px and shoves
+                // the outer cards 21px off their Figma positions.
+                (c.rotate ? 'lg:h-[535.5px] lg:w-[460px]' : '')
+              }
+              style={{ zIndex: i }}
+            >
+              <Card {...c} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Same nav as the hero (dark-surface variant) so the page-to-page
+       * interaction has its return leg — revealed with the section, under the
+       * wipe. */}
+      <SectionNav />
+
+      <RevealWipe color="#ffffff" />
+    </section>
+  )
+}
+
+function SectionNav() {
+  const [fluid, setFluid] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 900,
+  )
+  useEffect(() => {
+    const onResize = () => setFluid(window.innerWidth < 900)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  return (
+    <div className="absolute inset-x-0 top-0 z-20">
+      <Nav fluid={fluid} onDark active="How it works" />
+    </div>
+  )
+}
+
+function Card({
+  title,
+  titleWidth,
+  body,
+  bodyOpacity,
+  bodyWidth,
+  icon,
+  fill,
+  rotate,
+  base,
+  hue,
+}: (typeof CARDS)[number] & { bodyWidth?: number }) {
+  return (
+    <div
+      className="relative isolate my-4 flex w-[419px] max-w-[calc(100vw-48px)] flex-col items-center gap-16 rounded-[12px] border-[0.5px] border-[#eaecf0]/20 px-8 pt-8 pb-10 lg:my-0 lg:rotate-(--tilt)"
+      // Tilt via a custom property consumed by an lg-only utility — below lg
+      // the cards stack straight, and an inline transform would ignore the
+      // breakpoint.
+      style={{ ['--tilt' as string]: `${rotate}deg` }}
+    >
+      {/* Background stack: fill → green noise texture → hue-blend recolour.
+       * `isolate` on the card keeps the hue blend from sampling the section
+       * gradient behind it. */}
+      <div className="pointer-events-none absolute inset-0 isolate overflow-hidden rounded-[12px]" aria-hidden>
+        {base && <div className="absolute inset-0" style={{ background: base }} />}
+        <img
+          src="./figma/card-noise.jpg"
+          alt=""
+          className="absolute inset-0 size-full object-cover"
+        />
+        {hue && (
+          <div
+            className="absolute inset-0"
+            style={{ background: hue, mixBlendMode: 'hue' }}
+          />
+        )}
+      </div>
+
+      <div className="z-[2] flex w-full flex-col items-start gap-[15px]">
+        <h3
+          className="w-full font-display text-[24px] leading-[30px] font-normal whitespace-pre-line text-white lg:w-(--tw)"
+          style={{ ['--tw' as string]: `${titleWidth}px` }}
+        >
+          {title}
+        </h3>
+        {/* No max-w clamp: the middle card's 359px deliberately exceeds the
+         * 355px padding box (trailing whitespace only), and clamping it back
+         * re-breaks the line. */}
+        <p
+          className="w-full text-[16px] leading-[24px] text-white lg:w-(--bw)"
+          style={{ opacity: bodyOpacity, ['--bw' as string]: `${bodyWidth ?? 354}px` }}
+        >
+          {body}
+        </p>
+      </div>
+
+      {/* Icon medallion: frosted pill, white circle, 100px vuesax glyph. */}
+      <div
+        className="z-[1] flex items-center rounded-full p-4"
+        style={{
+          backdropFilter: 'blur(12px)',
+          background:
+            'linear-gradient(to bottom, rgba(113,119,132,0.1), rgba(113,119,132,0))',
+        }}
+      >
+        <div className="flex h-[186px] w-[188px] items-center justify-center rounded-full border border-border-neutral bg-white shadow-[0_1px_2px_0_rgba(10,13,20,0.03)]">
+          {/* The glyph is not flat: Figma fills it with the card's own noise,
+           * blurred and darkened (the SVG export flattens that to #061833).
+           * Rebuilt as a mask over the same texture stack the card uses, so it
+           * inherits each card's hue shift — and the card's rotation. */}
+          <div
+            className="relative isolate size-[100px]"
+            style={{
+              maskImage: `url(./figma/icon-${icon}.svg)`,
+              WebkitMaskImage: `url(./figma/icon-${icon}.svg)`,
+              maskSize: '100% 100%',
+              WebkitMaskSize: '100% 100%',
+            }}
+          >
+            {/* The fill is the actual pixels from the Figma render, cropped
+             * at each glyph's position (outer cards counter-rotated first, so
+             * the card's own rotation re-applies it). Compositing the noise +
+             * hue + darkening live never quite matched; the crop is exact by
+             * construction. */}
+            <img
+              src={`./figma/icon-fill-${fill}.png`}
+              alt=""
+              className="absolute size-full"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

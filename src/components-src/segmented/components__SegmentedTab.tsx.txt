@@ -1,0 +1,501 @@
+/* ─────────────────────────────────────────────────────────
+ * ANIMATION STORYBOARD — Segmented Tab + Status Popover + Actions Panel
+ *
+ * Tab switch:
+ *    0ms   white pill springs old → new tab (layoutId)
+ *    0ms   button press scale 1 → 0.97, springs back on release
+ *  150ms   labels cross-fade soft ↔ strong
+ *  180ms   adjacent dividers fade out; far dividers fade in
+ *
+ * "Set status" opens popover:
+ *    0ms   outer pill: scale 0.88→1, y +10→0, opacity 0→1 (spring)
+ *   55ms   icon 1 bounces in  |  100ms icon 2  |  ...  |  235ms icon 5
+ *  exit    all fade + scale 0.88 (120ms ease-in)
+ *
+ * Status icon selected → pill morph:
+ *    0ms   white pill springs to selected pill size (layoutId morph)
+ *   50ms   status icon bounces in (scale 0.3→1)
+ *   80ms   label shimmer-slides in  |  110ms × springs in
+ *  exit    pill springs back to "Set status" size
+ *
+ * "+" → container morphs into Actions panel (layout spring):
+ *    0ms   tab bar fades out (80ms ease-in)
+ *    0ms   container springs from tab-bar → actions-panel shape
+ *   80ms   "Actions" header slides up (spring)
+ *  120ms   row 1 springs up  |  160ms row 2  |  200ms row 3  |  240ms row 4
+ *  exit    rows/header fade out (80ms), container springs back to tab-bar shape
+ * ───────────────────────────────────────────────────────── */
+
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { useRef, useState } from "react";
+
+import status1 from "../assets/status/status-1.png";
+import status2 from "../assets/status/status-2.png";
+import status3 from "../assets/status/status-3.png";
+import status4 from "../assets/status/status-4.png";
+import status5 from "../assets/status/status-5.png";
+
+/* ─── palette ─── */
+const COLOR = {
+  strong:  "#171717",
+  soft:    "#a3a3a3",
+  track:   "#f5f5f5",
+  white:   "#ffffff",
+  divider: "#e3e3e3",
+  border:  "#ebebeb",
+};
+
+/* ─── spring presets — matching Task animation project ─── */
+const SPRING_EXPAND = { type: "spring" as const, visualDuration: 0.5,  bounce: 0.28 };
+const SPRING_LAYOUT = { type: "spring" as const, visualDuration: 0.4,  bounce: 0    };
+
+/* ─── INDICATOR — sliding white pill ─── */
+const INDICATOR = {
+  spring: { type: "spring" as const, stiffness: 440, damping: 38 },
+  shadow: "0px 6px 10px rgba(14,18,27,0.06), 0px 2px 4px rgba(14,18,27,0.03)",
+};
+
+/* ─── PRESS ─── */
+const PRESS = {
+  scale:  0.97,
+  spring: { type: "spring" as const, stiffness: 500, damping: 20 },
+};
+
+/* ─── POPOVER ─── */
+const POPOVER_CONTAINER = {
+  initial: { opacity: 0, scale: 0.88, y: 10, x: "-50%" },
+  animate: {
+    opacity: 1, scale: 1, y: 0, x: "-50%",
+    transition: { type: "spring" as const, stiffness: 440, damping: 32, staggerChildren: 0.045, delayChildren: 0.05 },
+  },
+  exit: { opacity: 0, scale: 0.88, y: 8, x: "-50%", transition: { duration: 0.12, ease: "easeIn" as const } },
+};
+
+const POPOVER_ICON = {
+  initial: { opacity: 0, scale: 0.3, y: 6 },
+  animate: { opacity: 1, scale: 1, y: 0, transition: { type: "spring" as const, stiffness: 520, damping: 22 } },
+  exit:    { opacity: 0, scale: 0.3, transition: { duration: 0.08 } },
+};
+
+/* ─── TOOLTIP ─── */
+const TOOLTIP = {
+  spring:  { type: "spring" as const, stiffness: 620, damping: 30 },
+  initial: { opacity: 0, scale: 0.85, y: 4, x: "-50%" },
+  animate: { opacity: 1, scale: 1,    y: 0, x: "-50%" },
+  exit:    { opacity: 0, scale: 0.85, y: 2, x: "-50%", transition: { duration: 0.1, ease: "easeIn" as const } },
+};
+
+/* ─── durations ─── */
+const TIMING = { label: 0.15, divider: 0.18, chevron: 0.18, quickHoverMs: 350 };
+
+/* ─── card shadow (Figma "custom-shadows/medium") ─── */
+const CARD_SHADOW = [
+  "0px 1px 1px 0.5px rgba(51,51,51,0.04)",
+  "0px 3px 3px -1.5px rgba(51,51,51,0.02)",
+  "0px 6px 6px -3px rgba(51,51,51,0.04)",
+  "0px 12px 12px -6px rgba(51,51,51,0.04)",
+  "0px 24px 24px -12px rgba(51,51,51,0.04)",
+  "0px 48px 48px -24px rgba(51,51,51,0.04)",
+  "0px 0px 0px 1px #f5f5f5",
+].join(", ");
+
+/* ─── data ─── */
+const STATUS_ICONS = [
+  { src: status1, label: "Active"         },
+  { src: status2, label: "Busy"           },
+  { src: status3, label: "Do not disturb" },
+  { src: status4, label: "Be right back"  },
+  { src: status5, label: "Out of office"  },
+];
+
+/* ─── inline SVG action icons — white on transparent ─── */
+function SendIcon()    { return <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden><path d="M20 4L3.5 10.5L9.5 13.5L13 20L20 4Z" fill="white"/><path d="M9.5 13.5L20 4" stroke="white" strokeWidth="1.2" strokeLinecap="round"/></svg>; }
+function ReceiveIcon() { return <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden><path d="M12 5V17M8 13L12 17L16 13" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>; }
+function SwapIcon()    { return <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden><path d="M17 4V15M17 15L14 12M17 15L20 12" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M7 20V9M7 9L4 12M7 9L10 12" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>; }
+function InvoiceIcon() { return <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden><path d="M14 3H7C5.9 3 5 3.9 5 5V19C5 20.1 5.9 21 7 21H17C18.1 21 19 20.1 19 19V8L14 3Z" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 3V8H19" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 12V16M10 14H14" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>; }
+
+const ACTION_ITEMS: Array<{
+  label: string;
+  description: string;
+  Icon: () => React.ReactElement;
+  bg: string;
+  ring: string;
+}> = [
+  { label: "Send",           description: "Send token to any address or username",      Icon: SendIcon,    bg: "#335cff", ring: "#335cff" },
+  { label: "Receive",        description: "Receive assets through your unique address", Icon: ReceiveIcon, bg: "#1fc16b", ring: "#1fc16b" },
+  { label: "Swap",           description: "Swap your tokens with ease",                 Icon: SwapIcon,    bg: "#7b7b7b", ring: "#7b7b7b" },
+  { label: "Create invoice", description: "Create an invoice and get paid in crypto",   Icon: InvoiceIcon, bg: "#7d52f4", ring: "#7d52f4" },
+];
+
+type TabId      = "all" | "set-status" | "draft" | "archived";
+type StatusIcon = { src: string; label: string };
+
+function showDivider(left: TabId | null, right: TabId | null, active: TabId) {
+  return active !== left && active !== right;
+}
+
+/* ─── ShimmerText ─── */
+function ShimmerText({ children, doShimmer = true }: { children: React.ReactNode; doShimmer?: boolean }) {
+  const reduced = useReducedMotion();
+  const [on, setOn] = useState(doShimmer && !reduced);
+  return <span className={on ? "text-shimmer" : undefined} onAnimationEnd={() => setOn(false)}>{children}</span>;
+}
+
+/* ─── TooltipBubble ─── */
+const BUBBLE_BG = "#efefef";
+function TooltipBubble({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col items-center pointer-events-none select-none">
+      <div className="whitespace-nowrap" style={{ background: BUBBLE_BG, borderRadius: 13, padding: "7px 13px", fontSize: 14, lineHeight: "20px", color: "#636366", fontWeight: 500, fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0" }}>
+        {label}
+      </div>
+      <svg width="18" height="9" viewBox="0 0 18 9" style={{ display: "block", marginTop: -1 }}>
+        <path d="M0 0 C4.5 0, 6.5 9, 9 9 C11.5 9, 13.5 0, 18 0 Z" fill={BUBBLE_BG} />
+      </svg>
+    </div>
+  );
+}
+
+/* ─── StatusIconButton ─── */
+function StatusIconButton({ src, label, getIsQuick, onHoverEnd, onSelect }: {
+  src: string; label: string;
+  getIsQuick: () => boolean; onHoverEnd: () => void; onSelect: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [quick,   setQuick]   = useState(false);
+  const reduced = useReducedMotion();
+
+  return (
+    <motion.div variants={POPOVER_ICON} className="relative shrink-0">
+      <AnimatePresence>
+        {hovered && (
+          <motion.div key="tip" className="absolute bottom-full left-1/2 mb-2 z-[70]" style={{ transformOrigin: "bottom center" }}
+            initial={reduced || quick ? false : TOOLTIP.initial} animate={TOOLTIP.animate}
+            exit={reduced ? {} : TOOLTIP.exit} transition={reduced || quick ? { duration: 0 } : TOOLTIP.spring}>
+            <TooltipBubble label={label} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <motion.button aria-label={label} onClick={onSelect}
+        onHoverStart={() => { setQuick(getIsQuick()); setHovered(true); }}
+        onHoverEnd={() => { setHovered(false); onHoverEnd(); }}
+        whileHover={reduced ? {} : { scale: 1.16 }} whileTap={reduced ? {} : { scale: 0.88 }}
+        transition={{ type: "spring", stiffness: 500, damping: 20 }}
+        className="flex items-center justify-center rounded-[24px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
+        style={{ background: "#f7f7f7", padding: 6, WebkitTapHighlightColor: "transparent" }}>
+        <img src={src} alt="" draggable={false} className="block size-5 object-cover pointer-events-none select-none" />
+      </motion.button>
+    </motion.div>
+  );
+}
+
+/* ─── StatusPopover ─── */
+function StatusPopover({ onSelect }: { onSelect: (icon: StatusIcon) => void }) {
+  const lastHoverEndAt = useRef(0);
+  const getIsQuick = () => Date.now() - lastHoverEndAt.current < TIMING.quickHoverMs;
+  const handleHoverEnd = () => { lastHoverEndAt.current = Date.now(); };
+
+  return (
+    <motion.div variants={POPOVER_CONTAINER} initial="initial" animate="animate" exit="exit"
+      style={{ transformOrigin: "bottom center" }}
+      className="absolute bottom-full left-1/2 mb-3 z-50 w-max">
+      <div className="flex items-center rounded-[32px]" style={{ background: COLOR.white, padding: 4, gap: 8, border: `0.5px solid ${COLOR.border}`, boxShadow: "0px 16px 48px rgba(14,18,27,0.14), 0px 6px 16px rgba(14,18,27,0.08), 0px 2px 6px rgba(14,18,27,0.06)" }}>
+        {STATUS_ICONS.map(({ src, label }, i) => (
+          <StatusIconButton key={i} src={src} label={label} getIsQuick={getIsQuick} onHoverEnd={handleHoverEnd} onSelect={() => onSelect({ src, label })} />
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+/* ─── ChevronIcon ─── */
+function ChevronIcon({ active }: { active: boolean }) {
+  return (
+    <motion.svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden
+      animate={{ rotate: active ? 180 : 0 }} transition={{ duration: TIMING.chevron, ease: "easeInOut" }}>
+      <path d="M3.5 5.5L7.5 9.5L11.5 5.5" stroke={active ? COLOR.strong : COLOR.soft} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </motion.svg>
+  );
+}
+
+/* ─── PlusIcon / CloseIcon ─── */
+function PlusIcon() {
+  return <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><path d="M10 4.75V15.25M4.75 10H15.25" stroke={COLOR.soft} strokeWidth="1.5" strokeLinecap="round" /></svg>;
+}
+function CloseIcon({ stroke = COLOR.soft }: { stroke?: string }) {
+  return <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><path d="M6.5 6.5L13.5 13.5M13.5 6.5L6.5 13.5" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+/* ─── Divider ─── */
+function Divider({ visible }: { visible: boolean }) {
+  return (
+    <motion.div animate={{ opacity: visible ? 1 : 0 }} transition={{ duration: TIMING.divider, ease: "easeInOut" }}
+      aria-hidden className="shrink-0 w-px h-7" style={{ background: COLOR.divider }} />
+  );
+}
+
+/* ─── TabBtn ─── */
+function TabBtn({ tabId, active, onClick, padding, children }: {
+  tabId: TabId; active: TabId; onClick: () => void; padding: string; children: React.ReactNode;
+}) {
+  const isActive = active === tabId;
+  const reduced  = useReducedMotion();
+  return (
+    <motion.button role="tab" aria-selected={isActive} onClick={onClick}
+      whileTap={reduced ? {} : { scale: PRESS.scale }} transition={PRESS.spring}
+      className={`relative flex items-center justify-center gap-1 ${padding} rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-black/20`}
+      style={{ WebkitTapHighlightColor: "transparent" }}>
+      {isActive && (
+        <motion.span layoutId="tab-indicator" className="absolute inset-0"
+          style={{ background: COLOR.white, boxShadow: INDICATOR.shadow, zIndex: 0, borderRadius: 16 }}
+          transition={reduced ? { duration: 0 } : INDICATOR.spring} />
+      )}
+      <motion.span animate={{ color: isActive ? COLOR.strong : COLOR.soft }}
+        transition={{ duration: TIMING.label, ease: "easeInOut" }}
+        className="relative z-10 flex items-center gap-1 text-sm font-medium leading-5 select-none whitespace-nowrap"
+        style={{ letterSpacing: "-0.084px", fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0" }}>
+        {children}
+      </motion.span>
+    </motion.button>
+  );
+}
+
+/* ─── SelectedStatusBtn ─── */
+function SelectedStatusBtn({ status, onOpen, onClear }: { status: StatusIcon; onOpen: () => void; onClear: () => void }) {
+  const reduced = useReducedMotion();
+  return (
+    <div role="tab" tabIndex={0} aria-selected={true} onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
+      className="relative flex items-center gap-[6px] cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-black/20"
+      style={{ padding: "4px 8px", borderRadius: 24, WebkitTapHighlightColor: "transparent" }}>
+      <motion.span layoutId="tab-indicator" className="absolute inset-0"
+        style={{ background: COLOR.white, boxShadow: INDICATOR.shadow, zIndex: 0, borderRadius: 24 }}
+        transition={reduced ? { duration: 0 } : INDICATOR.spring} />
+      <motion.img src={status.src} alt="" draggable={false}
+        className="relative z-10 block size-5 object-cover shrink-0 pointer-events-none select-none"
+        initial={reduced ? false : { opacity: 0, scale: 0.3 }} animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "spring" as const, stiffness: 520, damping: 24, delay: 0.05 }} />
+      <motion.span key={status.label}
+        className="relative z-10 text-sm font-medium leading-5 whitespace-nowrap"
+        style={{ color: COLOR.strong, letterSpacing: "-0.084px", fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0" }}
+        initial={reduced ? false : { opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }}
+        transition={{ type: "spring" as const, stiffness: 520, damping: 24, delay: 0.08 }}>
+        <ShimmerText>{status.label}</ShimmerText>
+      </motion.span>
+      <motion.button aria-label="Clear status" onClick={(e) => { e.stopPropagation(); onClear(); }}
+        className="relative z-10 flex items-center justify-center shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
+        style={{ WebkitTapHighlightColor: "transparent" }}
+        initial={reduced ? false : { opacity: 0, scale: 0.3 }} animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: "spring" as const, stiffness: 520, damping: 24, delay: 0.11 }}
+        whileHover={reduced ? {} : { scale: 1.2 }} whileTap={reduced ? {} : { scale: 0.85 }}>
+        <CloseIcon />
+      </motion.button>
+    </div>
+  );
+}
+
+/* ─── ActionCircle — glassmorphism icon button ─── */
+function ActionCircle({ Icon, bg, ring }: { Icon: () => React.ReactElement; label?: string; bg: string; ring: string }) {
+  return (
+    <div className="relative flex items-center justify-center overflow-hidden shrink-0"
+      style={{ padding: 8, borderRadius: 999, background: bg, border: "1px solid rgba(255,255,255,0.15)",
+        boxShadow: `0px 4px 8px -2px rgba(51,51,51,0.06), 0px 2px 4px 0px rgba(51,51,51,0.04), 0px 1px 2px 0px rgba(51,51,51,0.04), 0px 0px 0px 1px ${ring}` }}>
+      {/* gradient highlight */}
+      <div aria-hidden className="absolute inset-0 rounded-full pointer-events-none"
+        style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0) 100%)" }} />
+      {/* inner shine */}
+      <div aria-hidden className="absolute inset-0 rounded-full pointer-events-none"
+        style={{ boxShadow: "inset 0px 1px 2px 0px rgba(255,255,255,0.15)" }} />
+      <Icon />
+    </div>
+  );
+}
+
+/* ─── ActionRow — one row in the actions card ─── */
+function ActionRow({ label, description, Icon, bg, ring, delay }: typeof ACTION_ITEMS[0] & { delay: number }) {
+  const reduced = useReducedMotion();
+  return (
+    <motion.button
+      className="flex items-center gap-2 rounded-[20px] shrink-0 w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
+      style={{ padding: 16, background: "rgba(247,247,247,0.6)", WebkitTapHighlightColor: "transparent" }}
+      initial={reduced ? false : { y: 10 }}
+      animate={{ y: 0 }}
+      transition={{ type: "spring" as const, stiffness: 480, damping: 32, delay }}
+      whileHover={reduced ? {} : { backgroundColor: "rgba(240,240,240,0.9)" }}
+      whileTap={reduced ? {} : { scale: 0.99 }}>
+      <ActionCircle Icon={Icon} label={label} bg={bg} ring={ring} />
+      <div className="flex flex-col gap-[2px]">
+        <p className="text-[14px] font-medium leading-5 select-none"
+          style={{ color: COLOR.strong, letterSpacing: "-0.084px", fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0" }}>
+          {label}
+        </p>
+        <p className="text-[12px] font-normal leading-4 select-none whitespace-nowrap"
+          style={{ color: "#5c5c5c", fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0" }}>
+          {description}
+        </p>
+      </div>
+    </motion.button>
+  );
+}
+
+/* ─── PlusBtn ─── */
+function PlusBtn() {
+  return (
+    <div aria-hidden className="flex items-center justify-center p-1 rounded-md shrink-0">
+      <PlusIcon />
+    </div>
+  );
+}
+
+/* ─── TabsView — the normal tab bar (one state of the morphing container) ─── */
+function TabsView({ active, selectedStatus, popoverOpen, showSelectedPill, statusClearCount,
+  onTabClick, onStatusTabClick, onStatusSelect, onClearStatus }: {
+  active: TabId; selectedStatus: StatusIcon | null; popoverOpen: boolean;
+  showSelectedPill: boolean; statusClearCount: number;
+  onTabClick: (id: TabId) => void; onStatusTabClick: () => void;
+  onStatusSelect: (icon: StatusIcon) => void; onClearStatus: () => void;
+}) {
+  return (
+    <motion.div
+      initial={false}
+      exit={{ opacity: 0, transition: { duration: 0.08, ease: "easeIn" } }}
+      role="tablist" aria-label="Content filter"
+      className="inline-flex items-center gap-1"
+      style={{ padding: 4 }}>
+
+      <TabBtn tabId="all" active={active} onClick={() => onTabClick("all")} padding="px-3 py-1">All</TabBtn>
+      <Divider visible={showDivider("all", "set-status", active)} />
+
+      {/* Set status */}
+      <div className="relative shrink-0">
+        {showSelectedPill ? (
+          <SelectedStatusBtn status={selectedStatus!} onOpen={onStatusTabClick} onClear={onClearStatus} />
+        ) : (
+          <TabBtn tabId="set-status" active={active} onClick={onStatusTabClick} padding="px-2 py-1">
+            <ShimmerText key={statusClearCount} doShimmer={statusClearCount > 0}>Set status</ShimmerText>
+            <ChevronIcon active={active === "set-status" && popoverOpen} />
+          </TabBtn>
+        )}
+        <AnimatePresence>
+          {active === "set-status" && popoverOpen && <StatusPopover onSelect={onStatusSelect} />}
+        </AnimatePresence>
+      </div>
+
+      <Divider visible={showDivider("set-status", "draft", active)} />
+      <TabBtn tabId="draft" active={active} onClick={() => onTabClick("draft")} padding="px-3 py-1">Draft</TabBtn>
+      <Divider visible={showDivider("draft", "archived", active)} />
+      <TabBtn tabId="archived" active={active} onClick={() => onTabClick("archived")} padding="px-2 py-1">Archived</TabBtn>
+      <Divider visible={showDivider("archived", null, active)} />
+      <PlusBtn />
+    </motion.div>
+  );
+}
+
+/* ─── ActionsView — the expanded actions panel (other state of the morphing container) ─── */
+function ActionsView({ onClose }: { onClose: () => void }) {
+  const reduced = useReducedMotion();
+  return (
+    <motion.div
+      initial={false}
+      exit={{ opacity: 0, transition: { duration: 0.08, ease: "easeIn" } }}
+      className="flex flex-col gap-2"
+      style={{ padding: "8px 4px 4px" }}>
+
+      {/* header */}
+      <motion.div
+        initial={reduced ? false : { y: 8 }}
+        animate={{ y: 0 }}
+        transition={{ type: "spring" as const, stiffness: 480, damping: 32 }}
+        className="flex items-center justify-between"
+        style={{ padding: "0 8px 0 12px" }}>
+        <p className="text-[14px] font-medium leading-5 select-none"
+          style={{ color: COLOR.soft, letterSpacing: "-0.084px", fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0" }}>
+          Actions
+        </p>
+        <motion.button aria-label="Close actions" onClick={onClose}
+          className="flex items-center justify-center rounded-[6px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/20"
+          style={{ padding: 4, WebkitTapHighlightColor: "transparent" }}
+          whileHover={reduced ? {} : { scale: 1.12, backgroundColor: "rgba(0,0,0,0.06)" }}
+          whileTap={reduced ? {} : { scale: 0.88 }}
+          transition={{ type: "spring", stiffness: 500, damping: 20 }}>
+          <CloseIcon />
+        </motion.button>
+      </motion.div>
+
+      {/* card */}
+      <div className="relative flex flex-col gap-2 rounded-[24px]"
+        style={{ padding: 8, background: COLOR.white, boxShadow: CARD_SHADOW }}>
+        <div aria-hidden className="absolute inset-0 rounded-[24px] pointer-events-none"
+          style={{ background: "linear-gradient(180deg, rgba(247,247,247,0.08) 0%, rgba(247,247,247,0) 100%)" }} />
+        {ACTION_ITEMS.map((item, i) => (
+          <ActionRow key={item.label} {...item} delay={0.12 + i * 0.04} />
+        ))}
+        <div aria-hidden className="absolute inset-0 rounded-[24px] pointer-events-none"
+          style={{ boxShadow: "inset 0px -1px 1px -0.5px rgba(51,51,51,0.06)" }} />
+      </div>
+    </motion.div>
+  );
+}
+
+/* ─── SegmentedTab — main export ─── */
+export function SegmentedTab() {
+  const [active,           setActive]           = useState<TabId>("all");
+  const [selectedStatus,   setSelectedStatus]   = useState<StatusIcon | null>(null);
+  const [popoverOpen,      setPopoverOpen]      = useState(false);
+  const [actionsOpen,      setActionsOpen]      = useState(false);
+  const [statusClearCount, setStatusClearCount] = useState(0);
+
+  function handleCloseActions() { setActionsOpen(false); }
+
+  function handleStatusTabClick() {
+    if (active === "set-status") { setPopoverOpen(p => !p); }
+    else { setActive("set-status"); setPopoverOpen(true); }
+  }
+
+  function handleOtherTabClick(id: TabId) { setActive(id); setPopoverOpen(false); }
+
+  function handleStatusSelect(icon: StatusIcon) {
+    setSelectedStatus(icon); setPopoverOpen(false); setActive("set-status");
+  }
+
+  function handleClearStatus() {
+    setSelectedStatus(null); setPopoverOpen(false); setStatusClearCount(c => c + 1);
+  }
+
+  const showSelectedPill = active === "set-status" && selectedStatus !== null;
+  const reduced = useReducedMotion();
+
+  return (
+    /*
+      layout — Framer Motion springs the container between tab-bar size and
+      actions-panel size whenever actionsOpen flips. No manual width/height needed.
+    */
+    <motion.div
+      layout
+      transition={{ layout: reduced ? { duration: 0 } : (actionsOpen ? SPRING_EXPAND : SPRING_LAYOUT) }}
+      className={actionsOpen ? "overflow-hidden" : undefined}
+      style={{
+        borderRadius: actionsOpen ? 28 : 20,
+        background:   actionsOpen ? "#f7f7f7" : COLOR.track,
+      }}>
+      <AnimatePresence mode="popLayout" initial={false}>
+        {actionsOpen ? (
+          <ActionsView key="actions" onClose={handleCloseActions} />
+        ) : (
+          <TabsView
+            key="tabs"
+            active={active}
+            selectedStatus={selectedStatus}
+            popoverOpen={popoverOpen}
+            showSelectedPill={showSelectedPill}
+            statusClearCount={statusClearCount}
+            onTabClick={handleOtherTabClick}
+            onStatusTabClick={handleStatusTabClick}
+            onStatusSelect={handleStatusSelect}
+            onClearStatus={handleClearStatus}
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}

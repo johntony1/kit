@@ -1,0 +1,312 @@
+import { motion, useMotionValueEvent, useScroll, useTransform, type MotionValue } from 'motion/react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useViewport } from '../hooks/useViewport'
+import { FaceStageContext, type FaceStage } from '../lib/faceStage'
+import { DEFAULT_FOLD, type Fold } from '../lib/fold'
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * ANIMATION STORYBOARD — cube deck
+ *
+ * The page is a cube seen head-on. Each section is one face, and scrolling
+ * past the end of a section rolls the cube a quarter turn: the section you
+ * were reading tips away while the next swings in from the opposite edge,
+ * the two hinged along the seam they share. Which edge is `fold.axis` +
+ * `fold.hinge` — see lib/fold.ts.
+ *
+ * Per fold, as scroll runs across it (p = 0 → 1):
+ *
+ *   p 0.00   section square to the camera, cube at rest depth
+ *   p 0.50   cube has pulled back to 1.6x rest depth — far enough that both
+ *            faces and the hinge between them are inside the frustum
+ *   p 1.00   quarter turn complete, cube back at rest depth, next section
+ *            square to the camera
+ *
+ * Depth rides a half-sine so the pull-back and the return read as one gesture
+ * rather than two moves. The turn itself is eased in and out, which puts the
+ * fastest part of the rotation in the middle of the fold, where the geometry
+ * is most legible.
+ *
+ * A section taller than the viewport scrolls normally inside its own face
+ * first; the fold only begins once it has been read to the end. Scroll drives
+ * all of it directly — no timeline, so a fold is scrubbable and reversible,
+ * and stopping halfway leaves the cube resting halfway.
+ *
+ * `prefers-reduced-motion` (and `?still`) skip the deck entirely: the sections
+ * stack and the page scrolls the way any other page does.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+/** A fold is treated as landed once the face is more than square-on to square. */
+const ARRIVED_AT = 0.5
+
+/**
+ * How far either side of a fold the 3D scene is built.
+ *
+ * Between folds the deck tears the whole thing down — see `live` below — so the
+ * scene has to exist slightly before the turn starts, or the first frame of the
+ * fold is also the frame that promotes half a dozen compositing layers.
+ */
+const ARM = 260
+
+export type Face = {
+  key: string
+  node: ReactNode
+  /**
+   * Optional starting guess at the section's rendered height, in CSS px.
+   *
+   * Every face is measured either way — a fluid section has no height until it
+   * has been laid out at a width. This just keeps the runway from being wrong
+   * for the one frame before the first measurement lands.
+   */
+  estimate?: number
+}
+
+const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n)
+
+/** Slow at both ends, quick through the middle — the turn carries weight. */
+const easeInOut = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2)
+
+type Span = { start: number; end: number }
+const progress = (y: number, span: Span) =>
+  span.end <= span.start ? 1 : clamp01((y - span.start) / (span.end - span.start))
+
+export function CubeDeck({ faces, fold = DEFAULT_FOLD }: { faces: Face[]; fold?: Fold }) {
+  // A cube has four faces around one axis. Past that the deck would have to
+  // recycle faces through the two off-screen slots, which this page does not
+  // need — better to be loud about the limit than to fold into a stale face.
+  if (faces.length > 4) throw new Error('CubeDeck supports at most 4 faces')
+
+  const { width: vw, height: vh } = useViewport()
+  const { scrollY } = useScroll()
+
+  // Faces report their own height. The stage sections are a known design size,
+  // but the compact ones are fluid — they are as tall as the copy makes them at
+  // this width — so the deck measures rather than being told.
+  const [heights, setHeights] = useState<number[]>(() => faces.map((f) => f.estimate ?? 0))
+  const measure = useCallback((index: number, height: number) => {
+    setHeights((prev) => {
+      if (prev[index] === height) return prev
+      const next = [...prev]
+      next[index] = height
+      return next
+    })
+  }, [])
+
+  const layout = useMemo(() => {
+    const foldPx = Math.round(vh * fold.scroll)
+
+    // Everything a section has that the viewport cannot show at once. That
+    // slack is read by scrolling inside the face, before the fold begins.
+    const slack = faces.map((_, i) => Math.max(0, Math.round(heights[i] ?? 0) - vh))
+
+    const reading: Span[] = []
+    const folds: Span[] = []
+    let y = 0
+    faces.forEach((_, i) => {
+      reading.push({ start: y, end: y + slack[i] })
+      y += slack[i]
+      if (i < faces.length - 1) {
+        folds.push({ start: y, end: y + foldPx })
+        y += foldPx
+      }
+    })
+
+    return { reading, folds, runway: y }
+  }, [faces, vh, heights, fold.scroll])
+
+  /** Half the cube's edge — the viewport dimension the hinge swings across. */
+  const depth = (fold.axis === 'x' ? vh : vw) / 2
+
+  /**
+   * Which fold is live, and which face is settled in front of the camera.
+   *
+   * This is the whole performance story. A permanent `preserve-3d` context
+   * costs the browser a composited layer per face and forbids most of its fast
+   * paths — and inside those layers sit a WebGL canvas, eight blend-mode glow
+   * layers and a looping video, all of which keep compositing whether or not
+   * anything is moving. Between folds there is no 3D to render, so the deck
+   * takes the context down entirely and paints one plain, untransformed face.
+   */
+  const [live, setLive] = useState(() => ({ folding: false, index: 0 }))
+
+  useMotionValueEvent(scrollY, 'change', (y) => {
+    let folding = false
+    let index = 0
+    layout.folds.forEach((span, i) => {
+      if (y >= span.start - ARM && y <= span.end + ARM) {
+        folding = true
+        index = i
+      }
+      if (y >= span.end) index = Math.max(index, i + 1)
+    })
+    // Only the pair either side of a live fold can be on screen; settled, it is
+    // whichever face the last completed turn landed on.
+    const settled = layout.folds.reduce((n, span, i) => (y >= span.end ? i + 1 : n), 0)
+    setLive((prev) =>
+      prev.folding === folding && prev.index === (folding ? index : settled)
+        ? prev
+        : { folding, index: folding ? index : settled },
+    )
+  })
+
+  const turn = useTransform(scrollY, (y) =>
+    layout.folds.reduce((total, span) => total + fold.hinge * 90 * easeInOut(progress(y, span)), 0),
+  )
+
+  const z = useTransform(scrollY, (y) => {
+    const lift = layout.folds.reduce(
+      (most, span) => Math.max(most, Math.sin(Math.PI * progress(y, span))),
+      0,
+    )
+    return -depth * (1 + fold.lift * lift)
+  })
+
+  return (
+    // The runway is the only thing on the page with height: it gives the
+    // browser something real to scroll, which keeps the keyboard, the
+    // scrollbar and the trackpad all working normally on top of the effect.
+    <div style={{ height: layout.runway + vh }}>
+      <div
+        className="fixed inset-0 overflow-hidden bg-canvas"
+        style={
+          live.folding
+            ? { perspective: '100vw', perspectiveOrigin: '50% 50%' }
+            : undefined
+        }
+      >
+        <motion.div
+          className="absolute inset-0"
+          style={
+            live.folding
+              ? {
+                  transformStyle: 'preserve-3d',
+                  transformOrigin: '50% 50%',
+                  z,
+                  ...(fold.axis === 'x' ? { rotateX: turn } : { rotateY: turn }),
+                  willChange: 'transform',
+                }
+              : undefined
+          }
+        >
+          {faces.map((face, i) => (
+            <CubeFace
+              key={face.key}
+              index={i}
+              fold={fold}
+              depth={depth}
+              flat={!live.folding}
+              // Settled, only the face in front is worth painting. Folding, the
+              // pair either side of the seam is; the rest stay out of the
+              // compositor without losing their state or their layout box.
+              painted={live.folding ? i === live.index || i === live.index + 1 : i === live.index}
+              viewportHeight={vh}
+              contentHeight={Math.round(heights[i] ?? 0)}
+              onMeasure={measure}
+              reading={layout.reading[i]}
+              arriving={i === 0 ? null : layout.folds[i - 1]}
+              scrollY={scrollY}
+            >
+              {face.node}
+            </CubeFace>
+          ))}
+        </motion.div>
+      </div>
+    </div>
+  )
+}
+
+function CubeFace({
+  index,
+  fold,
+  depth,
+  flat,
+  painted,
+  viewportHeight,
+  contentHeight,
+  onMeasure,
+  reading,
+  arriving,
+  scrollY,
+  children,
+}: {
+  index: number
+  fold: Fold
+  depth: number
+  /** True between folds, when the deck is a plain 2D page. */
+  flat: boolean
+  painted: boolean
+  viewportHeight: number
+  contentHeight: number
+  onMeasure: (index: number, height: number) => void
+  reading: Span
+  /** The fold that brings this face round. Null for the face already facing us. */
+  arriving: Span | null
+  scrollY: MotionValue<number>
+  children: ReactNode
+}) {
+  const content = useRef<HTMLDivElement>(null)
+
+  // The wrapper is translated, not resized, so its border-box height is the
+  // section's true height whatever the fold is doing to it.
+  useEffect(() => {
+    const el = content.current
+    if (!el) return
+    const observer = new ResizeObserver(([entry]) => onMeasure(index, entry.contentRect.height))
+    observer.observe(el)
+    onMeasure(index, el.getBoundingClientRect().height)
+    return () => observer.disconnect()
+  }, [index, onMeasure])
+
+  const slack = Math.max(0, contentHeight - viewportHeight)
+  const y = useTransform(scrollY, (value) => -slack * progress(value, reading))
+  const step = useTransform(scrollY, (value) => (slack === 0 ? 1 : progress(value, reading)))
+
+  const [arrived, setArrived] = useState(arriving === null)
+  useMotionValueEvent(scrollY, 'change', (value) => {
+    if (!arrived && arriving && progress(value, arriving) >= ARRIVED_AT) setArrived(true)
+  })
+
+  const stage = useMemo<FaceStage>(() => ({ arrived, step, visible: painted }), [arrived, step, painted])
+
+  const turned = fold.axis === 'x' ? 'rotateX' : 'rotateY'
+
+  return (
+    <div
+      className="absolute inset-x-0 top-0 overflow-hidden bg-canvas"
+      style={{
+        height: viewportHeight,
+        // `visibility` rather than unmounting: the face keeps its layout box, so
+        // anything inside that measures itself — a WebGL canvas, say — is not
+        // torn down and re-measured every time the deck settles.
+        visibility: painted ? 'visible' : 'hidden',
+        ...(flat
+          ? undefined
+          : {
+              transformOrigin: '50% 50%',
+              // Each face is rotated a quarter turn further round the hinge than
+              // the one before it, then pushed out to the cube's surface. The
+              // half-pixel per face keeps coincident edges from z-fighting.
+              transform: `${turned}(${-fold.hinge * 90 * index}deg) translateZ(${depth + index * 0.5}px)`,
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+            }),
+      }}
+    >
+      {/* Top-aligned, always. Centring a face shorter than the viewport reads
+          nicely for a self-contained composition and is flatly wrong for one
+          that opens with a header — it pushes the header down the screen. Any
+          leftover room goes below, against the canvas, where it is invisible. */}
+      <motion.div style={{ y }}>
+        {/* At least a full face tall, and a column, so a section shorter than
+            the viewport can distribute the slack itself — a header staying at
+            the top while the rest of it centres — instead of the deck either
+            pushing the header down or leaving a hole at the bottom. */}
+        <div
+          ref={content}
+          style={{ minHeight: viewportHeight, display: 'flex', flexDirection: 'column' }}
+        >
+          <FaceStageContext.Provider value={stage}>{children}</FaceStageContext.Provider>
+        </div>
+      </motion.div>
+    </div>
+  )
+}

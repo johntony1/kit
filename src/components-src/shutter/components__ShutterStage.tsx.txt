@@ -1,0 +1,176 @@
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { HeroBase, HeroSparks } from './HeroBackdrop'
+import { HeroContent } from './HeroContent'
+import { ShutterWall } from './ShutterWall'
+import { Nav } from './Nav'
+import { Wordmark, applyWordmarkBuild, applyWordmarkExit } from './Wordmark'
+import { CurvedShutterWipe } from './CurvedShutterWipe'
+import { applyWipe } from '../lib/wipe'
+import { STILL_PROGRESS, mapRange, motionOff, smooth } from '../lib/env'
+
+gsap.registerPlugin(ScrollTrigger)
+
+const STAGE_W = 1440
+const STAGE_H = 1024
+
+/**
+ * Below this the artboard stops being a layout. Cover-scaling 1440px into a
+ * phone either crops the nav off both edges or shrinks the 64px headline past
+ * legibility, so the hero switches to a fluid layout instead.
+ */
+const FLUID_BELOW = 900
+
+/**
+ * The pinned hero.
+ *
+ * The hero itself never moves — it is the Figma frame, pixel for pixel, slats
+ * included as the static glass overlays they are in the design. Scrolling
+ * drives exactly one thing: the white curved shutter wipe sweeps up over it,
+ * its elliptical leading edge broken into the slats' 24 columns, carrying the
+ * Moonlytics wordmark (per-letter build) to centre. The pin ends on the white
+ * wordmark frame — Figma 204242:107881 — which then scrolls away as the cards
+ * section reveals behind the same curve.
+ */
+export function ShutterStage() {
+  const sectionRef = useRef<HTMLElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const pinRef = useRef<HTMLDivElement>(null)
+  const wipeRef = useRef<HTMLDivElement>(null)
+  const wordmarkRef = useRef<HTMLDivElement>(null)
+  const [fluid, setFluid] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < FLUID_BELOW,
+  )
+
+  /* ---- keep the artboard covering the viewport ----
+   * Measured off the pinned container, not `window.innerWidth`: the latter
+   * includes the scrollbar, which would leave a strip of page background
+   * exposed down each edge. */
+  useLayoutEffect(() => {
+    const box = pinRef.current
+    const stage = stageRef.current
+    if (!box || !stage) return
+    const fit = () => {
+      const isFluid = box.clientWidth < FLUID_BELOW
+      setFluid(isFluid)
+      const s = isFluid
+        ? 1
+        : Math.max(box.clientWidth / STAGE_W, box.clientHeight / STAGE_H)
+      stage.style.setProperty('--stage-scale', String(s))
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [])
+
+  /* ---- the timeline: wipe + wordmark, nothing else ---- */
+  useEffect(() => {
+    const apply = (p: number) => {
+      // Not smoothed — the wipe columns shape their own easing from the
+      // ellipse, and pre-easing the input makes the bulge lurch.
+      const wipe = mapRange(p, 0.12, 0.78)
+      const wordmark = smooth(mapRange(p, 0.3, 0.92))
+
+      if (wipeRef.current) applyWipe(wipeRef.current, wipe, 'cover')
+
+      if (wordmarkRef.current) {
+        const el = wordmarkRef.current
+        el.style.transform = `translate3d(0, ${((1 - wordmark) * 40).toFixed(2)}vh, 0)`
+        // Per-character build, scrubbed off the same progress so it plays in
+        // reverse when scrolling back up.
+        applyWordmarkBuild(el, wordmark)
+      }
+    }
+
+    if (motionOff()) {
+      apply(STILL_PROGRESS)
+      return
+    }
+
+    const st = ScrollTrigger.create({
+      trigger: sectionRef.current!,
+      start: 'top top',
+      end: 'bottom bottom',
+      scrub: true,
+      onUpdate: (self) => apply(self.progress),
+    })
+
+    // As the cards section scrolls in (the wordmark frame "closing"), the
+    // letters rise out — same exit the click transition runs, driven by the
+    // same window as the section's reveal wipe.
+    const exit = ScrollTrigger.create({
+      trigger: '#get-more',
+      start: 'top bottom',
+      end: 'top top',
+      scrub: true,
+      onUpdate: (self) => {
+        if (wordmarkRef.current) applyWordmarkExit(wordmarkRef.current, self.progress)
+      },
+    })
+
+    apply(0)
+    return () => {
+      st.kill()
+      exit.kill()
+    }
+  }, [])
+
+  return (
+    <section
+      id="home"
+      ref={sectionRef}
+      aria-label="Moonlytics"
+      className="relative"
+      style={{ height: '250vh' }}
+    >
+      <div
+        ref={pinRef}
+        className="sticky top-0 h-screen w-full overflow-hidden bg-white"
+      >
+        <div
+          ref={stageRef}
+          className="absolute top-0 left-1/2"
+          style={
+            fluid
+              ? { width: '100%', height: '100%', transform: 'translateX(-50%)' }
+              : {
+                  width: STAGE_W,
+                  height: STAGE_H,
+                  transform: 'translateX(-50%) scale(var(--stage-scale, 1))',
+                  transformOrigin: 'top center',
+                }
+          }
+        >
+          {/* The hero, exactly as designed — static throughout. */}
+          <div className="absolute inset-0" style={{ zIndex: 0 }}>
+            <HeroBase />
+          </div>
+          <ShutterWall />
+          <div
+            className="pointer-events-none absolute inset-0 [&_a]:pointer-events-auto [&_button]:pointer-events-auto"
+            style={{ zIndex: 10 }}
+          >
+            {!fluid && <HeroSparks />}
+            <HeroContent fluid={fluid} />
+            <Nav fluid={fluid} />
+          </div>
+
+          {/* The white curved shutter wipe — the transition. */}
+          <CurvedShutterWipe ref={wipeRef} mode="cover" color="#ffffff" zIndex={95} />
+
+          {/* The wordmark surfs the wipe to centre; the pin's final frame is
+           * the Figma wordmark screen, which then exits with the panel. */}
+          <div
+            ref={wordmarkRef}
+            className="pointer-events-none absolute inset-0 flex items-center justify-center"
+            style={{ zIndex: 96 }}
+          >
+            <Wordmark />
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}

@@ -1,0 +1,260 @@
+import { useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import {
+  BAR_DATA,
+  BAR_HEIGHTS,
+  SPRING,
+  SPRING_SNAPPY,
+  TOOLTIP_SPRING,
+  type ChartDataset,
+} from '../lib/storyboard'
+
+type Props = {
+  /** Height (px) the tallest bar should reach */
+  maxHeight: number
+  className?: string
+  interactive?: boolean
+  dataset?: ChartDataset
+}
+
+const DEFAULT_DATASET: ChartDataset = {
+  id: 'Today',
+  heights: BAR_HEIGHTS,
+  data: BAR_DATA,
+  barWidth: 14,
+}
+
+type Align = 'start' | 'center' | 'end'
+
+export function BarChart({
+  maxHeight,
+  className = '',
+  interactive = true,
+  dataset = DEFAULT_DATASET,
+}: Props) {
+  const [hovered, setHovered] = useState<number | null>(null)
+  const reduced = useReducedMotion() ?? false
+
+  return (
+    <div
+      className={'relative w-full ' + className}
+      style={{ height: maxHeight + 12 }}
+      onPointerLeave={() => setHovered(null)}
+    >
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={dataset.id}
+          className="absolute inset-0 flex items-end p-[6px]"
+          initial={{ opacity: dataset.id === 'Today' ? 1 : 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
+        >
+          <Bars
+            dataset={dataset}
+            maxHeight={maxHeight}
+            interactive={interactive}
+            hovered={hovered}
+            setHovered={setHovered}
+            reduced={reduced}
+          />
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function Bars({
+  dataset,
+  maxHeight,
+  interactive,
+  hovered,
+  setHovered,
+  reduced,
+}: {
+  dataset: ChartDataset
+  maxHeight: number
+  interactive: boolean
+  hovered: number | null
+  setHovered: (n: number | null) => void
+  reduced: boolean
+}) {
+  const localMax = Math.max(...dataset.heights)
+  const scale = maxHeight / localMax
+  const isToday = dataset.id === 'Today'
+  const count = dataset.heights.length
+
+  return (
+    <>
+      {dataset.heights.map((h, i) => {
+        const barHeight = Math.max(8, Math.round(h * scale))
+        const isHovered = hovered === i
+        const isDimmed = hovered !== null && !isHovered
+        const data = dataset.data[i]
+
+        // Edge-bar tooltip alignment so the arrow sits in the flat region.
+        const align: Align =
+          i === 0 ? 'start' : i === count - 1 ? 'end' : 'center'
+
+        const enterDelay = reduced ? 0 : i * 0.012
+
+        return (
+          <div
+            key={i}
+            className="flex h-full flex-1 items-end justify-center"
+            onPointerEnter={interactive ? () => setHovered(i) : undefined}
+          >
+            <div
+              className="relative flex flex-col items-center"
+              style={{ width: dataset.barWidth }}
+            >
+              {interactive && (
+                <AnimatePresence>
+                  {isHovered && (
+                    <Tooltip
+                      label={data.label}
+                      amount={data.amount}
+                      reduced={reduced}
+                      align={align}
+                    />
+                  )}
+                </AnimatePresence>
+              )}
+              {isToday ? (
+                <motion.div
+                  layoutId={`bar-${i}`}
+                  className="rounded-[4px] bg-state-information-base"
+                  style={{
+                    width: dataset.barWidth,
+                    height: barHeight,
+                    boxShadow: 'inset 0 4px 8px 0 rgba(255,255,255,0.25)',
+                    willChange: 'transform, opacity',
+                  }}
+                  animate={{ opacity: isDimmed ? 0.4 : 1 }}
+                  transition={{
+                    opacity: { duration: 0.18, ease: [0.2, 0, 0, 1] },
+                    layout: SPRING,
+                  }}
+                />
+              ) : (
+                <motion.div
+                  className="rounded-[4px] bg-state-information-base"
+                  style={{
+                    width: dataset.barWidth,
+                    boxShadow: 'inset 0 4px 8px 0 rgba(255,255,255,0.25)',
+                    transformOrigin: 'bottom center',
+                    willChange: 'transform, opacity',
+                  }}
+                  initial={
+                    reduced
+                      ? { opacity: 0, height: barHeight }
+                      : { opacity: 0, height: 0 }
+                  }
+                  animate={{
+                    opacity: isDimmed ? 0.4 : 1,
+                    height: barHeight,
+                  }}
+                  transition={{
+                    opacity: { duration: 0.18, ease: [0.2, 0, 0, 1] },
+                    height: { ...SPRING_SNAPPY, delay: enterDelay },
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+function Tooltip({
+  label,
+  amount,
+  reduced,
+  align,
+}: {
+  label: string
+  amount: string
+  reduced: boolean
+  align: Align
+}) {
+  const initial = reduced
+    ? { opacity: 0 }
+    : { opacity: 0, scale: 0.4, filter: 'blur(4px)' }
+  const animate = reduced
+    ? { opacity: 1 }
+    : { opacity: 1, scale: 1, filter: 'blur(0px)' }
+  const exit = reduced
+    ? { opacity: 0 }
+    : { opacity: 0, scale: 0.4, filter: 'blur(4px)' }
+
+  // Tooltip body is rounded-lg (8px). The arrow must sit in the FLAT part
+  // of the tooltip's bottom edge — i.e. ≥ 8px from a corner — otherwise
+  // the arrow's base lands on the curved corner and visually detaches.
+  // Bar center is 7px from the bar wrapper's left edge. To put the arrow
+  // 14px inside the tooltip while keeping it pointed at the bar, we shift
+  // the tooltip itself by -7px on edge alignments.
+  const positionX =
+    align === 'start'
+      ? { left: -7, right: 'auto' as const, x: 0 as const }
+      : align === 'end'
+        ? { left: 'auto' as const, right: -7, x: 0 as const }
+        : { left: '50%' as const, right: 'auto' as const, x: '-50%' as const }
+
+  const arrowX =
+    align === 'start'
+      ? '14px'
+      : align === 'end'
+        ? 'calc(100% - 14px)'
+        : '50%'
+
+  const transformOrigin =
+    align === 'start'
+      ? '14px 100%'
+      : align === 'end'
+        ? 'calc(100% - 14px) 100%'
+        : '50% 100%'
+
+  return (
+    <motion.div
+      role="tooltip"
+      className="pointer-events-none absolute z-tooltip"
+      style={{
+        bottom: 'calc(100% + 6px)',
+        ...positionX,
+        transformOrigin,
+        willChange: 'transform, opacity, filter',
+      }}
+      initial={initial}
+      animate={animate}
+      exit={exit}
+      transition={TOOLTIP_SPRING}
+    >
+      <div
+        className="rounded-lg bg-text-strong-950 px-2.5 py-1.5 whitespace-nowrap"
+        style={{
+          boxShadow:
+            '0 6px 16px -4px rgba(0,0,0,0.18), 0 2px 4px -1px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.06)',
+        }}
+      >
+        <div className="tabular text-[11px] leading-[14px] text-white/55">
+          {label}
+        </div>
+        <div className="tabular text-[13px] leading-[16px] font-medium text-white">
+          {amount}
+        </div>
+      </div>
+      <svg
+        aria-hidden
+        width="10"
+        height="5"
+        viewBox="0 0 10 5"
+        className="absolute top-full"
+        style={{ left: arrowX, transform: 'translateX(-50%)', marginTop: -1 }}
+      >
+        <path d="M0 0h10L5 5z" fill="var(--color-text-strong-950)" />
+      </svg>
+    </motion.div>
+  )
+}
