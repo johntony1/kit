@@ -20,7 +20,7 @@ function useBox<T extends HTMLElement>(onSize: (w: number, h: number) => void) {
 }
 
 /* ── The orb, frame for frame from the reference. Click it to send a ripple through. ── */
-export function OrbRipple({ options, rippleRef }: { options?: RippleOptions; auto?: boolean; rippleRef?: React.RefObject<RippleHandle | null> }) {
+export function OrbRipple({ options, rippleRef, fireOn = "click" }: { options?: RippleOptions; auto?: boolean; rippleRef?: React.RefObject<RippleHandle | null>; fireOn?: "click" | "hover" | "none" }) {
   const own = useRef<RippleHandle>(null);
   const ref = rippleRef ?? own;
   const [orb, setOrb] = useState<Orb | null>(null);
@@ -46,7 +46,7 @@ export function OrbRipple({ options, rippleRef }: { options?: RippleOptions; aut
   const box = useBox<HTMLDivElement>((w, h) => { size.current = [w, h]; live.current?.resize(w, h); });
   return (
     <div ref={box} className="fill orbFill">
-      {orb && <Ripple ref={ref} source={orb.canvas} live fireOn="click" width="100%" height="100%" glowColor="#7b6cff" intensity={0.07} glow={1.3} {...options} label="A glowing shape that morphs from a sparkle to a circle. Click it to send a ripple through." />}
+      {orb && <Ripple ref={ref} source={orb.canvas} live fireOn={fireOn} width="100%" height="100%" glowColor="#7b6cff" intensity={0.07} glow={1.3} {...options} label="A glowing shape that morphs from a sparkle to a circle. Click it to send a ripple through." />}
       <div ref={title} className="orbTitle" aria-hidden="true">Your energy transforms</div>
     </div>
   );

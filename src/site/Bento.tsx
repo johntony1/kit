@@ -47,20 +47,22 @@ function useInView<T extends Element>() {
   return [ref, seen] as const;
 }
 
+// what plays inside a card. Hover is always live; anything with its own clicks is marked
+// data-own-click so those clicks stay with the component and don't open the card
 function Preview({ t }: { t: Tile }) {
   const [replay, setReplay] = useState(0);
-  if (t.k === "ripple") return <OrbRipple />;
+  if (t.k === "ripple") return <OrbRipple fireOn="hover" />;
   if (t.k === "confetti") return (
-    <div className="bnConfetti" onPointerEnter={() => setReplay((n) => n + 1)}>
-      <div className="bnScale"><SuccessCard trigger={replay} /></div>
+    <div className="bnConfetti">
+      <div className="bnScale" data-own-click onClick={() => setReplay((n) => n + 1)}><SuccessCard trigger={replay} /></div>
     </div>
   );
   if (t.k in TYPE_EFFECTS) {
     const e = TYPE_EFFECTS[t.k as TypeEffectKey];
     return <div className="bnFill" style={{ background: e.look.bg }}><TypeCanvas effect={e} fit={(e.look.fit ?? 0.78) * 0.78} /></div>;
   }
-  // the demo site in a window, under the tag, the way Apple sits a device in a tile
-  return <div className="bnWindow"><div className="bnWindowBar"><i /><i /><i /></div><div className="bnWindowBody"><SwapDemo kind={t.k as TransitionKind} compact={t.c <= 2} auto={2600 + (t.k.length % 4) * 300} /></div></div>;
+  // the demo site in a window, under the tag, the way Apple sits a device in a tile; its links work
+  return <div className="bnWindow" data-own-click><div className="bnWindowBar"><i /><i /><i /></div><div className="bnWindowBody"><SwapDemo kind={t.k as TransitionKind} compact={t.c <= 2} auto={3200 + (t.k.length % 4) * 300} /></div></div>;
 }
 
 const SPRING = { type: "spring", duration: 0.5, bounce: 0.1 } as const;
@@ -72,11 +74,12 @@ function Card({ t, open, paused, onOpen }: { t: Tile; open: boolean; paused: boo
     <div ref={ref} className="bnSlot" style={{ gridColumn: `span ${t.c}`, gridRow: `span ${t.r}` }}>
       {!open && (
         <motion.div role="button" tabIndex={0} layoutId={`bn-${t.k}`} transition={SPRING} className="bnCard" style={{ borderRadius: 28 }}
-          onClick={onOpen} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }} aria-label={`Open ${nameOf(t.k)}`}>
+          onClick={(e) => { if (!(e.target as HTMLElement).closest("[data-own-click]")) onOpen(); }}
+          onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen(); } }} aria-label={`${nameOf(t.k)}. Press Enter to open.`}>
           <div className="bnPreview">{live ? <Preview t={t} /> : null}</div>
           <span className="bnTag">{t.tag ?? (t.group === "Type" ? "Type" : t.group === "Transitions" ? "Transition" : "Library")}</span>
           <span className="bnName">{nameOf(t.k)}</span>
-          <span className="bnGo" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 11 11 5M6 5h5v5" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+          <span className="bnGo" aria-hidden="true" onClick={(e) => { e.stopPropagation(); onOpen(); }}><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 11 11 5M6 5h5v5" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
         </motion.div>
       )}
     </div>
@@ -118,7 +121,11 @@ export function Home({ open, onOpen, onClose, detail }: { open: BentoLib | null;
           <div className="bnLayer" key="layer">
             <motion.div className="bnScrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} onClick={onClose} />
             <motion.div layoutId={`bn-${open}`} transition={SPRING} className="bnSheet" style={{ borderRadius: 28 }} role="dialog" aria-modal="true" aria-label={nameOf(open)}>
-              <motion.div className="bnSheetInner" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0, transition: { delay: 0.16, duration: 0.3, ease: [0.2, 0, 0, 1] } }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
+              {/* the card's live preview rides along as the card grows, then hands over to the page */}
+              <motion.div layout className="bnGhost" initial={{ opacity: 1 }} animate={{ opacity: 0, transition: { delay: 0.22, duration: 0.18 } }} exit={{ opacity: 1, transition: { duration: 0.1 } }}>
+                <Preview t={TILES.find((x) => x.k === open)!} />
+              </motion.div>
+              <motion.div className="bnSheetInner" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0, transition: { delay: 0.34, duration: 0.28, ease: [0.2, 0, 0, 1] } }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
                 {detail(open)}
               </motion.div>
               <button type="button" className="bnClose" onClick={onClose} aria-label="Close">

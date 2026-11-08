@@ -41,7 +41,9 @@ function useRoute(): [Route, (r: Route) => void] {
   };
   const [r, setR] = useState<Route>(read);
   useEffect(() => {
-    const on = () => { setR(read()); window.scrollTo(0, 0); };
+    // keep the scroll when a sheet opens or closes over the bento; only jump to the top for the Studio
+    let was = read();
+    const on = () => { const now = read(); if (now.startsWith("studio:") !== was.startsWith("studio:")) window.scrollTo(0, 0); was = now; setR(now); };
     addEventListener("hashchange", on);
     return () => removeEventListener("hashchange", on);
   }, []);
