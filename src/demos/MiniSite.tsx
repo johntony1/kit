@@ -1,5 +1,5 @@
-// A small dark site for the transition cards: three short pages in dark tones, turned by
-// the transition every few seconds or when you click one of its links.
+// A wireframe site for the transition cards: three skeleton pages in greys, turned by the
+// transition every few seconds or when you click one of its links.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PageSwap } from "../transitions/PageSwap";
 import type { TransitionKind } from "../transitions/transitions";
@@ -9,18 +9,36 @@ import { play, type Cue } from "../sound/sound";
 export const TRANS_CUE: Record<TransitionKind, Cue> = { burn: "crackle", paper: "rustle", reveal: "whoosh", ink: "whoosh", curtain: "whoosh", pixels: "whoosh", zoom: "whoosh", tilt: "slide" };
 
 const W = 320, H = 210;
-const NAMES = ["Home", "Library", "About"];
+/* three wireframe pages: skeleton bars in greys, like a sketch of a site. Each page has its
+ * own layout and its own shade, so every transition between them reads clearly */
+const Bar = ({ w, h = 6, o = 1 }: { w: number | string; h?: number; o?: number }) => <span className="wfBar" style={{ width: w, height: h, opacity: o }} />;
 
 function MiniPage({ n }: { n: number }) {
   return (
-    <div className={`mini mini${n}`}>
-      <div className="miniNav">
-        <span className="miniLogo">Effects<span>.free</span></span>
-        <span className="miniLinks">{NAMES.map((x, k) => <span key={x} data-go={k} className={k === n ? "on" : ""}>{x}</span>)}</span>
+    <div className={`mini wf wf${n}`}>
+      <div className="wfNav">
+        <span className="wfLogo" />
+        <span className="wfLinks">{[0, 1, 2].map((k) => <span key={k} data-go={k} className={k === n ? "on" : ""}><Bar w={k === 1 ? 26 : 20} h={4} /></span>)}</span>
       </div>
-      {n === 0 && <div className="miniBody"><b>Motion for the moments that matter.</b><i>Copy the code or the prompt.</i><span className="miniCta" data-go={1}>See the library</span></div>}
-      {n === 1 && <div className="miniBody"><b>Library</b><div className="miniTiles">{["a0", "a1", "a3"].map((a) => <span key={a} className={`miniTile ${a}`} data-go={2} />)}</div></div>}
-      {n === 2 && <div className="miniBody"><b>Made for my own work, free for yours.</b><i>18 effects, one file each.</i></div>}
+      {n === 0 && (
+        <div className="wfBody">
+          <Bar w="62%" h={12} /><Bar w="44%" h={12} />
+          <div className="wfGap" /><Bar w="70%" o={0.6} /><Bar w="52%" o={0.6} />
+          <span className="wfBtn" data-go={1} />
+        </div>
+      )}
+      {n === 1 && (
+        <div className="wfBody">
+          <Bar w="34%" h={10} />
+          <div className="wfTiles">{[0, 1, 2].map((k) => <span key={k} className="wfTile" data-go={2}><Bar w="60%" h={4} o={0.7} /><Bar w="40%" h={4} o={0.5} /></span>)}</div>
+        </div>
+      )}
+      {n === 2 && (
+        <div className="wfBody wfRow">
+          <span className="wfAvatar" />
+          <div className="wfCol"><Bar w="80%" h={10} /><Bar w="94%" o={0.6} /><Bar w="88%" o={0.6} /><Bar w="60%" o={0.6} /></div>
+        </div>
+      )}
     </div>
   );
 }

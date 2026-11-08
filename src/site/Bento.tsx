@@ -29,12 +29,34 @@ export const TILES: Tile[] = [
   { k: "bubble", group: "Type", c: 3, r: 2 }, { k: "lens", group: "Type", c: 3, r: 2 },
   { k: "burn", group: "Transitions", c: 2, r: 2, tag: "New" }, { k: "paper", group: "Transitions", c: 2, r: 2, tag: "New" }, { k: "liquid", group: "Type", c: 2, r: 2 },
   { k: "rings", group: "Type", c: 2, r: 2 }, { k: "contour", group: "Type", c: 4, r: 2 },
-  { k: "slice", group: "Type", c: 2, r: 2 }, { k: "smear", group: "Type", c: 2, r: 2 }, { k: "lines", group: "Type", c: 2, r: 2 },
+  { k: "slice", group: "Type", c: 2, r: 2 },
   { k: "reveal", group: "Transitions", c: 3, r: 2 }, { k: "ink", group: "Transitions", c: 3, r: 2 },
   { k: "curtain", group: "Transitions", c: 2, r: 2 }, { k: "pixels", group: "Transitions", c: 2, r: 2 }, { k: "zoom", group: "Transitions", c: 2, r: 2 },
-  { k: "tilt", group: "Transitions", c: 6, r: 2 },
   ...COMPS.slice(12).map((c) => ({ k: `cmp-${c.k}` as BentoLib, group: "Components" as Group, c: c.c, r: c.r })),
 ];
+
+/** lay tiles into full rows of 6 columns so the grid never has holes, whatever the filter:
+ * tiles go into a row in order; when the next one would overflow, the row is closed and its
+ * spare columns go to its narrowest tiles; every tile in a row takes the row's height */
+function pack(list: Tile[]): Tile[] {
+  const out: Tile[] = [];
+  let row: Tile[] = [], used = 0;
+  const close = () => {
+    if (!row.length) return;
+    const r = Math.max(...row.map((x) => x.r));
+    const w = row.map((x) => Math.min(6, x.c));
+    for (let spare = 6 - used; spare > 0; spare--) { const i = w.indexOf(Math.min(...w)); w[i]++; }
+    row.forEach((x, i) => out.push({ ...x, c: w[i], r }));
+    row = []; used = 0;
+  };
+  for (const x of list) {
+    const c = Math.min(6, x.c);
+    if (used + c > 6) close();
+    row.push(x); used += c;
+  }
+  close();
+  return out;
+}
 
 export function nameOf(k: BentoLib) {
   if (k.startsWith("cmp-")) return compOf(k.slice(4))?.name ?? k;
@@ -139,7 +161,7 @@ export function Home({ open, onOpen, onClose, detail }: { open: BentoLib | null;
     const id = setTimeout(() => setReady(true), 560);
     return () => clearTimeout(id);
   }, [open]);
-  const tiles = TILES.filter((t) => filter === "All" || t.group === filter);
+  const tiles = pack(TILES.filter((t) => filter === "All" || t.group === filter));
 
   useEffect(() => {
     if (!open) return;
