@@ -6,7 +6,8 @@ import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import { SuccessCard } from "../demos/ConfettiDemos";
 import { TYPE_EFFECTS, type TypeEffectKey } from "../type/effects";
 import { TypeCanvas } from "../type/TypeCanvas";
-import { SwapDemo, TRANS_META } from "./TransitionPage";
+import { TRANS_META } from "./TransitionPage";
+import { MiniSite } from "../demos/MiniSite";
 import type { TransitionKind } from "../transitions/transitions";
 import { COMPS, compOf } from "./components";
 import { NATIVE } from "./native";
@@ -62,7 +63,7 @@ function Preview({ t }: { t: Tile }) {
   if (t.k.startsWith("cmp-")) { const C = NATIVE[t.k.slice(4)]; return C ? <C size="card" /> : null; }
   if (t.k === "ripple") return <QrCard />;
   if (t.k === "paper") return (
-    <div className="bnBook" data-own-click><Book pages={[<div key="e" className="bkp bkpEnd" />, ...bookPages()]} height={t.r * 150} bend={0.5} strips={24} /></div>
+    <div className="bnBook" data-own-click><Book pages={[<div key="e" className="bkp bkpEnd" />, ...bookPages()]} height={t.r * 150 + (t.r - 1) * 16 - 128} bend={0.5} strips={24} /></div>
   );
   if (t.k === "confetti") return (
     <div className="bnConfetti">
@@ -73,8 +74,7 @@ function Preview({ t }: { t: Tile }) {
     const e = TYPE_EFFECTS[t.k as TypeEffectKey];
     return <div className="bnFill" style={{ background: e.look.bg }}><TypeCanvas effect={e} fit={(e.look.fit ?? 0.78) * 0.78} /></div>;
   }
-  // the demo site in a window, under the tag, the way Apple sits a device in a tile; its links work
-  return <div className="bnWindow" data-own-click><div className="bnWindowBody"><SwapDemo kind={t.k as TransitionKind} compact={t.c <= 2} auto={3200 + (t.k.length % 4) * 300} /></div></div>;
+  return <MiniSite kind={t.k as TransitionKind} auto={3000 + (t.k.length % 4) * 350} />;
 }
 
 /** the QR code it all began with: it ripples by itself, and when you click it */
