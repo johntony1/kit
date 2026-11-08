@@ -17,6 +17,7 @@ import { TYPE_META } from "./type/meta";
 import { typePrompt } from "./type/prompt";
 import { TypeCanvas } from "./type/TypeCanvas";
 import { Studio, type StudioLib } from "./site/Studio";
+import { Home, type BentoLib } from "./site/Bento";
 import { TRANS_KEYS, TRANS_META, TransInstall, TransPlayground, TransPreview, transPrompt } from "./site/TransitionPage";
 import type { TransitionKind } from "./transitions/transitions";
 
@@ -36,7 +37,7 @@ function useRoute(): [Route, (r: Route) => void] {
     const k = h.replace(/^type\//, "");
     const tk = h.replace(/^transition\//, "");
     if (h.startsWith("transition/") && isTrans(tk)) return tk;
-    return h === "ripple" || h === "confetti" ? h : h.startsWith("type/") && isType(k) ? k : h === "introduction" ? "intro" : "ripple";
+    return h === "ripple" || h === "confetti" ? h : h.startsWith("type/") && isType(k) ? k : "intro";
   };
   const [r, setR] = useState<Route>(read);
   useEffect(() => {
@@ -44,7 +45,7 @@ function useRoute(): [Route, (r: Route) => void] {
     addEventListener("hashchange", on);
     return () => removeEventListener("hashchange", on);
   }, []);
-  return [r, (next) => { location.hash = `/${next === "intro" ? "introduction" : next.startsWith("studio:") ? `studio/${next.slice(7)}` : isType(next) ? `type/${next}` : isTrans(next) ? `transition/${next}` : next}`; }];
+  return [r, (next) => { location.hash = `/${next === "intro" ? "" : next.startsWith("studio:") ? `studio/${next.slice(7)}` : isType(next) ? `type/${next}` : isTrans(next) ? `transition/${next}` : next}`; }];
 }
 
 /* ── Icons ── */
@@ -213,7 +214,7 @@ function ConfettiPlayground() {
 }
 
 /* ── A library page ── */
-function LibraryPage({ lib, go }: { lib: Lib; go: (r: Route) => void }) {
+function LibraryPage({ lib, go, inSheet = false }: { lib: Lib; go: (r: Route) => void; inSheet?: boolean }) {
   const [tab, setTab] = useState<"Preview" | "Install">("Preview");
   const [fw, setFw] = useState<"React" | "JavaScript">("React");
   const { done, copy } = useCopy();
@@ -223,14 +224,14 @@ function LibraryPage({ lib, go }: { lib: Lib; go: (r: Route) => void }) {
     <>
       <div className="head">
         <div className="headIcon">{L.icon}</div>
-        <div className="arrows">
+        {!inSheet && <div className="arrows">
           <button type="button" className="round" aria-label="Previous" disabled={i === 0} onClick={() => go(ORDER[i - 1])}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M13 8H3m0 0 4-4M3 8l4 4" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
           <button type="button" className="round" aria-label="Next" disabled={i === ORDER.length - 1} onClick={() => go(ORDER[i + 1])}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M3 8h10m0 0L9 4m4 4-4 4" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
-        </div>
+        </div>}
       </div>
       <h1 className="h1">{L.name}</h1>
       <p className="lede">{L.desc}</p>
@@ -388,11 +389,10 @@ export default function App() {
   return (
     <div className="site">
       <header className="top">
-        <a className="brand" href="#/ripple" aria-label="Effects, home"><Brand /></a>
+        <a className="brand" href="#/" aria-label="Effects, home"><Brand /></a>
         <nav className="topLinks" aria-label="Main">
-          <button type="button" className={`topLink ${route !== "intro" && !route.startsWith("studio:") ? "on" : ""}`} onClick={() => go("ripple")}>Libraries</button>
+          <button type="button" className={`topLink ${!route.startsWith("studio:") ? "on" : ""}`} onClick={() => go("intro")}>Effects</button>
           <button type="button" className={`topLink ${route.startsWith("studio:") ? "on" : ""}`} onClick={() => go(`studio:${route.startsWith("studio:") ? route.slice(7) : route === "intro" || isTrans(route) ? "ripple" : route}` as Route)}>Studio</button>
-          <button type="button" className={`topLink ${route === "intro" ? "on" : ""}`} onClick={() => go("intro")}>How to use</button>
           <a className="topLink" href={REPO} target="_blank" rel="noopener noreferrer">Source</a>
         </nav>
         <div className="topRight">
@@ -408,27 +408,8 @@ export default function App() {
         <Studio key={route} lib={route.slice(7) as StudioLib} go={(k) => go(`studio:${k}` as Route)}
           libs={[{ k: "ripple", name: "Ripple", group: "Libraries" }, { k: "confetti", name: "Confetti pop", group: "Libraries" }, ...TYPE_KEYS.map((k) => ({ k, name: TYPE_EFFECTS[k].name, group: "Type" }))]} />
       ) : (
-      <div className="layout">
-        <aside className="side" aria-label="Libraries">
-          <div className="sideLabel">Getting started</div>
-          <NavItem active={route === "intro"} onClick={() => go("intro")}>Introduction</NavItem>
-          <div className="sideLabel">Libraries</div>
-          <NavItem active={route === "ripple"} icon={<RippleIcon />} onClick={() => go("ripple")}>Ripple</NavItem>
-          <NavItem active={route === "confetti"} icon={<ConfettiIcon />} onClick={() => go("confetti")}>Confetti pop</NavItem>
-          <div className="sideLabel">Type</div>
-          {TYPE_KEYS.map((k) => (
-            <NavItem key={k} active={route === k} icon={<TypeIcon k={k} />} onClick={() => go(k)}>{TYPE_EFFECTS[k].name}</NavItem>
-          ))}
-          <div className="sideLabel">Transitions</div>
-          {TRANS_KEYS.map((k) => (
-            <NavItem key={k} active={route === k} icon={<TransIcon k={k} />} onClick={() => go(k)}>{TRANS_META[k].name}</NavItem>
-          ))}
-        </aside>
-        <main className="main" key={route}>
-          {route === "intro" ? <Intro go={go} /> : <LibraryPage lib={route as Lib} go={go} />}
-        </main>
-      </div>
-
+        <Home open={route === "intro" ? null : (route as BentoLib)} onOpen={(k) => go(k as Route)} onClose={() => go("intro")}
+          detail={(k) => <div className="sheetPage"><LibraryPage lib={k as Lib} go={go} inSheet /></div>} />
       )}
 
       <footer className="foot">

@@ -480,3 +480,52 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .a3 { background: radial-gradient(circle at 60% 55%, #1b1d1b 0 20%, #ffb35c 21%, #3b2414 23%, #7a4a26 28%, #cdbb9b 38%, #efeadc 46%); }
 .a4 { background: radial-gradient(ellipse 30% 40% at 60% 50%, #555 0 70%, transparent 72%), linear-gradient(#000, #000); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
 .a5 { background: linear-gradient(105deg, #f4f2ec 0 55%, #d8d2c1 55% 58%, #e9e4d6 58% 100%); }
+
+/* ════ Bento home (Apple's arrangement, our look) ════ */
+.bnHero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; padding: 72px 16px 40px; }
+.bnPill { height: 32px; padding: 0 14px; border-radius: 16px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 500; color: var(--text2); background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.bnH { margin: 0; font-size: clamp(36px, 5.2vw, 56px); line-height: 1.04; font-weight: 600; letter-spacing: -0.035em; color: var(--text); text-wrap: balance; }
+.bnSub { margin: 0; max-width: 560px; font-size: 16px; line-height: 1.55; color: var(--muted); text-wrap: pretty; }
+.bnSub span { color: var(--text2); }
+.bnChips { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 16px; }
+.bnChip { height: 36px; padding: 0 16px; border: 0; border-radius: 18px; background: rgba(255, 255, 255, 0.045); color: var(--muted); font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color 150ms ease, color 150ms ease, scale 150ms ease; }
+.bnChip:hover { color: var(--text); }
+.bnChip:active { scale: 0.96; }
+.bnChip.on { background: rgba(255, 255, 255, 0.1); color: var(--text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+.bnGrid { display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 150px; grid-auto-flow: dense; gap: 16px; }
+.bnSlot { position: relative; min-width: 0; }
+.bnCard { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; overflow: hidden; cursor: pointer; text-align: left; color: inherit; background: var(--sheen), #191a19; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(255, 255, 255, 0.04); }
+.bnPreview { position: absolute; inset: 0; }
+.bnFill { position: absolute; inset: 0; }
+.bnFill > canvas { position: absolute; inset: 0; }
+.bnStill { pointer-events: none; }
+.bnConfetti { position: absolute; inset: 0; display: grid; place-items: center; }
+.bnScale { scale: 0.74; pointer-events: none; }
+.bnTag, .bnName { position: absolute; z-index: 2; height: 28px; padding: 0 11px; border-radius: 14px; display: inline-flex; align-items: center; font-size: 12.5px; font-weight: 500; white-space: nowrap; background: rgba(18, 19, 18, 0.72); backdrop-filter: blur(12px) saturate(1.3); -webkit-backdrop-filter: blur(12px) saturate(1.3); color: var(--text); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07); pointer-events: none; }
+.bnTag { top: 16px; left: 16px; color: var(--text2); font-size: 12px; }
+.bnName { left: 16px; bottom: 16px; height: 32px; padding: 0 13px; font-size: 13.5px; }
+.bnGo { position: absolute; z-index: 2; right: 16px; bottom: 16px; width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; background: #f2f4f2; color: #121312; opacity: 0; translate: 0 4px; transition: opacity 200ms ease, translate 200ms cubic-bezier(0.2, 0, 0, 1); pointer-events: none; }
+@media (hover: hover) { .bnCard:hover .bnGo { opacity: 1; translate: 0 0; } }
+.bnCard:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* the sheet a card grows into */
+.bnLayer { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 24px; }
+.bnScrim { position: absolute; inset: 0; background: rgba(6, 7, 6, 0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.bnSheet { position: relative; width: min(1180px, 100%); height: min(860px, 100%); overflow: hidden; background: var(--sheen), var(--sheet); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 40px 80px -20px rgba(0, 0, 0, 0.7); }
+.bnSheetInner { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.1) transparent; }
+.sheetPage { padding: 28px 32px 40px; }
+.bnClose { position: absolute; top: 18px; right: 18px; z-index: 3; width: 36px; height: 36px; border: 0; border-radius: 18px; display: grid; place-items: center; background: linear-gradient(180deg, #2b2d2b, #242624); box-shadow: var(--lift); color: var(--text2); cursor: pointer; transition: scale 150ms ease, color 150ms ease; }
+.bnClose:hover { color: var(--text); }
+.bnClose:active { scale: 0.96; }
+.sheetPage .head { padding-right: 48px; }
+
+@media (max-width: 900px) {
+  .bnGrid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 140px; }
+  .bnSlot { grid-column: span 2 !important; grid-row: span 2 !important; }
+  .bnLayer { padding: 8px; }
+  .sheetPage { padding: 20px 16px 28px; }
+}
+.bnWindow { position: absolute; left: 20px; right: 20px; top: 58px; bottom: -14px; border-radius: 14px; overflow: hidden; pointer-events: none; background: #242624; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 24px 48px -20px rgba(0, 0, 0, 0.7); }
+.bnWindowBar { height: 22px; display: flex; align-items: center; gap: 5px; padding: 0 10px; background: #262826; box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.05); }
+.bnWindowBar i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); }
+.bnWindowBody { position: absolute; inset: 22px 0 0 0; }

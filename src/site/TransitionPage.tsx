@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import transitionsSrc from "../transitions/transitions.ts?raw";
 import pageSwapSrc from "../transitions/PageSwap.tsx?raw";
 import { DURATIONS, type TransitionKind } from "../transitions/transitions";
@@ -43,11 +43,16 @@ ${m.how}
 ${values ? `\n## Use these values\n${Object.entries(values).map(([a, b]) => `- ${a}: ${b}`).join("\n")}\n` : ""}`;
 }
 
-/** a stage that turns to the next page wherever you click */
-function SwapDemo({ kind, options, compact, start = 0 }: { kind: TransitionKind; options?: Record<string, number | string>; compact?: boolean; start?: number }) {
+/** a stage that turns to the next page wherever you click (or by itself, every few seconds) */
+export function SwapDemo({ kind, options, compact, start = 0, auto = 0 }: { kind: TransitionKind; options?: Record<string, number | string>; compact?: boolean; start?: number; auto?: number }) {
   const [page, setPage] = useState(start);
   const [origin, setOrigin] = useState({ x: 0.5, y: 0.5 });
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!auto || busy) return;
+    const id = setTimeout(() => { setOrigin({ x: 0.3 + Math.random() * 0.4, y: 0.35 + Math.random() * 0.3 }); setBusy(true); setPage((p) => (p + 1) % PAGE_COUNT); }, auto);
+    return () => clearTimeout(id);
+  }, [auto, busy, page]);
   return (
     <div className="swapStage" role="button" tabIndex={0} aria-label="Go to the next page"
       onPointerDown={(e) => {
