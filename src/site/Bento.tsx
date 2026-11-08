@@ -17,9 +17,11 @@ import { Book } from "../transitions/Book";
 import { bookPages } from "../demos/BookPages";
 import { SheetReady } from "./sheet";
 import { play } from "../sound/sound";
+import { ILLS, illOf } from "../empty/ills";
+import { DotArt } from "../empty/DotArt";
 
-export type BentoLib = "ripple" | "confetti" | TypeEffectKey | TransitionKind | `cmp-${string}`;
-type Group = "Libraries" | "Components" | "Type" | "Transitions";
+export type BentoLib = "ripple" | "confetti" | TypeEffectKey | TransitionKind | `cmp-${string}` | `es-${string}`;
+type Group = "Libraries" | "Components" | "Type" | "Transitions" | "Empty states";
 interface Tile { k: BentoLib; group: Group; c: number; r: number; tag?: string }
 
 // the arrangement: 6 columns. Big features, halves, thirds, and one full-width row to end
@@ -30,9 +32,11 @@ export const TILES: Tile[] = [
   { k: "burn", group: "Transitions", c: 2, r: 2, tag: "New" }, { k: "paper", group: "Transitions", c: 2, r: 2, tag: "New" }, { k: "liquid", group: "Type", c: 2, r: 2 },
   { k: "rings", group: "Type", c: 2, r: 2 },
   { k: "slice", group: "Type", c: 2, r: 2 },
+  ...ILLS.slice(0, 6).map((i) => ({ k: `es-${i.k}` as BentoLib, group: "Empty states" as Group, c: 2, r: 2 })),
   { k: "reveal", group: "Transitions", c: 3, r: 2 }, { k: "ink", group: "Transitions", c: 3, r: 2 },
   { k: "curtain", group: "Transitions", c: 2, r: 2 }, { k: "pixels", group: "Transitions", c: 2, r: 2 },
   ...COMPS.slice(12).map((c) => ({ k: `cmp-${c.k}` as BentoLib, group: "Components" as Group, c: c.c, r: c.r })),
+  ...ILLS.slice(6).map((i) => ({ k: `es-${i.k}` as BentoLib, group: "Empty states" as Group, c: 2, r: 2 })),
 ];
 
 /** lay tiles into full rows of 6 columns so the grid never has holes, whatever the filter:
@@ -60,6 +64,7 @@ function pack(list: Tile[]): Tile[] {
 
 export function nameOf(k: BentoLib) {
   if (k.startsWith("cmp-")) return compOf(k.slice(4))?.name ?? k;
+  if (k.startsWith("es-")) return illOf(k.slice(3))?.name ?? k;
   if (k === "ripple") return "Ripple";
   if (k === "confetti") return "Confetti pop";
   if (k in TYPE_EFFECTS) return TYPE_EFFECTS[k as TypeEffectKey].name;
@@ -85,6 +90,7 @@ function useInView<T extends Element>() {
 function Preview({ t }: { t: Tile }) {
   const [replay, setReplay] = useState(0);
   if (t.k.startsWith("cmp-")) { const C = NATIVE[t.k.slice(4)]; return C ? <C size="card" /> : null; }
+  if (t.k.startsWith("es-")) { const ill = illOf(t.k.slice(3)); return ill ? <div className="bnDots"><DotArt ill={ill} fit={0.9} /></div> : null; }
   if (t.k === "ripple") return <QrCard />;
   if (t.k === "paper") return (
     <div className="bnBook" data-own-click><Book pages={[<div key="e" className="bkp bkpEnd" />, ...bookPages()]} height={t.r * 150 + (t.r - 1) * 16 - 128} bend={0.5} strips={24} onStart={() => play("rustle")} /></div>
@@ -142,7 +148,7 @@ function Card({ t, open, paused, onOpen }: { t: Tile; open: boolean; paused: boo
           onClick={(e) => { if (!(e.target as HTMLElement).closest("[data-own-click]")) onOpen(); }}
           onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen(); } }} aria-label={`${nameOf(t.k)}. Press Enter to open.`}>
           <div className="bnPreview">{live ? <Preview t={t} /> : null}</div>
-          <span className="bnTag">{t.tag ?? (t.group === "Type" ? "Type" : t.group === "Transitions" ? "Transition" : t.group === "Components" ? (compOf(t.k.slice(4))?.verb ?? "Component") : "Library")}</span>
+          <span className="bnTag">{t.tag ?? (t.group === "Type" ? "Type" : t.group === "Transitions" ? "Transition" : t.group === "Components" ? (compOf(t.k.slice(4))?.verb ?? "Component") : t.group === "Empty states" ? (illOf(t.k.slice(3))?.kind === "hover" ? "Hover" : "Loop") : "Library")}</span>
           <span className="bnName">{nameOf(t.k)}</span>
           <span className="bnGo" aria-hidden="true" onClick={(e) => { e.stopPropagation(); onOpen(); }}><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 11 11 5M6 5h5v5" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
         </motion.div>
@@ -181,7 +187,7 @@ export function Home({ open, onOpen, onClose, detail }: { open: BentoLib | null;
         <p className="bnSub">Ripples, confetti, type that bends and pages that turn. Every one is a file and a prompt for <span>your own project</span>.</p>
       </section>
       <div className="bnChips" role="radiogroup" aria-label="Filter effects">
-        {(["All", "Components", "Libraries", "Type", "Transitions"] as const).map((f) => (
+        {(["All", "Components", "Empty states", "Libraries", "Type", "Transitions"] as const).map((f) => (
           <button key={f} type="button" role="radio" aria-checked={f === filter} className={`bnChip ${f === filter ? "on" : ""}`} onClick={() => setFilter(f)}>{f}</button>
         ))}
       </div>

@@ -640,3 +640,20 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .bnBook .bkpText, .bnBook .bkpToc { font-size: 9.5px; }
 .bnBook .bkpHead, .bnBook .bkpFoot, .bnBook .bkpKick, .bnBook .bkpCaption { font-size: 7.5px; }
 .bnBook .bkpToc { padding: 3px 0; }
+
+/* dot matrix illustrations */
+.dotArt { position: absolute; inset: 0; display: grid; place-items: center; }
+.dotArt canvas { display: block; }
+.bnDots { position: absolute; inset: 40px 24px 46px; }
+.esSwatches { display: flex; gap: 6px; align-items: center; margin-right: 4px; }
+.esSwatch { width: 20px; height: 20px; border-radius: 50%; border: none; padding: 0; cursor: pointer; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12); position: relative; transition: transform 160ms ease; }
+.esSwatch::after { content: ""; position: absolute; inset: -10px; }
+.esSwatch.on { box-shadow: 0 0 0 2px #0f100f, 0 0 0 3.5px rgba(255, 255, 255, 0.7); }
+.esSwatch:active { transform: scale(0.92); }
+.panel.esBig { position: relative; height: 520px; background: #0b0b0b; overflow: hidden; }
+.esHint { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); font-size: 12px; color: var(--muted); pointer-events: none; }
+.panel.esContext { margin-top: 12px; display: grid; place-items: center; padding: 48px 16px; background: #0b0b0b; }
+.esEmpty { display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 340px; }
+.esEmptyArt { position: relative; width: 240px; height: 210px; }
+.esEmpty h3 { margin: 18px 0 6px; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
+.esEmpty p { margin: 0 0 18px; font-size: 14px; line-height: 1.5; color: var(--muted); text-wrap: pretty; }

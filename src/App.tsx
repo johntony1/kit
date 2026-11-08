@@ -18,6 +18,8 @@ import { typePrompt } from "./type/prompt";
 import { TypeCanvas } from "./type/TypeCanvas";
 import { Studio, type StudioLib } from "./site/Studio";
 import { CardPreview, Home, type BentoLib } from "./site/Bento";
+import { EmptyStatePage } from "./empty/EmptyStatePage";
+import { ILLS, illOf } from "./empty/ills";
 import { ComponentPage } from "./site/ComponentPage";
 import { compOf, COMPS } from "./site/components";
 import { TRANS_KEYS, TRANS_META, TransInstall, TransPlayground, TransPreview, transPrompt } from "./site/TransitionPage";
@@ -29,7 +31,7 @@ const REPO = "https://github.com/johntony1/qr-code-animatio";
 
 /* ── Routing: #/ripple, #/confetti, #/introduction ── */
 type Lib = "ripple" | "confetti" | TypeEffectKey | TransitionKind;
-type Route = "intro" | Lib | `studio:${Lib}` | `cmp-${string}`;
+type Route = "intro" | Lib | `studio:${Lib}` | `cmp-${string}` | `es-${string}`;
 const TYPE_KEYS = ["bubble", "lens", "liquid", "rings", "slice", "smear", "lines", "contour"] as TypeEffectKey[];
 const ORDER: Route[] = ["intro", "ripple", "confetti", ...TYPE_KEYS, ...TRANS_KEYS];
 const isTrans = (r: string): r is TransitionKind => (TRANS_KEYS as string[]).includes(r);
@@ -40,6 +42,7 @@ function useRoute(): [Route, (r: Route) => void] {
     if (h.startsWith("studio")) { const k = h.split("/")[1] ?? "ripple"; return (k === "ripple" || k === "confetti" || isType(k) ? `studio:${k}` : "studio:ripple") as Route; }
     const k = h.replace(/^type\//, "");
     if (h.startsWith("component/") && compOf(h.slice(10))) return `cmp-${h.slice(10)}` as Route;
+    if (h.startsWith("empty/") && illOf(h.slice(6))) return `es-${h.slice(6)}` as Route;
     const tk = h.replace(/^transition\//, "");
     if (h.startsWith("transition/") && isTrans(tk)) return tk;
     return h === "ripple" || h === "confetti" ? h : h.startsWith("type/") && isType(k) ? k : "intro";
@@ -52,7 +55,7 @@ function useRoute(): [Route, (r: Route) => void] {
     addEventListener("hashchange", on);
     return () => removeEventListener("hashchange", on);
   }, []);
-  return [r, (next) => { location.hash = `/${next === "intro" ? "" : next.startsWith("cmp-") ? `component/${next.slice(4)}` : next.startsWith("studio:") ? `studio/${next.slice(7)}` : isType(next) ? `type/${next}` : isTrans(next) ? `transition/${next}` : next}`; }];
+  return [r, (next) => { location.hash = `/${next === "intro" ? "" : next.startsWith("cmp-") ? `component/${next.slice(4)}` : next.startsWith("es-") ? `empty/${next.slice(3)}` : next.startsWith("studio:") ? `studio/${next.slice(7)}` : isType(next) ? `type/${next}` : isTrans(next) ? `transition/${next}` : next}`; }];
 }
 
 /* ── Icons ── */
@@ -361,6 +364,7 @@ function SearchButton({ go }: { go: (r: Route) => void }) {
     ...TYPE_KEYS.map((k) => ({ r: k as Route, name: TYPE_EFFECTS[k].name, group: "Type" })),
     ...TRANS_KEYS.map((k) => ({ r: k as Route, name: TRANS_META[k].name, group: "Transitions" })),
     ...COMPS.map((c) => ({ r: `cmp-${c.k}` as Route, name: c.name, group: "Components" })),
+    ...ILLS.map((i) => ({ r: `es-${i.k}` as Route, name: `${i.name}, ${i.title}`, group: "Empty states" })),
   ], []);
   const list = all.filter((x) => x.name.toLowerCase().includes(q.trim().toLowerCase()));
   useEffect(() => {
@@ -433,7 +437,7 @@ export default function App() {
           libs={[{ k: "ripple", name: "Ripple", group: "Libraries" }, { k: "confetti", name: "Confetti pop", group: "Libraries" }, ...TYPE_KEYS.map((k) => ({ k, name: TYPE_EFFECTS[k].name, group: "Type" }))]} />
       ) : (
         <Home open={route === "intro" ? null : (route as BentoLib)} onOpen={(k) => go(k as Route)} onClose={() => go("intro")}
-          detail={(k) => k.startsWith("cmp-") ? <ComponentPage c={compOf(k.slice(4))!} /> : <div className="sheetPage"><LibraryPage lib={k as Lib} go={go} inSheet hero={<CardPreview k={k} />} /></div>} />
+          detail={(k) => k.startsWith("cmp-") ? <ComponentPage c={compOf(k.slice(4))!} /> : k.startsWith("es-") ? <EmptyStatePage ill={illOf(k.slice(3))!} /> : <div className="sheetPage"><LibraryPage lib={k as Lib} go={go} inSheet hero={<CardPreview k={k} />} /></div>} />
       )}
 
       <footer className="foot">
