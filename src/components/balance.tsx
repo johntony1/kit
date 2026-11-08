@@ -77,25 +77,22 @@ function AutoResize({ children, style, reduced, unclip = false }: { children: Re
 
 // ── AnimatedLabel: odometer swap per character ─────────────
 function AnimatedLabel({ value, style }: { value: string; style: CSSProperties }) {
+  // the whole label swaps as one piece: per-letter swaps lose letters when the date changes fast
   const h = typeof style.lineHeight === "string" ? style.lineHeight : "1em";
   return (
-    <span style={{ display: "inline-flex", alignItems: "baseline", fontVariantNumeric: "tabular-nums", ...style }}>
-      {value.split("").map((ch, i) => (
-        <span key={i} style={{ position: "relative", display: "inline-block", overflow: "hidden", height: h, lineHeight: h }}>
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.span
-              key={ch}
-              initial={{ y: "70%", opacity: 0, filter: "blur(2px)" }}
-              animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-              exit={{ y: "-70%", opacity: 0, filter: "blur(2px)" }}
-              transition={{ type: "spring", visualDuration: 0.32, bounce: 0 }}
-              style={{ display: "inline-block" }}
-            >
-              {ch === " " ? " " : ch}
-            </motion.span>
-          </AnimatePresence>
-        </span>
-      ))}
+    <span style={{ position: "relative", display: "inline-grid", overflow: "hidden", height: h, lineHeight: h, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", ...style }}>
+      <AnimatePresence initial={false}>
+        <motion.span
+          key={value}
+          initial={{ y: "60%", opacity: 0, filter: "blur(2px)" }}
+          animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+          exit={{ y: "-60%", opacity: 0, filter: "blur(2px)" }}
+          transition={{ type: "spring", visualDuration: 0.28, bounce: 0 }}
+          style={{ gridArea: "1 / 1", display: "inline-block" }}
+        >
+          {value}
+        </motion.span>
+      </AnimatePresence>
     </span>
   );
 }

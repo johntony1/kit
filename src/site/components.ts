@@ -60,6 +60,7 @@ const BLOCKS: B[] = [
   ["week-picker", "Week picker", "Tap the calendar and the task card opens into a week.", "calendar", "Press", 2, 3],
   ["attach", "Attachment", "Attach a file: it blurs in, uploads with a ring and turns into a close button.", "document", "Press", 2, 3],
   ["share-access", "Invite field", "Switch off Anyone and the invite field springs open.", "share", "Press", 3, 2],
+  ["date-ruler", "Date ruler", "Drag the ruler to pick a date.", "balance", "Drag", 3, 2],
   ["balance", "Balance card", "Hover the bars for each day's value, drag the ruler to pick a date, and share the balance as a card.", "balance", "Hover", 3, 3],
   ["chat", "Chat composer", "Pull the handle and recent songs slide up. Hover a sleeve and the record slides out, tap it to play.", "chat", "Drag", 3, 3],
   ["swipe-delete", "Swipe to delete", "Swipe a member away and the list closes the gap.", "share", "Swipe", 2, 2],
