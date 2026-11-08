@@ -5,6 +5,8 @@ import { DURATIONS, type TransitionKind } from "../transitions/transitions";
 import { PageSwap } from "../transitions/PageSwap";
 import { DemoPage, PAGE_COUNT } from "../demos/Pages";
 import { Code, Slider } from "./ui";
+import { Later } from "./sheet";
+import type { ReactNode } from "react";
 
 export const TRANS_KEYS: TransitionKind[] = ["burn", "paper", "reveal", "ink", "curtain", "pixels", "zoom", "tilt"];
 
@@ -72,12 +74,12 @@ export function SwapDemo({ kind, options, compact, start = 0, auto = 0 }: { kind
   );
 }
 
-export function TransPreview({ k }: { k: TransitionKind }) {
+export function TransPreview({ k, hero }: { k: TransitionKind; hero?: ReactNode }) {
   return (
     <div className="previewGrid">
-      <div className="panel hero flushPanel"><SwapDemo kind={k} /><span className="panelHint">Click a link, or anywhere</span></div>
-      <div className="panel small flushPanel"><SwapDemo kind={k} compact start={1} /></div>
-      <div className="panel wide flushPanel"><SwapDemo kind={k} start={2} /><span className="panelHint">Next page</span></div>
+      {hero ? <div className="panel hero flushPanel"><div className="bnPreview">{hero}</div></div> : <div className="panel hero flushPanel"><SwapDemo kind={k} /><span className="panelHint">Click a link, or anywhere</span></div>}
+      <div className="panel small flushPanel"><Later><SwapDemo kind={k} compact start={1} /></Later></div>
+      <div className="panel wide flushPanel"><Later><SwapDemo kind={k} start={2} /><span className="panelHint">Next page</span></Later></div>
     </div>
   );
 }

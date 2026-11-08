@@ -15,6 +15,7 @@ import { QrRipple } from "../demos/RippleDemos";
 import type { RippleHandle } from "../ripple/RippleCanvas";
 import { Book } from "../transitions/Book";
 import { bookPages } from "../demos/BookPages";
+import { SheetReady } from "./sheet";
 
 export type BentoLib = "ripple" | "confetti" | TypeEffectKey | TransitionKind | `cmp-${string}`;
 type Group = "Libraries" | "Components" | "Type" | "Transitions";
@@ -77,6 +78,12 @@ function Preview({ t }: { t: Tile }) {
   return <MiniSite kind={t.k as TransitionKind} auto={3000 + (t.k.length % 4) * 350} />;
 }
 
+/** a card's live preview, for the top of its sheet */
+export function CardPreview({ k }: { k: BentoLib }) {
+  const t = TILES.find((x) => x.k === k);
+  return t ? <Preview t={t} /> : null;
+}
+
 /** the QR code it all began with: it ripples by itself, and when you click it */
 function QrCard() {
   const ref = useRef<RippleHandle>(null);
@@ -125,12 +132,6 @@ export function Home({ open, onOpen, onClose, detail }: { open: BentoLib | null;
   const [filter, setFilter] = useState<"All" | Group>("All");
   // the detail page is heavy (canvases, playgrounds): mount it once the card has finished growing
   const [ready, setReady] = useState(false);
-  const [ghost, setGhost] = useState(true);
-  useEffect(() => {
-    if (!ready) { setGhost(true); return; }
-    const id = setTimeout(() => setGhost(false), 260);
-    return () => clearTimeout(id);
-  }, [ready]);
   useEffect(() => {
     setReady(false);
     if (!open) return;
@@ -171,15 +172,11 @@ export function Home({ open, onOpen, onClose, detail }: { open: BentoLib | null;
             <motion.div className="bnScrim" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} onClick={onClose} />
             <motion.div layoutId={`bn-${open}`} transition={SPRING} className="bnSheet" style={{ borderRadius: 28 }} role="dialog" aria-modal="true" aria-label={nameOf(open)}
               onLayoutAnimationComplete={() => setReady(true)}>
-              {/* the card's live preview rides along while it grows, then hands over to the page */}
-              <motion.div layout className="bnGhost" initial={{ opacity: 1 }} animate={{ opacity: ready ? 0 : 1, transition: { duration: 0.2 } }} exit={{ opacity: 0, transition: { duration: 0.12 } }}>
-                {ghost && <Preview t={TILES.find((x) => x.k === open)!} />}
+              {/* the page itself grows in (title, buttons and the card's own preview at the top);
+                  layout keeps it at full size while the sheet scales, the panels below wait */}
+              <motion.div layout className="bnSheetInner" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.14 } }} exit={{ opacity: 0, transition: { duration: 0.08 } }}>
+                <SheetReady.Provider value={ready}>{detail(open)}</SheetReady.Provider>
               </motion.div>
-              {ready && (
-                <motion.div className="bnSheetInner" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0, transition: { duration: 0.24, ease: [0.2, 0, 0, 1] } }} exit={{ opacity: 0, transition: { duration: 0.08 } }}>
-                  {detail(open)}
-                </motion.div>
-              )}
               <button type="button" className="bnClose" onClick={onClose} aria-label="Close">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" /></svg>
               </button>

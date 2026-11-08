@@ -17,11 +17,12 @@ import { TYPE_META } from "./type/meta";
 import { typePrompt } from "./type/prompt";
 import { TypeCanvas } from "./type/TypeCanvas";
 import { Studio, type StudioLib } from "./site/Studio";
-import { Home, type BentoLib } from "./site/Bento";
+import { CardPreview, Home, type BentoLib } from "./site/Bento";
 import { ComponentPage } from "./site/ComponentPage";
 import { compOf, COMPS } from "./site/components";
 import { TRANS_KEYS, TRANS_META, TransInstall, TransPlayground, TransPreview, transPrompt } from "./site/TransitionPage";
 import type { TransitionKind } from "./transitions/transitions";
+import { Later } from "./site/sheet";
 
 const REPO = "https://github.com/johntony1/qr-code-animatio";
 
@@ -115,12 +116,12 @@ function Install({ lib, fw }: { lib: "ripple" | "confetti"; fw: "React" | "JavaS
 const R_SOURCES = ["Orb", "QR code"] as const;
 const R_COLORS = { Violet: "#7b6cff", Blue: "#1d9fff", Pink: "#ff4fa3", Orange: "#ff7a1a", Green: "#22c55e", White: "#ffffff" } as const;
 
-function RipplePreview() {
+function RipplePreview({ hero }: { hero?: ReactNode }) {
   return (
     <div className="previewGrid">
-      <div className="panel hero"><OrbRipple /></div>
-      <div className="panel small"><QrRipple /><span className="panelHint">Click the code</span></div>
-      <div className="panel wide flushPanel" style={{ background: "#eef0f3" }}><TypeCanvas effect={TYPE_EFFECTS.bubble} text="ripple" fit={0.66} /><span className="panelHint onArt" style={{ color: "#0b0b0b" }}>Click anywhere</span></div>
+      {hero ? <div className="panel hero flushPanel"><div className="bnPreview">{hero}</div></div> : <div className="panel hero"><OrbRipple /></div>}
+      <div className="panel small"><Later>{hero ? <OrbRipple /> : <QrRipple />}<span className="panelHint">{hero ? "Click the orb" : "Click the code"}</span></Later></div>
+      <div className="panel wide flushPanel" style={{ background: "#eef0f3" }}><Later><TypeCanvas effect={TYPE_EFFECTS.bubble} text="ripple" fit={0.66} /><span className="panelHint onArt" style={{ color: "#0b0b0b" }}>Click anywhere</span></Later></div>
     </div>
   );
 }
@@ -170,12 +171,12 @@ const C_PALETTES = {
   Sunset: ["#fb7185", "#f97316", "#facc15", "#fda4af", "#fdba74"],
 } as const;
 
-function ConfettiPreview() {
+function ConfettiPreview({ hero }: { hero?: ReactNode }) {
   return (
     <div className="previewGrid">
-      <div className="panel hero"><SuccessCard /></div>
-      <div className="panel small"><LikePop /><span className="panelHint">Like it</span></div>
-      <div className="panel wide"><TaskPop /><span className="panelHint">Tick a task</span></div>
+      {hero ? <div className="panel hero flushPanel"><div className="bnPreview">{hero}</div></div> : <div className="panel hero"><SuccessCard /></div>}
+      <div className="panel small"><Later><LikePop /><span className="panelHint">Like it</span></Later></div>
+      <div className="panel wide"><Later><TaskPop /><span className="panelHint">Tick a task</span></Later></div>
     </div>
   );
 }
@@ -219,7 +220,7 @@ function ConfettiPlayground() {
 }
 
 /* ── A library page ── */
-function LibraryPage({ lib, go, inSheet = false }: { lib: Lib; go: (r: Route) => void; inSheet?: boolean }) {
+function LibraryPage({ lib, go, inSheet = false, hero }: { lib: Lib; go: (r: Route) => void; inSheet?: boolean; hero?: ReactNode }) {
   const [tab, setTab] = useState<"Preview" | "Install">("Preview");
   const [fw, setFw] = useState<"React" | "JavaScript">("React");
   const { done, copy } = useCopy();
@@ -258,8 +259,8 @@ function LibraryPage({ lib, go, inSheet = false }: { lib: Lib; go: (r: Route) =>
 
       {tab === "Preview" ? (
         <>
-          {isTrans(lib) ? <TransPreview k={lib} /> : isType(lib) ? <TypePreview k={lib} /> : lib === "ripple" ? <RipplePreview /> : <ConfettiPreview />}
-          {isTrans(lib) ? <TransPlayground key={lib} k={lib} /> : isType(lib) ? <TypePlayground key={lib} k={lib} /> : lib === "ripple" ? <RipplePlayground /> : <ConfettiPlayground />}
+          {isTrans(lib) ? <TransPreview k={lib} hero={hero} /> : isType(lib) ? <TypePreview k={lib} hero={hero} /> : lib === "ripple" ? <RipplePreview hero={hero} /> : <ConfettiPreview hero={hero} />}
+          <Later>{isTrans(lib) ? <TransPlayground key={lib} k={lib} /> : isType(lib) ? <TypePlayground key={lib} k={lib} /> : lib === "ripple" ? <RipplePlayground /> : <ConfettiPlayground />}</Later>
         </>
       ) : isTrans(lib) ? (
         <TransInstall k={lib} fw={fw} />
@@ -415,7 +416,7 @@ export default function App() {
           libs={[{ k: "ripple", name: "Ripple", group: "Libraries" }, { k: "confetti", name: "Confetti pop", group: "Libraries" }, ...TYPE_KEYS.map((k) => ({ k, name: TYPE_EFFECTS[k].name, group: "Type" }))]} />
       ) : (
         <Home open={route === "intro" ? null : (route as BentoLib)} onOpen={(k) => go(k as Route)} onClose={() => go("intro")}
-          detail={(k) => k.startsWith("cmp-") ? <ComponentPage c={compOf(k.slice(4))!} /> : <div className="sheetPage"><LibraryPage lib={k as Lib} go={go} inSheet /></div>} />
+          detail={(k) => k.startsWith("cmp-") ? <ComponentPage c={compOf(k.slice(4))!} /> : <div className="sheetPage"><LibraryPage lib={k as Lib} go={go} inSheet hero={<CardPreview k={k} />} /></div>} />
       )}
 
       <footer className="foot">

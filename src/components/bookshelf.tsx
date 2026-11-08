@@ -51,11 +51,11 @@ const CSS = `
 .bs-btn:focus-visible{outline:2px solid #34b562;outline-offset:3px;border-radius:2px}
 .bs-spine,.bs-cover{flex-shrink:0;overflow:hidden;position:relative;transform-style:preserve-3d;filter:brightness(.8) contrast(2)}
 .bs-spine{display:flex;align-items:flex-start;justify-content:center;transform-origin:right center;transform:rotateY(0deg);transition:transform 500ms ease,filter 500ms ease}
-.bs-cover{transform-origin:left center;transform:rotateY(88.8deg);transition:transform 500ms ease,filter 500ms ease}
+.bs-cover{transform-origin:left center;transform:rotateY(88.8deg);backface-visibility:hidden;opacity:0;transition:transform 500ms ease,filter 500ms ease,opacity 90ms ease 410ms}
 .bs-wrap.is-hov .bs-spine{transform:rotateY(-60deg)}
-.bs-wrap.is-hov .bs-cover{transform:rotateY(30deg)}
+.bs-wrap.is-hov .bs-cover{transform:rotateY(30deg);opacity:1;transition:transform 500ms ease,filter 500ms ease,opacity 60ms ease 0ms}
 .bs-wrap.is-open .bs-spine{transform:rotateY(-90deg)}
-.bs-wrap.is-open .bs-cover{transform:rotateY(0deg);filter:brightness(.86) contrast(1.8)}
+.bs-wrap.is-open .bs-cover{transform:rotateY(0deg);filter:brightness(.86) contrast(1.8);opacity:1;transition:transform 500ms ease,filter 500ms ease,opacity 60ms ease 0ms}
 .bs-wrap.is-open .bs-btn::after{opacity:1}
 .bs-btn::after{content:"";position:absolute;left:10%;right:10%;bottom:-30px;height:18px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.55),transparent);opacity:0;transition:opacity 400ms ease;pointer-events:none}
 .bs-row.has-open .bs-wrap:not(.is-open){opacity:.55}

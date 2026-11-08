@@ -1,3 +1,5 @@
+import { Later } from "./sheet";
+import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import typeCore from "../type/type-core.ts?raw";
 import effectsSrc from "../type/effects.ts?raw";
@@ -17,18 +19,18 @@ export function TypeIcon({ k }: { k: TypeEffectKey }) {
   );
 }
 
-export function TypePreview({ k }: { k: TypeEffectKey }) {
+export function TypePreview({ k, hero }: { k: TypeEffectKey; hero?: ReactNode }) {
   const e = TYPE_EFFECTS[k];
   const m = TYPE_META[k];
   const bg = (v: { bg?: string }) => v.bg ?? e.look.bg;
   return (
     <div className="previewGrid">
       <div className="panel hero flushPanel" style={{ background: e.look.bg }}>
-        <TypeCanvas effect={e} />
+        {hero ? <div className="bnPreview">{hero}</div> : <TypeCanvas effect={e} />}
         <span className="panelHint onArt" style={{ color: e.look.fg }}>{m.hint}</span>
       </div>
-      <div className="panel small flushPanel" style={{ background: bg(m.small) }}><TypeCanvas effect={e} {...m.small} /></div>
-      <div className="panel wide flushPanel" style={{ background: bg(m.wide) }}><TypeCanvas effect={e} {...m.wide} /></div>
+      <div className="panel small flushPanel" style={{ background: bg(m.small) }}><Later><TypeCanvas effect={e} {...m.small} /></Later></div>
+      <div className="panel wide flushPanel" style={{ background: bg(m.wide) }}><Later><TypeCanvas effect={e} {...m.wide} /></Later></div>
     </div>
   );
 }
