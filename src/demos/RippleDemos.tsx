@@ -3,6 +3,7 @@ import { QRCodeCanvas } from "qrcode.react";
 import { Ripple, type RippleHandle } from "../ripple/RippleCanvas";
 import type { RippleOptions } from "../ripple/ripple";
 import { createOrb, type Orb } from "./orb";
+import { play } from "../sound/sound";
 
 const dpr = () => Math.min(window.devicePixelRatio || 1, 2);
 
@@ -45,7 +46,7 @@ export function OrbRipple({ options, rippleRef, fireOn = "click" }: { options?: 
   }, []);
   const box = useBox<HTMLDivElement>((w, h) => { size.current = [w, h]; live.current?.resize(w, h); });
   return (
-    <div ref={box} className="fill orbFill">
+    <div ref={box} className="fill orbFill" onPointerDown={fireOn === "click" ? () => play("bloop") : undefined}>
       {orb && <Ripple ref={ref} source={orb.canvas} live fireOn={fireOn} width="100%" height="100%" glowColor="#7b6cff" intensity={0.07} glow={1.3} {...options} label="A glowing shape that morphs from a sparkle to a circle. Click it to send a ripple through." />}
       <div ref={title} className="orbTitle" aria-hidden="true">Your energy transforms</div>
     </div>
@@ -65,7 +66,7 @@ export function QrRipple({ options, rippleRef, value = "https://qr-code-animatio
     return () => clearTimeout(id);
   }, [src]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className="qrTile">
+    <div className="qrTile" onPointerDown={() => play("bloop")}>
       <QRCodeCanvas ref={qr} value={value} size={400} level="H" marginSize={2} fgColor="#111111" bgColor="#ffffff" style={{ display: "none" }} />
       {src && <Ripple ref={ref} source={src} width={168} height={168} radius={14} fireOn="click" {...options} label="QR code. Click it to ripple." />}
     </div>

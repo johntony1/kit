@@ -2,6 +2,7 @@
 // Port of Music transcription / MusicTranscription.tsx, dark. Audio is simulated with a clock.
 import { AnimatePresence, MotionConfig, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useTransform } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { play } from "../sound/sound";
 
 type Lyric = { time: number; text: string };
 
@@ -301,7 +302,7 @@ export default function Transcription({ size = "card" }: { size?: "card" | "big"
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <button
                       type="button"
-                      onClick={togglePlay}
+                      onClick={() => { play(playing ? "pause" : "play"); togglePlay(); }}
                       aria-label={playing ? "Pause" : "Play"}
                       className="transcription-press"
                       style={{ position: "relative", width: 40, height: 40, borderRadius: 999, flexShrink: 0, cursor: "pointer", border: "none", padding: 0, background: "radial-gradient(circle at 30% 25%, #f6c48f 0%, transparent 55%), radial-gradient(circle at 75% 80%, #34b562 0%, transparent 60%), linear-gradient(135deg,#5b4a7d,#1f3a33)", boxShadow: "0 0 0 2px rgba(0,0,0,.35), 0 2px 4px rgba(0,0,0,.4), 0 8px 14px -6px rgba(0,0,0,.5)" }}

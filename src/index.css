@@ -78,6 +78,8 @@ button, input, textarea { font: inherit; color: inherit; letter-spacing: inherit
 .topPill { height: 40px; padding: 0 16px; border: 0; border-radius: 20px; display: inline-flex; align-items: center; gap: 9px; background: rgba(255, 255, 255, 0.04); color: var(--text2); font-size: 14px; font-weight: 500; text-decoration: none; cursor: pointer; transition: background-color 120ms, color 120ms; }
 .topPill:hover { background: rgba(255, 255, 255, 0.07); color: var(--text); }
 .topPill.search { color: var(--muted); padding: 0 14px; }
+.topPill.soundPill { width: 40px; padding: 0; justify-content: center; }
+.topPill.soundPill[aria-pressed="false"] { color: var(--muted); }
 .topPill.search span { margin-right: 6px; }
 .topPill kbd { font: 500 12px/1 var(--font); color: var(--faint); letter-spacing: 0.02em; }
 

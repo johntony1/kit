@@ -4,6 +4,9 @@
 // breaks into shutter steps. Moonlytics hero → wordmark (per-letter build) →
 // cards, the cards leg peeling off top-down the way the reveal mode does.
 // Auto-plays; drag or wheel over it to scrub, press to step.
+// Sound: one whoosh as each wipe starts under the user's drag, wheel, press or
+// key (never on the auto-play).
+import { play } from "../sound/sound";
 import { animate, useMotionValue, useMotionValueEvent, useReducedMotion, type AnimationPlaybackControls } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 
@@ -175,6 +178,8 @@ export default function Shutter({ size = "card" }: { size?: "card" | "big" }) {
   const anim = useRef<AnimationPlaybackControls | null>(null);
   const lastInput = useRef(0);
   const [active, setActive] = useState(0);
+  const userDriven = useRef(false); // the current wipe comes from the user, not the auto-play
+  const wipeKey = useRef<number | null>(null); // the wipe we already played a whoosh for
 
   const letters = (build: number, exit: number) => {
     const el = wm.current;
@@ -197,6 +202,9 @@ export default function Shutter({ size = "card" }: { size?: "card" | "big" }) {
     const base = Math.floor(p);
     const k = ((base % N) + N) % N;
     const f = p - base;
+    if (f < 1e-3 || f > 1 - 1e-3) wipeKey.current = null; // at rest: the next wipe may sound
+    else if (!userDriven.current) wipeKey.current = base; // the auto-play owns this turn: grabbing it mid-way stays quiet
+    else if (wipeKey.current !== base) { wipeKey.current = base; play("whoosh", { gap: 250 }); }
     const next = (k + 1) % N;
     const mode: Mode = k === 1 ? "reveal" : "cover"; // the wordmark frame peels off top-down onto the cards
     const top = mode === "cover" ? next : k;
@@ -227,6 +235,7 @@ export default function Shutter({ size = "card" }: { size?: "card" | "big" }) {
 
   const go = (target: number, auto = false) => {
     anim.current?.stop();
+    if (auto) userDriven.current = false;
     const dist = Math.abs(target - pos.get());
     if (reduce || dist < 1e-3) { pos.set(target); return; }
     // The columns shape their own easing from the ellipse, so the scrub runs
@@ -250,6 +259,7 @@ export default function Shutter({ size = "card" }: { size?: "card" | "big" }) {
     anim.current?.stop();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     drag.current = { y: e.clientY, p: pos.get(), moved: false };
+    userDriven.current = true;
     lastInput.current = Date.now();
   };
   const onMove = (e: React.PointerEvent) => {
@@ -280,6 +290,7 @@ export default function Shutter({ size = "card" }: { size?: "card" | "big" }) {
       e.preventDefault();
       anim.current?.stop();
       lastInput.current = Date.now();
+      userDriven.current = true;
       if (reduce) { window.clearTimeout(t); t = window.setTimeout(() => go(Math.round(pos.get()) + Math.sign(e.deltaY)), 60); return; }
       pos.set(pos.get() + e.deltaY / (SH * s * 1.6));
       window.clearTimeout(t);
@@ -300,6 +311,7 @@ export default function Shutter({ size = "card" }: { size?: "card" | "big" }) {
           tabIndex={0}
           aria-label="Curved shutter wipe between three screens. Drag, scroll, or press to wipe to the next."
           onKeyDown={(e) => {
+            userDriven.current = true;
             if (e.key === "ArrowDown" || e.key === "ArrowRight" || e.key === "Enter" || e.key === " ") { e.preventDefault(); lastInput.current = Date.now(); go(Math.round(pos.get()) + 1); }
             if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); lastInput.current = Date.now(); go(Math.round(pos.get()) - 1); }
           }}

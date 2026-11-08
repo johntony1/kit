@@ -1,20 +1,19 @@
-// Balance card: total balance, a bar chart with hover tooltips, a date ruler and the share step.
-// Port of modal animaation / BalanceCard.tsx, BarChart.tsx, ShareSection.tsx, DateWheel.tsx, dark.
+// Share card: press Share and the balance card fades into an "Add people" card,
+// its height tweening to fit, while the row below swaps to who is sharing. Type a
+// name (or paste an email) and the matches drop down; pick one and it pops in as
+// a pill, then send.
+// Sounds: open on Share, close on the X, pop as a pill lands, remove when one is
+// taken off, chime when the invite is sent.
+// From balance.tsx (port of modal animaation / BalanceCard.tsx, ShareSection.tsx), dark.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
-import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useReducedMotion, type PanInfo } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
+import { play } from "../sound/sound";
 
 // ── Storyboard constants (exact from source) ───────────────
-const SPRING_SNAPPY = { type: "spring", visualDuration: 0.28, bounce: 0 } as const;
-const TOOLTIP_SPRING = { type: "spring", duration: 0.3, bounce: 0 } as const;
 const EASE_OUT = [0.2, 0, 0, 1] as const;
-const BAR_HEIGHTS = [39, 61, 28, 16, 56, 28, 23, 16, 39, 28, 28, 47, 69, 102] as const;
-const BAR_DATA = BAR_HEIGHTS.map((h, i) => ({
-  label: `Apr ${i + 14}`,
-  amount: `$${(h * 18.5 + 50).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-}));
-const TODAY = new Date(2026, 3, 27);
+const SWAP_SPRING = { type: "spring", visualDuration: 0.24, bounce: 0.18 } as const;
 
-// Natural size (balance state) used to fit the widget into the card.
+// Natural size: the tray, with room under the field for the suggestions.
 const NAT_W = 354;
 const NAT_H = 300;
 
@@ -26,7 +25,6 @@ const T = {
   faint: "#5d6862",
   raised: "linear-gradient(180deg,#2b2d2b,#242624)",
   raisedShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
-  bar: "#3d6bff",
   green: "#34b562",
 };
 
@@ -36,12 +34,6 @@ const Svg = ({ size, children, style }: { size: number; children: ReactNode; sty
 );
 const InfoIcon = () => (
   <Svg size={18}><circle cx="12" cy="12" r="8.5" stroke={T.faint} strokeWidth="1.8" /><path d="M12 11v5" stroke={T.faint} strokeWidth="1.8" strokeLinecap="round" /><circle cx="12" cy="8" r="1.1" fill={T.faint} /></Svg>
-);
-const MoreIcon = () => (
-  <Svg size={20}><circle cx="12" cy="5.5" r="1.7" fill={T.faint} /><circle cx="12" cy="12" r="1.7" fill={T.faint} /><circle cx="12" cy="18.5" r="1.7" fill={T.faint} /></Svg>
-);
-const CalendarIcon = () => (
-  <Svg size={18}><rect x="4" y="5.5" width="16" height="14.5" rx="2.5" stroke={T.sub} strokeWidth="1.8" /><path d="M8 3.5v4M16 3.5v4M4 10h16" stroke={T.sub} strokeWidth="1.8" strokeLinecap="round" /><circle cx="8.5" cy="13.5" r="1" fill={T.sub} /><circle cx="12" cy="13.5" r="1" fill={T.sub} /><circle cx="15.5" cy="13.5" r="1" fill={T.sub} /><circle cx="8.5" cy="16.8" r="1" fill={T.sub} /><circle cx="12" cy="16.8" r="1" fill={T.sub} /></Svg>
 );
 const CloseIcon = ({ size = 16 }: { size?: number }) => (
   <Svg size={size}><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></Svg>
@@ -74,204 +66,7 @@ function AutoResize({ children, style, reduced, unclip = false }: { children: Re
   );
 }
 
-// ── AnimatedLabel: odometer swap per character ─────────────
-function AnimatedLabel({ value, style }: { value: string; style: CSSProperties }) {
-  const h = typeof style.lineHeight === "string" ? style.lineHeight : "1em";
-  return (
-    <span style={{ display: "inline-flex", alignItems: "baseline", fontVariantNumeric: "tabular-nums", ...style }}>
-      {value.split("").map((ch, i) => (
-        <span key={i} style={{ position: "relative", display: "inline-block", overflow: "hidden", height: h, lineHeight: h }}>
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.span
-              key={ch}
-              initial={{ y: "70%", opacity: 0, filter: "blur(2px)" }}
-              animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-              exit={{ y: "-70%", opacity: 0, filter: "blur(2px)" }}
-              transition={{ type: "spring", visualDuration: 0.32, bounce: 0 }}
-              style={{ display: "inline-block" }}
-            >
-              {ch === " " ? " " : ch}
-            </motion.span>
-          </AnimatePresence>
-        </span>
-      ))}
-    </span>
-  );
-}
-
-// ── Bar chart with tooltips ────────────────────────────────
-type Align = "start" | "center" | "end";
-function BarChart({ maxHeight, reduced }: { maxHeight: number; reduced: boolean }) {
-  const [hovered, setHovered] = useState<number | null>(null);
-  const localMax = Math.max(...BAR_HEIGHTS);
-  const scale = maxHeight / localMax;
-  const count = BAR_HEIGHTS.length;
-  return (
-    <div style={{ position: "relative", width: "100%", height: maxHeight + 12 }} onPointerLeave={() => setHovered(null)}>
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: 6 }}>
-        {BAR_HEIGHTS.map((h, i) => {
-          const barHeight = Math.max(8, Math.round(h * scale));
-          const isHovered = hovered === i;
-          const isDimmed = hovered !== null && !isHovered;
-          const align: Align = i === 0 ? "start" : i === count - 1 ? "end" : "center";
-          return (
-            <div key={i} style={{ display: "flex", height: "100%", flex: 1, alignItems: "flex-end", justifyContent: "center" }} onPointerEnter={() => setHovered(i)}>
-              <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", width: 14 }}>
-                <AnimatePresence>
-                  {isHovered && <Tooltip label={BAR_DATA[i].label} amount={BAR_DATA[i].amount} reduced={reduced} align={align} />}
-                </AnimatePresence>
-                <motion.div
-                  style={{ width: 14, height: barHeight, borderRadius: 4, background: T.bar, boxShadow: "inset 0 4px 8px 0 rgba(255,255,255,0.25), 0 0 0 1px rgba(0,0,0,.25)", willChange: "transform, opacity" }}
-                  animate={{ opacity: isDimmed ? 0.4 : 1 }}
-                  transition={{ opacity: { duration: 0.18, ease: EASE_OUT } }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function Tooltip({ label, amount, reduced, align }: { label: string; amount: string; reduced: boolean; align: Align }) {
-  const initial = reduced ? { opacity: 0 } : { opacity: 0, scale: 0.4, filter: "blur(4px)" };
-  const show = reduced ? { opacity: 1 } : { opacity: 1, scale: 1, filter: "blur(0px)" };
-  const positionX = align === "start" ? { left: -7, right: "auto", x: 0 } : align === "end" ? { left: "auto", right: -7, x: 0 } : { left: "50%", right: "auto", x: "-50%" };
-  const arrowX = align === "start" ? "14px" : align === "end" ? "calc(100% - 14px)" : "50%";
-  const transformOrigin = align === "start" ? "14px 100%" : align === "end" ? "calc(100% - 14px) 100%" : "50% 100%";
-  return (
-    <motion.div
-      role="tooltip"
-      style={{ position: "absolute", zIndex: 20, pointerEvents: "none", bottom: "calc(100% + 6px)", ...positionX, transformOrigin, willChange: "transform, opacity, filter" } as never}
-      initial={initial}
-      animate={show}
-      exit={initial}
-      transition={TOOLTIP_SPRING}
-    >
-      <div style={{ borderRadius: 8, background: T.text, padding: "6px 10px", whiteSpace: "nowrap", boxShadow: "0 6px 16px -4px rgba(0,0,0,0.5), 0 2px 4px -1px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.4)" }}>
-        <div style={{ fontVariantNumeric: "tabular-nums", fontSize: 11, lineHeight: "14px", color: "rgba(25,26,25,.55)" }}>{label}</div>
-        <div style={{ fontVariantNumeric: "tabular-nums", fontSize: 13, lineHeight: "16px", fontWeight: 500, color: "#191a19" }}>{amount}</div>
-      </div>
-      <svg aria-hidden="true" width="10" height="5" viewBox="0 0 10 5" style={{ position: "absolute", top: "100%", left: arrowX, transform: "translateX(-50%)", marginTop: -1 }}>
-        <path d="M0 0h10L5 5z" fill={T.text} />
-      </svg>
-    </motion.div>
-  );
-}
-
-// ── Date ruler (DateWheel) ─────────────────────────────────
-const CELL_WIDTH = 36;
-const VIEWPORT_WIDTH = 252;
-const TICK_HEIGHT = 14;
-const LABEL_Y = TICK_HEIGHT + 14;
-const RANGE_DAYS = 30;
-const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-
-function TodayPill({ label, onClick, ariaLabel }: { label: string; onClick: () => void; ariaLabel: string }) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      aria-label={ariaLabel}
-      whileTap={{ scale: 0.96 }}
-      transition={{ duration: 0.1 }}
-      style={{ display: "inline-flex", alignItems: "center", gap: 10, borderRadius: 16, background: "rgba(255,255,255,.06)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.06)", padding: "6px 12px 6px 8px", border: "none", cursor: "pointer", font: "inherit" }}
-    >
-      <CalendarIcon />
-      <AnimatedLabel value={label} style={{ color: T.sub, fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px" }} />
-    </motion.button>
-  );
-}
-
-function DateWheel({ selected, onChange, label, onClose, reduced }: { selected: Date; onChange: (d: Date) => void; label: string; onClose: () => void; reduced: boolean }) {
-  const days = useMemo(() => {
-    const arr: Date[] = [];
-    for (let i = -(RANGE_DAYS - 1); i <= 0; i++) {
-      const d = new Date(TODAY);
-      d.setDate(TODAY.getDate() + i);
-      arr.push(d);
-    }
-    return arr;
-  }, []);
-  const selectedIdx = useMemo(() => {
-    const idx = days.findIndex((d) => sameDay(d, selected));
-    return idx === -1 ? days.length - 1 : idx;
-  }, [days, selected]);
-  const x = useMotionValue(-selectedIdx * CELL_WIDTH);
-  const lastIdxRef = useRef(selectedIdx);
-  useEffect(() => {
-    if (lastIdxRef.current === selectedIdx) return;
-    lastIdxRef.current = selectedIdx;
-    animate(x, -selectedIdx * CELL_WIDTH, reduced ? { duration: 0 } : { type: "spring", visualDuration: 0.4, bounce: 0 });
-  }, [selectedIdx, x, reduced]);
-  const indexFromX = (cx: number) => Math.max(0, Math.min(days.length - 1, Math.round(-cx / CELL_WIDTH)));
-  const handleDrag = () => {
-    const idx = indexFromX(x.get());
-    if (idx !== lastIdxRef.current) {
-      lastIdxRef.current = idx;
-      onChange(days[idx]);
-    }
-  };
-  const handleDragEnd = (_: unknown, info: PanInfo) => {
-    const idx = indexFromX(x.get());
-    lastIdxRef.current = idx;
-    animate(x, -idx * CELL_WIDTH, { type: "spring", visualDuration: 0.32, bounce: 0.1, velocity: info.velocity.x });
-    onChange(days[idx]);
-  };
-  const totalWidth = (days.length - 1) * CELL_WIDTH;
-  const mask = "linear-gradient(to right, transparent, black 14%, black 86%, transparent)";
-  return (
-    <div style={{ display: "flex", width: "100%", flexDirection: "column", alignItems: "center", gap: 8 }}>
-      <TodayPill label={label} onClick={onClose} ariaLabel="Close date picker" />
-      <div
-        style={{ position: "relative", width: VIEWPORT_WIDTH, height: LABEL_Y + 4, touchAction: "pan-y" }}
-        tabIndex={0}
-        role="slider"
-        aria-label="Pick a day"
-        aria-valuemin={1}
-        aria-valuemax={days.length}
-        aria-valuenow={selectedIdx + 1}
-        aria-valuetext={label}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowLeft") { e.preventDefault(); onChange(days[Math.max(0, selectedIdx - 1)]); }
-          if (e.key === "ArrowRight") { e.preventDefault(); onChange(days[Math.min(days.length - 1, selectedIdx + 1)]); }
-        }}
-      >
-        <div style={{ pointerEvents: "none", position: "absolute", left: "50%", top: 0, zIndex: 40, transform: "translateX(-50%)", borderRadius: 999, background: T.bar, width: 2, height: TICK_HEIGHT + 4 }} />
-        <div style={{ position: "absolute", inset: 0, cursor: "grab", overflow: "hidden", maskImage: mask, WebkitMaskImage: mask }}>
-          <motion.div
-            drag="x"
-            dragConstraints={{ left: -totalWidth, right: 0 }}
-            dragElastic={0.06}
-            dragMomentum
-            onDrag={handleDrag}
-            onDragEnd={handleDragEnd}
-            style={{ x, left: VIEWPORT_WIDTH / 2, position: "absolute", top: 0, willChange: "transform" }}
-          >
-            <svg width={totalWidth + 2} height={LABEL_Y + 4} style={{ display: "block", overflow: "visible" }}>
-              {days.map((d, i) => {
-                const cx = i * CELL_WIDTH;
-                const isSel = i === selectedIdx;
-                return (
-                  <g key={i}>
-                    <line x1={cx} x2={cx} y1={0} y2={TICK_HEIGHT} stroke={T.text} strokeOpacity={isSel ? 0 : 0.5} strokeWidth={1.5} />
-                    {[1, 2, 3].map((m) => (
-                      <line key={m} x1={cx + (m * CELL_WIDTH) / 4} x2={cx + (m * CELL_WIDTH) / 4} y1={TICK_HEIGHT - 6} y2={TICK_HEIGHT} stroke={T.text} strokeOpacity={0.18} strokeWidth={1} />
-                    ))}
-                    <text x={cx} y={LABEL_Y} textAnchor="middle" fontSize={11} fill={isSel ? T.text : T.muted} fontWeight={isSel ? 600 : 400} fontFamily="inherit">{d.getDate()}</text>
-                  </g>
-                );
-              })}
-            </svg>
-          </motion.div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Share step ─────────────────────────────────────────────
+// ── People ─────────────────────────────────────────────────
 type User = { name: string; email: string };
 const ALL_USERS: User[] = [
   { name: "John Smith", email: "john.smith@email.com" },
@@ -304,8 +99,6 @@ function Avatar({ user, size = 24 }: { user: User; size?: number }) {
   );
 }
 
-const SWAP_SPRING = { type: "spring", visualDuration: 0.24, bounce: 0.18 } as const;
-
 function ShareCard({ onClose, maxSuggestions }: { onClose: () => void; maxSuggestions: number }) {
   const [query, setQuery] = useState("");
   const [pills, setPills] = useState<User[]>([]);
@@ -319,18 +112,22 @@ function ShareCard({ onClose, maxSuggestions }: { onClose: () => void; maxSugges
   const dropdownOpen = suggestions.length > 0;
   const isEmpty = pills.length === 0 && query.length === 0;
 
+  useEffect(() => { inputRef.current?.focus({ preventScroll: true }); }, []);
+
   const addPill = (user: User) => {
+    if (!pills.some((p) => p.email === user.email)) play("pop");
     setPills((prev) => (prev.some((p) => p.email === user.email) ? prev : [...prev, user]));
     setQuery("");
     setHighlighted(0);
     inputRef.current?.focus();
   };
   const removePill = (email: string) => {
+    play("remove");
     setPills((prev) => prev.filter((p) => p.email !== email));
     inputRef.current?.focus();
   };
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace" && query === "" && pills.length > 0) { e.preventDefault(); setPills(pills.slice(0, -1)); }
+    if (e.key === "Backspace" && query === "" && pills.length > 0) { e.preventDefault(); play("remove"); setPills(pills.slice(0, -1)); }
     else if (e.key === "ArrowDown" && dropdownOpen) { e.preventDefault(); setHighlighted((i) => Math.min(i + 1, suggestions.length - 1)); }
     else if (e.key === "ArrowUp" && dropdownOpen) { e.preventDefault(); setHighlighted((i) => Math.max(i - 1, 0)); }
     else if (e.key === "Enter") {
@@ -351,14 +148,14 @@ function ShareCard({ onClose, maxSuggestions }: { onClose: () => void; maxSugges
   };
   const handleSend = () => {
     if (isEmailish(query)) addPill({ name: query.trim().split("@")[0], email: query.trim() });
-    if (pills.length > 0) { setPills([]); setQuery(""); }
+    if (pills.length > 0) { play("chime"); setPills([]); setQuery(""); }
   };
 
   return (
     <div style={{ display: "flex", width: "100%", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <h2 style={{ margin: 0, color: T.text, fontWeight: 475, fontSize: 16, lineHeight: "22px", letterSpacing: "-0.18px" }}>Add people</h2>
-        <motion.button type="button" onClick={onClose} aria-label="Close share" whileTap={{ scale: 0.92 }} transition={{ duration: 0.1 }} className="balance-icobtn" style={{ marginRight: -4, display: "grid", placeItems: "center", width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
+        <motion.button type="button" onClick={onClose} aria-label="Close share" whileTap={{ scale: 0.92 }} transition={{ duration: 0.1 }} className="share-icobtn" style={{ marginRight: -4, display: "grid", placeItems: "center", width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
           <CloseIcon />
         </motion.button>
       </div>
@@ -375,7 +172,7 @@ function ShareCard({ onClose, maxSuggestions }: { onClose: () => void; maxSugges
               >
                 <Avatar user={user} size={26} />
                 <span style={{ color: T.text, fontSize: 14, lineHeight: "20px", fontWeight: 500, letterSpacing: "-0.06px" }}>{user.name}</span>
-                <button type="button" onClick={(e) => { e.stopPropagation(); removePill(user.email); }} aria-label={`Remove ${user.name}`} className="balance-x" style={{ display: "grid", width: 18, height: 18, flexShrink: 0, placeItems: "center", borderRadius: 999, border: "none", background: "transparent", padding: 0, cursor: "pointer" }}>
+                <button type="button" onClick={(e) => { e.stopPropagation(); removePill(user.email); }} aria-label={`Remove ${user.name}`} className="share-x" style={{ display: "grid", width: 18, height: 18, flexShrink: 0, placeItems: "center", borderRadius: 999, border: "none", background: "transparent", padding: 0, cursor: "pointer" }}>
                   <CloseCircleIcon />
                 </button>
               </motion.span>
@@ -386,10 +183,10 @@ function ShareCard({ onClose, maxSuggestions }: { onClose: () => void; maxSugges
               value={query}
               onChange={(e) => { setQuery(e.target.value); setHighlighted(0); }}
               onKeyDown={handleKeyDown}
-              placeholder={pills.length === 0 ? "Email Address" : ""}
-              aria-label="Email to invite"
+              placeholder={pills.length === 0 ? "Type a name, like J" : ""}
+              aria-label="Name or email to invite"
               autoComplete="off"
-              className="balance-input"
+              className="share-input"
               style={{ font: "inherit", minWidth: 100, flex: 1, background: "transparent", border: "none", outline: "none", padding: "4px", fontSize: 15, lineHeight: "20px", color: T.text, fontWeight: 400 }}
             />
           </div>
@@ -473,16 +270,17 @@ function UserRow() {
   );
 }
 
-// ── Fit into the card box ──────────────────────────────────
 function useFit(size: "card" | "big") {
   const ref = useRef<HTMLDivElement>(null);
   const [s, setS] = useState(0.8);
+  const [short, setShort] = useState(false); // a short box only has room for two suggestions
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const measure = () => {
       const W = el.clientWidth, H = el.clientHeight;
       if (!W || !H) return;
+      setShort(size !== "big" && H < 260);
       if (size === "big") return setS(Math.min(1.5, (W - 120) / NAT_W, (H - 120) / NAT_H));
       let avail = H - 116;
       if (avail < NAT_H * 0.7) avail = H - 24;
@@ -493,27 +291,15 @@ function useFit(size: "card" | "big") {
     ro.observe(el);
     return () => ro.disconnect();
   }, [size]);
-  return [ref, s] as const;
-}
-
-function formatDateLabel(date: Date): string {
-  const diff = Math.round((TODAY.getTime() - new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()) / 86400000);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return [ref, s, short] as const;
 }
 
 const fade = (d: number) => ({ initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: d, ease: EASE_OUT } });
 
-export default function Balance({ size = "card" }: { size?: "card" | "big" }) {
+export default function ShareStep({ size = "card" }: { size?: "card" | "big" }) {
   const reduced = useReducedMotion() ?? false;
-  const [rootRef, scale] = useFit(size);
-  const scaleRef = useRef(scale);
-  scaleRef.current = scale;
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [rootRef, scale, short] = useFit(size);
   const [shareOpen, setShareOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(TODAY);
-  const dateLabel = formatDateLabel(selectedDate);
   // The source clips the suggestions under the card; once the resize has settled we let them show.
   const [unclip, setUnclip] = useState(false);
   useEffect(() => {
@@ -521,11 +307,13 @@ export default function Balance({ size = "card" }: { size?: "card" | "big" }) {
     const t = setTimeout(() => setUnclip(true), 320);
     return () => clearTimeout(t);
   }, [shareOpen]);
+  const openShare = () => { play("open"); setShareOpen(true); };
+  const closeShare = () => { play("close"); setShareOpen(false); };
 
   return (
-    <MotionConfig reducedMotion="user" transformPagePoint={(p) => ({ x: p.x / scaleRef.current, y: p.y / scaleRef.current })}>
-      <style>{`.balance-input::placeholder{color:${T.muted};opacity:1}.balance-input{caret-color:${T.green}}.balance-icobtn{color:${T.muted};transition:color 150ms}.balance-icobtn:hover{color:${T.text}}.balance-x{color:${T.faint};transition:color 150ms}.balance-x:hover{color:${T.muted}}.balance-root button:focus-visible,.balance-root [tabindex]:focus-visible{outline:2px solid rgba(52,181,98,.55);outline-offset:2px}`}</style>
-      <div ref={rootRef} className="balance-root" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+    <MotionConfig reducedMotion="user">
+      <style>{`.share-input::placeholder{color:${T.muted};opacity:1}.share-input{caret-color:${T.green}}.share-icobtn{color:${T.muted};transition:color 150ms}.share-icobtn:hover{color:${T.text}}.share-x{color:${T.faint};transition:color 150ms}.share-x:hover{color:${T.muted}}.share-root button:focus-visible{outline:2px solid rgba(52,181,98,.55);outline-offset:2px}`}</style>
+      <div ref={rootRef} className="share-root" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
         <div style={{ position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center center" }}>
           <div
             data-own-click=""
@@ -538,20 +326,18 @@ export default function Balance({ size = "card" }: { size?: "card" | "big" }) {
                   <AnimatePresence mode="popLayout" initial={false}>
                     {shareOpen ? (
                       <motion.div key="share" {...fade(0.2)} style={{ width: "100%" }}>
-                        <ShareCard onClose={() => setShareOpen(false)} maxSuggestions={size === "big" ? 5 : 3} />
+                        <ShareCard onClose={closeShare} maxSuggestions={size === "big" ? 5 : short ? 2 : 3} />
                       </motion.div>
                     ) : (
                       <motion.div key="balance" {...fade(0.2)} style={{ display: "flex", width: "100%", flexDirection: "column", gap: 11 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ color: T.text, fontSize: 16, lineHeight: "22px", letterSpacing: "-0.18px", fontWeight: 475 }}>Total Balance</span>
                           <InfoIcon />
-                          <span style={{ marginLeft: "auto" }}><MoreIcon /></span>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600, color: T.text, fontSize: 32, lineHeight: 1.1, letterSpacing: "-1.2px" }}>2,982</span>
                           <span style={{ fontVariantNumeric: "tabular-nums", display: "inline-flex", height: 20, alignItems: "center", borderRadius: 5, background: "rgba(52,181,98,.14)", padding: "0 6px", fontSize: 12, lineHeight: "18px", color: "#5fd38a" }}>2.45%</span>
                         </div>
-                        <BarChart maxHeight={102} reduced={reduced} />
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -559,25 +345,20 @@ export default function Balance({ size = "card" }: { size?: "card" | "big" }) {
               </AutoResize>
             </div>
 
-            {/* Below the surface: actions ↔ date ruler ↔ the sharer */}
+            {/* Below the surface: the Share button ↔ who is sharing */}
             <AutoResize reduced={reduced} style={{ marginTop: 12 }}>
               <AnimatePresence mode="popLayout" initial={false}>
-                {pickerOpen ? (
-                  <motion.div key="picker" {...fade(0.18)}>
-                    <DateWheel selected={selectedDate} onChange={setSelectedDate} label={dateLabel} onClose={() => setPickerOpen(false)} reduced={reduced} />
-                  </motion.div>
-                ) : shareOpen ? (
+                {shareOpen ? (
                   <motion.div key="user" {...fade(0.18)}>
                     <UserRow />
                   </motion.div>
                 ) : (
                   <motion.div key="actions" {...fade(0.18)}>
-                    <div style={{ display: "flex", width: "100%", alignItems: "flex-start", justifyContent: "space-between", padding: "0 12px", boxSizing: "border-box" }}>
-                      <TodayPill label={dateLabel} onClick={() => { setShareOpen(false); setPickerOpen(true); }} ariaLabel="Open date picker" />
+                    <div style={{ display: "flex", width: "100%", justifyContent: "flex-end", padding: "0 12px", boxSizing: "border-box" }}>
                       <motion.button
                         type="button"
-                        onClick={() => { setPickerOpen(false); setShareOpen(true); }}
-                        aria-label="Open share modal"
+                        onClick={openShare}
+                        aria-label="Share balance"
                         whileTap={{ scale: 0.96 }}
                         transition={{ duration: 0.1 }}
                         style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 999, background: T.raised, padding: "6px 12px", color: T.sub, border: "none", cursor: "pointer", font: "inherit", fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", boxShadow: T.raisedShadow }}

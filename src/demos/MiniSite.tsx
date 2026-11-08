@@ -3,6 +3,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PageSwap } from "../transitions/PageSwap";
 import type { TransitionKind } from "../transitions/transitions";
+import { play, type Cue } from "../sound/sound";
+
+/** the sound each page transition makes */
+export const TRANS_CUE: Record<TransitionKind, Cue> = { burn: "crackle", paper: "rustle", reveal: "whoosh", ink: "whoosh", curtain: "whoosh", pixels: "whoosh", zoom: "whoosh", tilt: "slide" };
 
 const W = 320, H = 210;
 const NAMES = ["Home", "Library", "About"];
@@ -45,6 +49,7 @@ export function MiniSite({ kind, auto = 3200 }: { kind: TransitionKind; auto?: n
 
   const go = (target: number, x: number, y: number) => {
     if (busy || target === page) return;
+    play(TRANS_CUE[kind]);
     setOrigin({ x, y });
     setBusy(true);
     setPage(target);

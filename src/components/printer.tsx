@@ -2,10 +2,13 @@
  * Slide the handle (it grows from the left, chevrons revealed) past 82% to print.
  * 500ms later the slip feeds out: 200ms pause, y -488 to 0 over 1.5s power2.out,
  * then a gentle float of 8px every 2s. Print again resets it.
+ * Sounds: a detent for each chevron the handle passes, print as the slip starts to
+ * feed, chime when it has fed out, tap on Print again.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import gsap from "gsap";
+import { play } from "../sound/sound";
 
 type Phase = "idle" | "printing" | "done";
 
@@ -54,32 +57,6 @@ function useFit(size: "card" | "big", BASE_H: number) {
     return () => ro.disconnect();
   }, [size, BASE_H]);
   return { ref, s };
-}
-
-/* ── print sound (filtered noise, same as the source) ── */
-function playPrintSound(duration = 1.7) {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
-    const len = Math.floor(ctx.sampleRate * duration);
-    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (0.4 + 0.25 * Math.sin((i / ctx.sampleRate) * Math.PI * 18));
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 1100;
-    const gain = ctx.createGain();
-    const t0 = ctx.currentTime;
-    gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(0.18, t0 + 0.08);
-    gain.gain.setValueAtTime(0.18, t0 + duration - 0.25);
-    gain.gain.linearRampToValueAtTime(0, t0 + duration);
-    src.connect(lp); lp.connect(gain); gain.connect(ctx.destination);
-    src.start(); src.stop(t0 + duration);
-    setTimeout(() => ctx.close(), (duration + 0.3) * 1000);
-  } catch { /* no audio */ }
 }
 
 /* ── the payslip, laid out at Figma size then scaled ── */
@@ -175,6 +152,7 @@ function SlideButton({ onComplete, scale }: { onComplete: () => void; scale: Rea
   const startPtr = useRef(0);
   const startW = useRef(HANDLE_W);
   const triggered = useRef(false);
+  const lastStep = useRef(0);
 
   const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (triggered.current) return;
@@ -189,6 +167,9 @@ function SlideButton({ onComplete, scale }: { onComplete: () => void; scale: Rea
     const delta = (e.clientX - startPtr.current) / (scale.current || 1); // pointer px to widget px
     const nw = Math.max(HANDLE_W, Math.min(SLID_W, startW.current + delta));
     setHandleW(nw);
+    // one detent per chevron (20px glyph + 16px gap) the handle grows past
+    const step = Math.floor((nw - HANDLE_W) / 36);
+    if (step !== lastStep.current) { lastStep.current = step; play("detent", { gap: 40 }); }
     if (nw - HANDLE_W >= TRIGGER_GROW) {
       isDragging.current = false;
       triggered.current = true;
@@ -202,6 +183,7 @@ function SlideButton({ onComplete, scale }: { onComplete: () => void; scale: Rea
     isDragging.current = false;
     setDragging(false);
     setHandleW(HANDLE_W);
+    lastStep.current = 0;
   };
 
   return (
@@ -260,11 +242,12 @@ export default function Printer({ size = "card" }: { size?: "card" | "big" }) {
     const el = receiptRef.current;
     if (!el) return;
     tlRef.current?.kill();
-    if (reduced) { gsap.set(el, { y: 0 }); setPhase("done"); return; }
-    playPrintSound(T.feedDelay + T.feedDuration + 0.1);
+    if (reduced) { gsap.set(el, { y: 0 }); setPhase("done"); play("chime"); return; }
     gsap.set(el, { y: RECEIPT_INIT_Y });
     const tl = gsap.timeline({ onComplete: () => setPhase("done") });
-    tl.to(el, { y: 0, duration: T.feedDuration, ease: "power2.out", delay: T.feedDelay });
+    tl.call(() => play("print"), [], T.feedDelay);
+    tl.to(el, { y: 0, duration: T.feedDuration, ease: "power2.out" }, T.feedDelay);
+    tl.call(() => play("chime"), [], T.feedDelay + T.feedDuration);
     tl.to(el, { y: T.floatY, duration: T.floatDuration, ease: "sine.inOut", yoyo: true, repeat: -1 }, ">0.2");
     tlRef.current = tl;
   }, [phase, reduced]);
@@ -347,7 +330,7 @@ export default function Printer({ size = "card" }: { size?: "card" | "big" }) {
             {phase === "done" && (
               <motion.div key="done" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.15 } }} transition={{ duration: 0.4, delay: 0.2 }}
                 style={{ position: "absolute", left: 0, right: 0, bottom: 6, display: "flex", justifyContent: "center", zIndex: 30 }}>
-                <motion.button type="button" onClick={replay} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                <motion.button type="button" onClick={() => { play("tap"); replay(); }} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                   style={{ fontFamily: "inherit", background: C.raised, boxShadow: C.shadow, border: "none", borderRadius: 999, padding: "9px 22px", fontSize: 12, fontWeight: 500, letterSpacing: "-0.2px", color: C.sec, cursor: "pointer" }}>
                   Print again
                 </motion.button>

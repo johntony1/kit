@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Flag } from "./flags";
 import { ConfettiPop } from "../confetti/ConfettiPop";
+import { play } from "../sound/sound";
 import type { ConfettiOptions } from "../confetti/confetti";
 
 function Check({ color = "#16a34a", size = 26 }: { color?: string; size?: number }) {
@@ -68,7 +69,7 @@ export function LikePop() {
   const [n, setN] = useState(0);
   return (
     <button type="button" className="likeBtn" aria-pressed={liked} aria-label={liked ? "Unlike" : "Like"}
-      onClick={() => { setLiked(!liked); if (!liked) setN(n + 1); }}>
+      onClick={() => { setLiked(!liked); if (!liked) { setN(n + 1); play("pop"); } else play("tap"); }}>
       <ConfettiPop trigger={n} onMount={false} colors={["#ff4d6d", "#ff8fa3", "#ffb3c1", "#ffffff"]} glow={false} count={36} spread={0.7} duration={1.2}>
         <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 8 3.4 4.5 6.9 4.5c2 0 3.6 1.1 5.1 3 1.5-1.9 3.1-3 5.1-3 3.5 0 5.5 3.5 4.2 6.8-1.8 4.6-9.3 9.2-9.3 9.2Z"
@@ -92,7 +93,7 @@ export function TaskPop() {
           <button type="button" className="task" aria-pressed={done[i]}
             onClick={() => {
               setDone(done.map((d, k) => (k === i ? !d : d)));
-              if (!done[i]) setN(n.map((v, k) => (k === i ? v + 1 : v)));
+              if (!done[i]) { setN(n.map((v, k) => (k === i ? v + 1 : v))); play("check"); } else play("tap");
             }}>
             <ConfettiPop trigger={n[i]} onMount={false} count={28} spread={0.55} duration={1} glow={false}>
               <span className={`box ${done[i] ? "on" : ""}`}>{done[i] && <Check color="#121212" size={13} />}</span>

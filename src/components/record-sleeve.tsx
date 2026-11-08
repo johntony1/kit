@@ -1,20 +1,17 @@
-// Chat composer: "What mood are you in". Port of Music animation / ChatbotIdle.tsx, dark.
-// Drag (or tap) the handle to open Recent songs, hover a sleeve to crack it open, tap one for Now playing.
-import {
-  motion,
-  useMotionValue,
-  useTransform,
-  useReducedMotion,
-  animate,
-  AnimatePresence,
-  MotionConfig,
-  type PanInfo,
-} from "framer-motion";
-import { useRef, useState, useEffect, useCallback, useLayoutEffect, type ReactNode, type CSSProperties } from "react";
+// Record sleeve: a row of record sleeves. Hover one and its lid cracks open while the disc floats up
+// and spins; tap it for Now playing, and close that to come back to the row.
+// Split out of chat.tsx (Chat composer, port of Music animation / ChatbotIdle.tsx, dark).
+// The drawer that held these sleeves lives in song-drawer.tsx.
+//
+//   hover   lid tilts back -22deg (spring 260 / 26), disc rises 34 px (spring 320 / 26) and spins 120 deg/s   (slide)
+//   tap     sleeve presses to 0.93, the row hands over to Now playing (spring 280 / 26, rows staggered 55 ms) (play)
+//   play    the button swaps play / pause; the waveform fills over a simulated 30 s preview         (play / pause)
+//   close   back to the sleeves                                                                    (close)
+import { motion, useMotionValue, useTransform, useReducedMotion, animate, AnimatePresence } from "framer-motion";
+import { useRef, useState, useEffect, useCallback, useLayoutEffect, type CSSProperties } from "react";
+import { play } from "../sound/sound";
 
 // ── Spring / timing constants (exact from source) ──────────
-const DRAWER_HEIGHT = 195;
-const SNAP_SPRING = { type: "spring", stiffness: 380, damping: 40 } as const;
 const MOUNT_SPRING = { type: "spring", visualDuration: 0.38, bounce: 0.18 } as const;
 const DISC_SPRING = { type: "spring", stiffness: 320, damping: 26 } as const;
 const FLIP_SPRING = { type: "spring", stiffness: 260, damping: 26 } as const;
@@ -24,9 +21,9 @@ const PREVIEW_DURATION = 30;
 
 const Z = { back: 0, disc: 1, front: 2 } as const;
 
-// Natural size of the widget (drawer open) for fitting into the card.
+// Natural size of the widget for fitting into the card.
 const NAT_W = 477;
-const NAT_H = 322;
+const NAT_H = 200;
 
 const ALBUMS = [
   { id: 1, title: "Clarity of mind", artist: "Omah Lay", tint: "rgba(120,96,70,0.22)", cover: "radial-gradient(circle at 70% 30%, rgba(255,214,170,.35) 0 18%, transparent 19%), linear-gradient(180deg,#3a3438 0%,#231e1a 100%)" },
@@ -51,13 +48,6 @@ function WaveSvg({ style }: { style?: CSSProperties }) {
 }
 
 // ── Icons ──────────────────────────────────────────────────
-function ArrowUpIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
-      <path d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5L11 6.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 function MusicAiIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -88,13 +78,6 @@ function CloseIcon() {
     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true" focusable="false">
       <path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" stroke="#8b968f" strokeWidth="1.25" strokeLinecap="round" />
     </svg>
-  );
-}
-function KbdHint({ children }: { children: ReactNode }) {
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", fontSize: 10, fontWeight: 500, color: "#c2cbc4", background: "rgba(255,255,255,.06)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.06)", borderRadius: 4, padding: "1px 5px", lineHeight: "16px", letterSpacing: "-0.04px" }}>
-      {children}
-    </span>
   );
 }
 
@@ -153,7 +136,6 @@ function NowPlayingCard({ album, isPlaying, elapsed, onPlayPause, onClose, reduc
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   const stagger = (i: number) => (reduceMotion ? { duration: 0 } : { ...NP_ENTER_SPRING, delay: i * 0.055 });
   const divider: CSSProperties = { height: 1, background: "rgba(255,255,255,.07)", width: "100%", transformOrigin: "left center" };
-  const hint: CSSProperties = { fontSize: 10, color: "#8b968f" };
   return (
     <motion.div
       key="now-playing"
@@ -174,10 +156,10 @@ function NowPlayingCard({ album, isPlaying, elapsed, onPlayPause, onClose, reduc
           whileHover={{ scale: 1.1, background: "rgba(255,255,255,.07)" }}
           whileTap={{ scale: 0.9 }}
           transition={BTN_SPRING}
-          onPointerDown={(e) => e.stopPropagation()}
-          style={{ width: 20, height: 20, borderRadius: 6, background: "rgba(255,255,255,0)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0 }}
-          aria-label="Close now playing"
+          style={{ position: "relative", width: 20, height: 20, borderRadius: 6, background: "rgba(255,255,255,0)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0 }}
+          aria-label="Back to the sleeves"
         >
+          <span style={{ position: "absolute", inset: -8 }} />
           <CloseIcon />
         </motion.button>
       </motion.div>
@@ -208,16 +190,10 @@ function NowPlayingCard({ album, isPlaying, elapsed, onPlayPause, onClose, reduc
 
       <motion.div initial={reduceMotion ? false : { scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} transition={stagger(2)} style={divider} />
 
-      <motion.div initial={reduceMotion ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={stagger(2.5)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 12, paddingRight: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <KbdHint>Space</KbdHint><span style={{ ...hint, marginRight: 6 }}>Pause</span>
-          <KbdHint>P</KbdHint><span style={{ ...hint, marginRight: 6 }}>Prev</span>
-          <KbdHint>N</KbdHint><span style={hint}>Next</span>
-        </div>
+      <motion.div initial={reduceMotion ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={stagger(2.5)} style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", paddingLeft: 12, paddingRight: 12 }}>
         <motion.button
           type="button"
           onClick={(e) => { e.stopPropagation(); onPlayPause(); }}
-          onPointerDown={(e) => e.stopPropagation()}
           whileHover={reduceMotion ? {} : { scale: 1.08 }}
           whileTap={reduceMotion ? {} : { scale: 0.88 }}
           transition={BTN_SPRING}
@@ -248,19 +224,20 @@ function NowPlayingCard({ album, isPlaying, elapsed, onPlayPause, onClose, reduc
 }
 
 // ── Album card: folder lid cracks open, disc floats up ─────
-function AlbumCard({ album, reduceMotion, onPlay, disabled }: { album: Album; reduceMotion: boolean; onPlay: (a: Album) => void; disabled: boolean }) {
+function AlbumCard({ album, reduceMotion, onPlay }: { album: Album; reduceMotion: boolean; onPlay: (a: Album) => void }) {
   const [hovered, setHovered] = useState(false);
+  const open = () => { setHovered(true); play("slide", { gap: 40 }); };
   return (
     <motion.div
       style={{ width: 100, display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start", flexShrink: 0, cursor: "pointer" }}
-      onHoverStart={() => setHovered(true)}
+      onHoverStart={open}
       onHoverEnd={() => setHovered(false)}
       whileTap={reduceMotion ? {} : { scale: 0.93 }}
       transition={BTN_SPRING}
       onClick={() => onPlay(album)}
       role="button"
       aria-label={`Play ${album.title} by ${album.artist}`}
-      tabIndex={disabled ? -1 : 0}
+      tabIndex={0}
       onFocus={() => setHovered(true)}
       onBlur={() => setHovered(false)}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onPlay(album); } }}
@@ -302,9 +279,7 @@ function useFit(size: "card" | "big") {
       const W = el.clientWidth, H = el.clientHeight;
       if (!W || !H) return;
       if (size === "big") return setS(Math.min(1.6, (W - 120) / NAT_W, (H - 120) / NAT_H));
-      let avail = H - 116;
-      if (avail < NAT_H * 0.7) avail = H - 24;
-      setS(Math.max(0.3, Math.min(1, (W - 40) / NAT_W, avail / NAT_H)));
+      setS(Math.max(0.3, Math.min(1, (W - 40) / NAT_W, (H - 24) / NAT_H)));
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -314,27 +289,9 @@ function useFit(size: "card" | "big") {
   return [ref, s] as const;
 }
 
-export default function Chat({ size = "card" }: { size?: "card" | "big" }) {
+export default function RecordSleeve({ size = "card" }: { size?: "card" | "big" }) {
   const reduceMotion = useReducedMotion() ?? false;
   const [rootRef, scale] = useFit(size);
-  const scaleRef = useRef(scale);
-  scaleRef.current = scale;
-
-  const expandedRef = useRef(false);
-  const [expanded, setExpanded] = useState(false);
-
-  const drawerProgress = useMotionValue(0);
-  const songsHeight = useTransform(drawerProgress, [0, 1], [0, DRAWER_HEIGHT]);
-  const songsOpacity = useTransform(drawerProgress, [0, 0.12, 1], [0, 0.5, 1]);
-  const songsY = useTransform(drawerProgress, [0, 1], [8, 0]);
-  const pillWidth = useTransform(drawerProgress, [0, 1], [40, 28]);
-  const pillOpacity = useTransform(drawerProgress, [0, 1], [0.18, 0.32]);
-
-  // Tilt while tugging the card body
-  const posX = useMotionValue(0);
-  const posY = useMotionValue(0);
-  const tiltX = useTransform(posY, [-80, 80], [2.5, -2.5]);
-  const tiltY = useTransform(posX, [-80, 80], [-2.5, 2.5]);
 
   const [playingAlbum, setPlayingAlbum] = useState<Album | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -351,173 +308,65 @@ export default function Chat({ size = "card" }: { size?: "card" | "big" }) {
   }, [isPlaying, playingAlbum]);
 
   const handlePlayAlbum = useCallback((album: Album) => {
+    play("play");
     setPlayingAlbum(album);
     setIsPlaying(true);
     setElapsed(0);
   }, []);
   const handlePlayPause = useCallback(() => {
+    play(isPlaying ? "pause" : "play");
     setIsPlaying((prev) => {
       if (!prev) setElapsed((e) => (e >= PREVIEW_DURATION ? 0 : e));
       return !prev;
     });
-  }, []);
-  const handleNavigate = useCallback((dir: "prev" | "next") => {
-    setPlayingAlbum((cur) => {
-      if (!cur) return cur;
-      const idx = ALBUMS.findIndex((a) => a.id === cur.id);
-      const n = dir === "next" ? (idx + 1) % ALBUMS.length : (idx - 1 + ALBUMS.length) % ALBUMS.length;
-      return ALBUMS[n];
-    });
-    setIsPlaying(true);
-    setElapsed(0);
-  }, []);
+  }, [isPlaying]);
   const handleClose = useCallback(() => {
+    play("close");
     setPlayingAlbum(null);
     setIsPlaying(false);
     setElapsed(0);
   }, []);
 
-  const toggleDrawer = useCallback((open: boolean) => {
-    animate(drawerProgress, open ? 1 : 0, reduceMotion ? { duration: 0 } : SNAP_SPRING);
-    expandedRef.current = open;
-    setExpanded(open);
-  }, [drawerProgress, reduceMotion]);
-
-  const onHandlePan = (_: PointerEvent, info: PanInfo) => {
-    const base = expandedRef.current ? 1 : 0;
-    const delta = -info.offset.y / DRAWER_HEIGHT;
-    drawerProgress.set(Math.max(0, Math.min(1, base + delta)));
-  };
-  const onHandlePanEnd = (_: PointerEvent, info: PanInfo) => {
-    const vel = -info.velocity.y / DRAWER_HEIGHT;
-    const shouldOpen = vel > 0.8 || (vel > -0.8 && drawerProgress.get() > 0.42);
-    toggleDrawer(shouldOpen);
-  };
-
-  const [message, setMessage] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const handleSubmit = useCallback((e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!message.trim()) return;
-    setMessage("");
-    textareaRef.current?.focus();
-  }, [message]);
-
-  // Space / P / N while the widget has focus (kept local so cards don't fight over keys)
-  const onKey = (e: React.KeyboardEvent) => {
-    if (!playingAlbum) return;
-    const tag = (e.target as HTMLElement).tagName;
-    if (tag === "TEXTAREA" || tag === "INPUT") return;
-    if (e.key === " ") { e.preventDefault(); handlePlayPause(); }
-    if (e.key === "p" || e.key === "P") { e.preventDefault(); handleNavigate("prev"); }
-    if (e.key === "n" || e.key === "N") { e.preventDefault(); handleNavigate("next"); }
-  };
-
   return (
-    <MotionConfig transformPagePoint={(p) => ({ x: p.x / scaleRef.current, y: p.y / scaleRef.current })}>
-      <style>{`.chat-ta::placeholder{color:#8b968f;opacity:1}.chat-ta{caret-color:#34b562}.chat-root *:focus-visible{outline:2px solid rgba(52,181,98,.55);outline-offset:2px}`}</style>
-      <div ref={rootRef} className="chat-root" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none", perspective: 900 }}>
+    <>
+      <style>{`.record-sleeve-root *:focus-visible{outline:2px solid rgba(52,181,98,.55);outline-offset:2px}`}</style>
+      <div ref={rootRef} className="record-sleeve-root" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
         <div style={{ position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center center" }}>
           <motion.div
             data-own-click=""
-            onKeyDown={onKey}
-            drag
-            dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }}
-            dragElastic={0.35}
-            dragTransition={{ bounceStiffness: 280, bounceDamping: 28 }}
-            style={{ x: posX, y: posY, rotateX: reduceMotion ? 0 : tiltX, rotateY: reduceMotion ? 0 : tiltY, width: NAT_W, pointerEvents: "auto", userSelect: "none", WebkitUserSelect: "none", transformOrigin: "center center" }}
+            style={{ width: NAT_W, pointerEvents: "auto", userSelect: "none", WebkitUserSelect: "none" }}
             initial={reduceMotion ? false : { opacity: 0, scale: 0.94, filter: "blur(2px)" }}
             animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
             transition={reduceMotion ? { duration: 0 } : MOUNT_SPRING}
-            whileDrag={{ cursor: "grabbing" }}
           >
-            {/* Outer shell */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0 2px 2px", borderRadius: 22, width: "100%", background: "linear-gradient(178.1deg,#2b2d2b 0.64%,rgba(43,45,43,0.55) 52.61%,rgba(43,45,43,0) 112.36%)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.06)" }}>
-              {/* Handle: drag or tap */}
-              <motion.div
-                onPan={onHandlePan}
-                onPanEnd={onHandlePanEnd}
-                onTap={() => toggleDrawer(!expandedRef.current)}
-                onPointerDown={(e) => e.stopPropagation()}
-                onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); toggleDrawer(!expandedRef.current); } }}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "13px 16px 10px", width: "100%", flexShrink: 0, cursor: "grab", touchAction: "none", borderRadius: 20 }}
-                role="button"
-                aria-label={expanded ? "Close recent songs" : "Open recent songs"}
-                aria-expanded={expanded}
-                tabIndex={0}
-              >
-                <motion.div style={{ height: 3, borderRadius: 999, background: "#ffffff", width: pillWidth, opacity: pillOpacity }} />
-              </motion.div>
-
-              {/* Songs drawer */}
-              <motion.div style={{ height: songsHeight, overflow: "hidden", width: "100%", flexShrink: 0 }} aria-hidden={!expanded} {...(!expanded ? { inert: true } : {})}>
-                <motion.div style={{ opacity: songsOpacity, y: songsY, display: "flex", flexDirection: "column", gap: 11, alignItems: "flex-start", width: "100%", paddingBottom: 8 }}>
-                  <div style={{ padding: "0 12px", width: "100%" }}>
-                    <p style={{ margin: 0, fontSize: 12, lineHeight: "16px", color: "#8b968f" }}>Recent songs</p>
-                  </div>
-                  <div style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: "0 12px", width: "100%", overflow: "visible" }} onPointerDown={(e) => e.stopPropagation()}>
-                    {ALBUMS.map((album) => (
-                      <AlbumCard key={album.id} album={album} reduceMotion={reduceMotion} onPlay={handlePlayAlbum} disabled={!expanded} />
-                    ))}
-                  </div>
-                </motion.div>
-              </motion.div>
-
-              {/* Bottom card: composer ↔ now playing */}
-              <div style={{ width: "100%" }}>
-                <div style={{ background: "linear-gradient(180deg,#2b2d2b,#242624)", borderRadius: 20, width: "100%", flexShrink: 0, overflow: "hidden", boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)" }}>
-                  <AnimatePresence mode="wait" initial={false}>
-                    {playingAlbum ? (
-                      <NowPlayingCard key="now-playing" album={playingAlbum} isPlaying={isPlaying} elapsed={elapsed} onPlayPause={handlePlayPause} onClose={handleClose} reduceMotion={reduceMotion} />
-                    ) : (
-                      <motion.div
-                        key="idle"
-                        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.97, transition: { duration: 0.12, ease: "easeIn" } }}
-                        transition={{ type: "spring", visualDuration: 0.22, bounce: 0.1 }}
-                      >
-                        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "flex-start", padding: 12, width: "100%", boxSizing: "border-box" }}>
-                          <textarea
-                            ref={textareaRef}
-                            className="chat-ta"
-                            value={message}
-                            rows={1}
-                            spellCheck={false}
-                            autoComplete="off"
-                            placeholder="What mood are you in"
-                            aria-label="What mood are you in"
-                            onChange={(e) => setMessage(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            style={{ width: "100%", resize: "none", outline: "none", border: "none", background: "transparent", padding: 0, margin: 0, lineHeight: "16px", font: "inherit", fontSize: 12, color: "#e3e8e3", userSelect: "text" }}
-                          />
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", width: "100%" }}>
-                            <motion.button
-                              type="submit"
-                              whileHover={{ scale: 1.07 }}
-                              whileTap={{ scale: 0.94 }}
-                              transition={BTN_SPRING}
-                              aria-label="Send message"
-                              onPointerDown={(e) => e.stopPropagation()}
-                              style={{ position: "relative", overflow: "hidden", borderRadius: 8, padding: 6, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", border: "none", background: "#34b562", boxShadow: "0 0 0 0.75px #2a9a52, inset 0 1px 2px rgba(255,255,255,0.16), 0 1px 2px rgba(0,0,0,.4)", touchAction: "manipulation" }}
-                            >
-                              <div aria-hidden="true" style={{ position: "absolute", inset: 0, borderRadius: 8, pointerEvents: "none", background: "linear-gradient(180deg,rgba(255,255,255,0.2) 6.67%,rgba(255,255,255,0) 103.33%)" }} />
-                              <div style={{ position: "relative", zIndex: 1, width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                <ArrowUpIcon />
-                              </div>
-                            </motion.button>
-                          </div>
-                        </form>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
+            <div style={{ background: "linear-gradient(180deg,#2b2d2b,#242624)", borderRadius: 20, width: "100%", overflow: "hidden", boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)" }}>
+              <AnimatePresence mode="wait" initial={false}>
+                {playingAlbum ? (
+                  <NowPlayingCard key="now-playing" album={playingAlbum} isPlaying={isPlaying} elapsed={elapsed} onPlayPause={handlePlayPause} onClose={handleClose} reduceMotion={reduceMotion} />
+                ) : (
+                  <motion.div
+                    key="sleeves"
+                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.97, transition: { duration: 0.12, ease: "easeIn" } }}
+                    transition={{ type: "spring", visualDuration: 0.22, bounce: 0.1 }}
+                    style={{ display: "flex", flexDirection: "column", gap: 11, alignItems: "flex-start", width: "100%", padding: "12px 0 14px" }}
+                  >
+                    <div style={{ padding: "0 12px", width: "100%" }}>
+                      <p style={{ margin: 0, fontSize: 12, lineHeight: "16px", color: "#8b968f" }}>Recent songs</p>
+                    </div>
+                    <div style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: "0 12px", width: "100%" }}>
+                      {ALBUMS.map((album) => (
+                        <AlbumCard key={album.id} album={album} reduceMotion={reduceMotion} onPlay={handlePlayAlbum} />
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </motion.div>
         </div>
       </div>
-    </MotionConfig>
+    </>
   );
 }

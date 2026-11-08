@@ -1,7 +1,10 @@
 // Bookshelf: books standing on a wooden plank. Hover a spine and the book
 // straightens and swings open to show its cover (500ms ease, as the original
 // .shelf-book-* CSS); click pulls it off the shelf, cover square to you.
+// Sounds: a very quiet slide as a book turns on hover, a soft land when one is
+// pulled out, close when it goes back.
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { play } from "../sound/sound";
 
 type Book = { title: string; author: string; color: string; h: number; w: number };
 
@@ -77,7 +80,7 @@ function Spine({ b, i, hov, open, onHover, onToggle }: { b: Book; i: number; hov
   return (
     <div
       className={`bs-wrap${hov && !open ? " is-hov" : ""}${open ? " is-open" : ""}`}
-      onMouseEnter={() => onHover(true)}
+      onMouseEnter={() => { if (!open) play("slide", { gap: 120, vol: 0.6 }); onHover(true); }}
       onMouseLeave={() => onHover(false)}
       style={{ "--tilt": `${TILTS[i % TILTS.length]}deg`, "--cw": `${b.w}px`, "--ow": `${b.w + coverW}px` } as CSSProperties}
     >
@@ -128,7 +131,7 @@ export default function Bookshelf({ size = "card" }: { size?: "card" | "big" }) 
   // Escape puts the pulled book back.
   useEffect(() => {
     if (open === null) return;
-    const k = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") { play("close"); setOpen(null); } };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [open]);
@@ -151,7 +154,7 @@ export default function Bookshelf({ size = "card" }: { size?: "card" | "big" }) 
                 hov={hov === i}
                 open={open === i}
                 onHover={(v) => setHov((h) => (v ? i : h === i ? null : h))}
-                onToggle={() => setOpen((o) => (o === i ? null : i))}
+                onToggle={() => { if (open === i) play("close"); else play("land", { vol: 0.5 }); setOpen(open === i ? null : i); }}
               />
             ))}
           </div>

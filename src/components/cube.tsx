@@ -2,6 +2,9 @@
 // wheel) to roll it a quarter turn, hinged on the shared edge, the cube pulling
 // back to 1.6x depth at mid-fold on a half-sine and the turn eased in and out,
 // exactly as CubeDeck.tsx does with page scroll. Idle, it rolls on its own.
+// Sound: one roll as each quarter turn starts under a drag, wheel, click or key
+// (never on the idle roll).
+import { play } from "../sound/sound";
 import { animate, useMotionValue, useMotionValueEvent, useReducedMotion, type AnimationPlaybackControls } from "framer-motion";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
@@ -145,10 +148,15 @@ export default function Cube({ size = "card" }: { size?: "card" | "big" }) {
   const anim = useRef<AnimationPlaybackControls | null>(null);
   const lastInput = useRef(0);
   const [active, setActive] = useState(0);
+  const userDriven = useRef(false); // the current motion comes from the user, not the idle timer
+  const rollKey = useRef<number | null>(null); // the quarter turn we already played a roll for
 
   const paint = (p: number) => {
     const base = Math.floor(p);
     const f = p - base;
+    if (f < 1e-3 || f > 1 - 1e-3) rollKey.current = null; // square on: the next turn may sound
+    else if (!userDriven.current) rollKey.current = base; // the auto-play owns this turn: grabbing it mid-way stays quiet
+    else if (rollKey.current !== base) { rollKey.current = base; play("roll", { gap: 200 }); }
     const turn = HINGE * 90 * (base + (reduce ? Math.round(f) : easeInOut(f)));
     const z = -D * (1 + (reduce ? 0 : LIFT * Math.sin(Math.PI * f)));
     if (cubeRef.current) cubeRef.current.style.transform = `translateZ(${z.toFixed(2)}px) rotateX(${turn.toFixed(3)}deg)`;
@@ -177,6 +185,7 @@ export default function Cube({ size = "card" }: { size?: "card" | "big" }) {
     if (reduce) return;
     const id = window.setInterval(() => {
       if (Date.now() - lastInput.current < 3200 || drag.current) return;
+      userDriven.current = false;
       go(Math.round(pos.get()) + 1);
     }, 2800);
     return () => window.clearInterval(id);
@@ -188,6 +197,7 @@ export default function Cube({ size = "card" }: { size?: "card" | "big" }) {
     anim.current?.stop();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     drag.current = { y: e.clientY, p: pos.get(), moved: false, t: performance.now(), v: 0 };
+    userDriven.current = true;
     lastInput.current = Date.now();
   };
   const onMove = (e: React.PointerEvent) => {
@@ -224,6 +234,7 @@ export default function Cube({ size = "card" }: { size?: "card" | "big" }) {
       e.preventDefault();
       anim.current?.stop();
       lastInput.current = Date.now();
+      userDriven.current = true;
       if (reduce) {
         window.clearTimeout(t);
         t = window.setTimeout(() => go(Math.round(pos.get()) + Math.sign(e.deltaY)), 60);
@@ -249,6 +260,7 @@ export default function Cube({ size = "card" }: { size?: "card" | "big" }) {
           tabIndex={0}
           aria-label="Cube of four screens. Drag up or down, scroll, or press to roll it."
           onKeyDown={(e) => {
+            userDriven.current = true;
             if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") { e.preventDefault(); lastInput.current = Date.now(); go(Math.round(pos.get()) + 1); }
             if (e.key === "ArrowUp") { e.preventDefault(); lastInput.current = Date.now(); go(Math.round(pos.get()) - 1); }
           }}

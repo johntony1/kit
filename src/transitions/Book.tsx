@@ -25,11 +25,13 @@ export interface BookProps {
   /** paper colour for the back of the page edges */
   paper?: string;
   onTurn?: (spread: number) => void;
+  /** a turn starts (a click, a drag or an arrow key): a good moment for a page sound */
+  onStart?: (dir: 1 | -1) => void;
 }
 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-export function Book({ pages, height = 420, ratio = 0.72, duration = 0.9, bend = 0.9, strips = 28, paper = "#f4f1e8", onTurn }: BookProps) {
+export function Book({ pages, height = 420, ratio = 0.72, duration = 0.9, bend = 0.9, strips = 28, paper = "#f4f1e8", onTurn, onStart }: BookProps) {
   const box = useRef<HTMLDivElement>(null);
   const [H, setH] = useState(height);
   const W = Math.round(H * ratio);
@@ -113,6 +115,7 @@ export function Book({ pages, height = 420, ratio = 0.72, duration = 0.9, bend =
     if (dir === 1 && k >= spreads - 1) return false;
     if (dir === -1 && k <= 0) return false;
     setTurn(dir);
+    onStart?.(dir);
     return true;
   };
 

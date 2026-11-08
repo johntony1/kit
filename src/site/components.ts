@@ -1,53 +1,91 @@
-// The components: each is its own small app, embedded live from its deployment so it runs
-// exactly as built. Their main source files are vendored as text for the Code tab.
+// The component blocks: each does one or two things, and is taken from one of the apps
+// below. Those apps' main source files are vendored as text for the Code tab.
 
 import meta from "../components-src/meta.json";
 
 const SRC = import.meta.glob("../components-src/*/*.txt", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
 
-export interface Comp {
+/** the app a block was taken from: its repo, its live site, its dependencies */
+interface Source { url: string; repo: string; bg: string; deps: string[] }
+
+export type Verb = "Hover" | "Press" | "Drag" | "Slide" | "Swipe" | "Type" | "Select" | "Scroll";
+
+export interface Comp extends Source {
   k: string;
   name: string;
   desc: string;
-  url: string;
-  repo: string;
+  /** the source app key (src/components-src/<from>) */
+  from: string;
+  /** what you do to it */
+  verb: Verb;
   /** tile size in the bento: columns of 6, rows of 150px */
   c: number;
   r: number;
-  /** full-page sites are shown scaled down to fit */
-  zoom: number;
-  /** the app's own page colour */
-  bg: string;
-  deps: string[];
 }
 
 const GH = "https://github.com/johntony1/";
 const M = meta as Record<string, { deps: string[] }>;
+const src = (from: string, url: string, repo: string, bg = "#ffffff", deps?: string[]): [string, Source] =>
+  [from, { url, repo: GH + repo, bg, deps: deps ?? M[from]?.deps ?? [] }];
+const SOURCES: Record<string, Source> = Object.fromEntries([
+  src("card-funding", "https://card-funding-theta.vercel.app/", "card-funding"),
+  src("currency", "https://currency-exchange-silk.vercel.app/", "currency-exchange"),
+  src("printer", "https://printer-animation.vercel.app/", "printer-animation"),
+  src("scheduler", "https://scheduler-murex-nine.vercel.app/", "SCHEDULER"),
+  src("share", "https://share-animation.vercel.app/", "share-animation"),
+  src("calendar", "https://calendar-animation.vercel.app/", "calendar-animation"),
+  src("segmented", "https://segmented-tab-animation.vercel.app/", "segmented-tab-animation", "#ffffff", ["framer-motion", "gsap"]),
+  src("menu", "https://menu-expand.vercel.app/", "menu-expand"),
+  src("document", "https://document-input-field-interaction.vercel.app/", "document-input-field-interaction", "#f7f7f7"),
+  src("chat", "https://music-animation-gamma.vercel.app/", "music-animation", "#f0f0f0"),
+  src("balance", "https://modal-animation-steel.vercel.app/", "modal-animation"),
+  src("transcription", "https://music-transcription-lyart.vercel.app/", "music-transcription"),
+  src("bookshelf", "https://bookshelf-six-livid.vercel.app/", "bookshelf", "#ffffff", ["@react-three/fiber", "@react-three/drei", "three", "framer-motion", "next"]),
+  src("cube", "https://3d-cube-rotate.vercel.app/", "3d-cube-rotate", "#020513"),
+  src("shutter", "https://shutter-scroll-plus-curved.vercel.app/", "shutter-scroll-plus-curved", "#0069ed", ["gsap", "lenis", "motion", "tailwindcss"]),
+]);
 
-export const COMPS: Comp[] = [
-  { k: "card-funding", name: "Card funding", desc: "A stack of currency cards fans out; pick one and add money to it.", url: "https://card-funding-theta.vercel.app/", repo: GH + "card-funding", c: 3, r: 3, zoom: 1, bg: "#ffffff", deps: M["card-funding"].deps },
-  { k: "currency", name: "Currency swap", desc: "Swap two currencies with a flip, review the summary, slide to confirm and land on a confetti success.", url: "https://currency-exchange-silk.vercel.app/", repo: GH + "currency-exchange", c: 3, r: 3, zoom: 1, bg: "#ffffff", deps: M["currency"].deps },
-  { k: "printer", name: "Pay slip printer", desc: "Payment successful: slide to print, and the slip feeds out of the printer.", url: "https://printer-animation.vercel.app/", repo: GH + "printer-animation", c: 2, r: 3, zoom: 1, bg: "#ffffff", deps: M["printer"].deps },
-  { k: "scheduler", name: "Scheduler", desc: "Weekly availability: switch a day on and its time picker unfolds.", url: "https://scheduler-murex-nine.vercel.app/", repo: GH + "SCHEDULER", c: 2, r: 3, zoom: 1, bg: "#ffffff", deps: M["scheduler"].deps },
-  { k: "share", name: "Share sheet", desc: "A share sheet: open access up and copy the link.", url: "https://share-animation.vercel.app/", repo: GH + "share-animation", c: 2, r: 3, zoom: 1, bg: "#ffffff", deps: M["share"].deps },
-  { k: "calendar", name: "Calendar task", desc: "A task card that expands into a calendar and a guest list.", url: "https://calendar-animation.vercel.app/", repo: GH + "calendar-animation", c: 3, r: 3, zoom: 1, bg: "#ffffff", deps: M["calendar"].deps },
-  { k: "segmented", name: "Segmented tabs", desc: "Tabs with a highlight that slides and stretches between them.", url: "https://segmented-tab-animation.vercel.app/", repo: GH + "segmented-tab-animation", c: 3, r: 2, zoom: 1, bg: "#ffffff", deps: ["framer-motion", "gsap"] },
-  { k: "menu", name: "Menu expand", desc: "One small Menu pill that opens into the full menu.", url: "https://menu-expand.vercel.app/", repo: GH + "menu-expand", c: 2, r: 2, zoom: 1, bg: "#ffffff", deps: M["menu"].deps },
-  { k: "document", name: "Document input", desc: "A message field that takes images and documents, each attachment animating in.", url: "https://document-input-field-interaction.vercel.app/", repo: GH + "document-input-field-interaction", c: 2, r: 2, zoom: 1, bg: "#f7f7f7", deps: M["document"].deps },
-  { k: "chat", name: "Chat composer", desc: "A chat composer that wakes up as you start to write.", url: "https://music-animation-gamma.vercel.app/", repo: GH + "music-animation", c: 2, r: 2, zoom: 1, bg: "#f0f0f0", deps: M["chat"].deps },
-  { k: "balance", name: "Balance card", desc: "A balance card with a live bar chart and a share step.", url: "https://modal-animation-steel.vercel.app/", repo: GH + "modal-animation", c: 3, r: 3, zoom: 1, bg: "#ffffff", deps: M["balance"].deps },
-  { k: "transcription", name: "Voice transcription", desc: "A voice note whose waveform plays while the words are written out.", url: "https://music-transcription-lyart.vercel.app/", repo: GH + "music-transcription", c: 3, r: 2, zoom: 1, bg: "#ffffff", deps: M["transcription"].deps },
-  { k: "bookshelf", name: "Bookshelf", desc: "Books on a shelf in 3D: pull one out and it opens to read.", url: "https://bookshelf-six-livid.vercel.app/", repo: GH + "bookshelf", c: 6, r: 3, zoom: 0.62, bg: "#ffffff", deps: ["@react-three/fiber", "@react-three/drei", "three", "framer-motion", "next"] },
-  { k: "cube", name: "Cube deck", desc: "A landing page whose 3D cubes turn and stack as you scroll.", url: "https://3d-cube-rotate.vercel.app/", repo: GH + "3d-cube-rotate", c: 3, r: 3, zoom: 0.5, bg: "#020513", deps: M["cube"].deps },
-  { k: "shutter", name: "Shutter scroll", desc: "Screens behind a curved shutter that wipes open as you scroll.", url: "https://shutter-scroll-plus-curved.vercel.app/", repo: GH + "shutter-scroll-plus-curved", c: 3, r: 3, zoom: 0.5, bg: "#0069ed", deps: ["gsap", "lenis", "motion", "tailwindcss"] },
+type B = [k: string, name: string, desc: string, from: string, verb: Verb, c: number, r: number];
+// one or two interactions each, in the order they sit in the bento
+const BLOCKS: B[] = [
+  ["card-fan", "Card fan", "Hover the wallet and the currency cards fan out and tilt toward you.", "card-funding", "Hover", 3, 3],
+  ["currency", "Currency swap", "Swap two currencies: the card tips over and the values trade places.", "currency", "Press", 3, 3],
+  ["printer", "Pay slip printer", "Slide to print, and the slip feeds out of the printer.", "printer", "Slide", 2, 3],
+  ["task-tick", "Task tick", "Tick a task: it fills, rings and bursts.", "calendar", "Press", 2, 3],
+  ["copy-link", "Copy link", "Copy the link: the button squishes, flips to Copied and throws dots.", "share", "Press", 2, 2],
+  ["sliding-tabs", "Sliding tabs", "A highlight that slides and stretches from tab to tab.", "segmented", "Select", 4, 2],
+  ["add-money", "Add money", "Add money: the wallet lifts, the sheet springs up and the amount rolls.", "card-funding", "Press", 3, 3],
+  ["day-toggle", "Day toggle", "Switch a day on and its hours unfold.", "scheduler", "Press", 3, 3],
+  ["menu", "Menu expand", "One small Menu pill that opens into the full menu.", "menu", "Press", 2, 3],
+  ["week-picker", "Week picker", "Tap the calendar and the task card opens into a week.", "calendar", "Press", 2, 3],
+  ["attach", "Attachment", "Attach a file: it blurs in, uploads with a ring and turns into a close button.", "document", "Press", 2, 3],
+  ["status-pill", "Status picker", "Pick a status from the popover and the pill morphs to fit it.", "segmented", "Select", 3, 2],
+  ["share-access", "Invite field", "Switch off Anyone and the invite field springs open.", "share", "Press", 3, 2],
+  ["bar-chart", "Bar chart", "Hover the bars for each day's value.", "balance", "Hover", 3, 2],
+  ["time-picker", "Time drum", "Turn the drum to pick a time.", "scheduler", "Drag", 2, 2],
+  ["song-drawer", "Recent songs", "Pull the handle and the recent songs slide up.", "chat", "Drag", 2, 2],
+  ["swipe-delete", "Swipe to delete", "Swipe a member away and the list closes the gap.", "share", "Swipe", 2, 2],
+  ["guest-list", "Guest list", "Tap the faces and they open into the guest list.", "calendar", "Press", 3, 3],
+  ["record-sleeve", "Record sleeve", "Hover a sleeve and the record slides out. Tap it to play.", "chat", "Hover", 3, 3],
+  ["date-ruler", "Date ruler", "Drag the ruler to pick a date.", "balance", "Drag", 3, 2],
+  ["slash-menu", "Slash command", "Type a slash and the command menu opens.", "document", "Type", 3, 2],
+  ["share-step", "Share card", "Share the balance as a card.", "balance", "Press", 2, 2],
+  ["transcription", "Voice note", "Play a voice note: the waveform runs while the words are written out.", "transcription", "Press", 4, 2],
+  ["bookshelf", "Bookshelf", "Books on a shelf. Hover one and it turns to show its cover, click to pull it out.", "bookshelf", "Hover", 6, 3],
+  ["cube", "Cube deck", "Drag the cube and it rolls to the next screen.", "cube", "Drag", 3, 3],
+  ["shutter", "Shutter scroll", "Scroll and the next screen wipes in behind a curved shutter.", "shutter", "Scroll", 3, 3],
 ];
+
+/** only blocks whose file exists in src/components are listed */
+const HAVE = new Set(Object.keys(import.meta.glob("../components/*.tsx")).map((p) => p.split("/").pop()!.replace(/\.tsx$/, "")));
+export const COMPS: Comp[] = BLOCKS.filter((b) => HAVE.has(b[0])).map(([k, name, desc, from, verb, c, r]) => ({ k, name, desc, from, verb, c, r, ...SOURCES[from] }));
 
 export const compOf = (k: string) => COMPS.find((c) => c.k === k);
 
 /** the vendored source files of a component, largest first */
 export function sourcesOf(k: string): [string, string][] {
   return Object.entries(SRC)
-    .filter(([p]) => p.split("/").slice(-2)[0] === k)
+    .filter(([p]) => p.split("/").slice(-2)[0] === (compOf(k)?.from ?? k))
     .map(([p, text]) => [p.split("/").pop()!.replace(/\.txt$/, "").replace(/__/g, "/"), text] as [string, string])
     .sort((a, b) => b[1].length - a[1].length);
 }

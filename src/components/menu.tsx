@@ -15,6 +15,7 @@
  * In a short box the whole widget scales down (same curve) so the open card stays inside it. */
 
 import { useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { play } from "../sound/sound";
 
 // Remix icons from the source, inlined (viewBox, path); drawn in currentColor
 const ICONS: Record<string, [string, string]> = {
@@ -215,6 +216,7 @@ export default function Menu({ size = "card" }: { size?: "card" | "big" }) {
 
   const toggle = (id: SectionId, ev: MouseEvent | React.KeyboardEvent) => {
     ev.stopPropagation();
+    play("tick", { pitch: sections.has(id) ? 0.85 : 1 });
     setSections((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -224,6 +226,7 @@ export default function Menu({ size = "card" }: { size?: "card" | "big" }) {
   };
   const closeAll = (ev: MouseEvent) => {
     ev.stopPropagation();
+    play("close");
     setSections(new Set());
     setOpen(false);
   };
@@ -241,14 +244,14 @@ export default function Menu({ size = "card" }: { size?: "card" | "big" }) {
           <div
             className={`menu-card ${open ? "is-open" : ""}`}
             style={{ ["--open-count" as string]: sections.size } as CSSProperties}
-            onClick={() => { if (!open) setOpen(true); }}
+            onClick={() => { if (!open) { play("open"); setOpen(true); } }}
             role={open ? undefined : "button"}
             tabIndex={open ? -1 : 0}
             aria-expanded={open}
             aria-label={open ? "Menu" : "Open menu"}
             onKeyDown={(ev) => {
-              if (!open && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); setOpen(true); }
-              if (open && ev.key === "Escape") { setSections(new Set()); setOpen(false); }
+              if (!open && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); play("open"); setOpen(true); }
+              if (open && ev.key === "Escape") { play("close"); setSections(new Set()); setOpen(false); }
             }}
           >
             <div className="menu-layer menu-layer--collapsed">

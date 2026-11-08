@@ -2,9 +2,11 @@
  * Swap: the card tips forward (rotateX 0 to 90, 160ms ease-in), values swap at the
  * invisible midpoint, it snaps to -90 and springs flat (duration .26, bounce .18);
  * the icon spins 180 on a 480/36 spring. Max counts the amount up (ease-out-quart).
+ * Sounds: flip as the card starts to tip; tick on Max, then detents while it counts.
  */
 import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion, useAnimation } from "framer-motion";
+import { play } from "../sound/sound";
 
 /* ── counting (ease-out-quart) ── */
 function easeOutQuart(t: number) { return 1 - Math.pow(1 - t, 4); }
@@ -212,10 +214,11 @@ export default function CurrencySwap({ size = "card" }: { size?: "card" | "big" 
   function handleMax() {
     const from = sellAmt, to = sell.balance;
     if (from === to) return;
+    play("tick");
     if (reduced) { setInputStr(String(to)); return; }
     setCounting(true);
     const duration = Math.min(700, Math.max(300, Math.abs(to - from) / 20));
-    countTo(from, to, duration, (v) => setInputStr(String(v)), () => { setInputStr(String(to)); setCounting(false); });
+    countTo(from, to, duration, (v) => { setInputStr(String(v)); play("detent", { gap: 60 }); }, () => { setInputStr(String(to)); setCounting(false); });
   }
 
   async function handleSwap() {
@@ -223,6 +226,7 @@ export default function CurrencySwap({ size = "card" }: { size?: "card" | "big" 
     cancel();
     setCounting(false);
     setSwapping(true);
+    play("flip");
     const next = receiveAmt % 1 === 0 ? String(Math.round(receiveAmt)) : String(receiveAmt);
     setIconAngle((a) => a + 180);
     if (reduced) { setSell(receive); setReceive(sell); setInputStr(next); setSwapping(false); return; }

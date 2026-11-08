@@ -6,6 +6,8 @@ import { PageSwap } from "../transitions/PageSwap";
 import { DemoPage, PAGE_COUNT } from "../demos/Pages";
 import { Code, Slider } from "./ui";
 import { Later } from "./sheet";
+import { play } from "../sound/sound";
+import { TRANS_CUE } from "../demos/MiniSite";
 import type { ReactNode } from "react";
 
 export const TRANS_KEYS: TransitionKind[] = ["burn", "paper", "reveal", "ink", "curtain", "pixels", "zoom", "tilt"];
@@ -63,11 +65,12 @@ export function SwapDemo({ kind, options, compact, start = 0, auto = 0 }: { kind
         const go = (e.target as HTMLElement).closest("[data-go]")?.getAttribute("data-go");
         const target = go !== null && go !== undefined ? Number(go) : (page + 1) % PAGE_COUNT;
         if (target === page) return;
+        play(TRANS_CUE[kind]);
         setOrigin({ x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height });
         setBusy(true);
         setPage(target);
       }}
-      onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !busy) { e.preventDefault(); setOrigin({ x: 0.5, y: 0.5 }); setBusy(true); setPage((p) => (p + 1) % PAGE_COUNT); } }}>
+      onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !busy) { e.preventDefault(); play(TRANS_CUE[kind]); setOrigin({ x: 0.5, y: 0.5 }); setBusy(true); setPage((p) => (p + 1) % PAGE_COUNT); } }}>
       <PageSwap kind={kind} page={page} origin={origin} options={options} onDone={() => setBusy(false)}
         render={(p) => <DemoPage n={p} compact={compact} />} style={{ position: "absolute", inset: 0 }} />
     </div>

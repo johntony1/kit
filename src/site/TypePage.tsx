@@ -1,4 +1,5 @@
 import { Later } from "./sheet";
+import { play } from "../sound/sound";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import typeCore from "../type/type-core.ts?raw";
@@ -24,7 +25,7 @@ export function TypePreview({ k, hero }: { k: TypeEffectKey; hero?: ReactNode })
   const m = TYPE_META[k];
   const bg = (v: { bg?: string }) => v.bg ?? e.look.bg;
   return (
-    <div className="previewGrid">
+    <div className="previewGrid" onPointerDown={(ev) => { if ((ev.target as HTMLElement).tagName === "CANVAS") play("bloop", { pitch: 0.8, gap: 80 }); }}>
       <div className="panel hero flushPanel" style={{ background: e.look.bg }}>
         {hero ? <div className="bnPreview">{hero}</div> : <TypeCanvas effect={e} />}
         <span className="panelHint onArt" style={{ color: e.look.fg }}>{m.hint}</span>

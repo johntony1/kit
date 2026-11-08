@@ -16,6 +16,7 @@ import type { RippleHandle } from "../ripple/RippleCanvas";
 import { Book } from "../transitions/Book";
 import { bookPages } from "../demos/BookPages";
 import { SheetReady } from "./sheet";
+import { play } from "../sound/sound";
 
 export type BentoLib = "ripple" | "confetti" | TypeEffectKey | TransitionKind | `cmp-${string}`;
 type Group = "Libraries" | "Components" | "Type" | "Transitions";
@@ -64,16 +65,16 @@ function Preview({ t }: { t: Tile }) {
   if (t.k.startsWith("cmp-")) { const C = NATIVE[t.k.slice(4)]; return C ? <C size="card" /> : null; }
   if (t.k === "ripple") return <QrCard />;
   if (t.k === "paper") return (
-    <div className="bnBook" data-own-click><Book pages={[<div key="e" className="bkp bkpEnd" />, ...bookPages()]} height={t.r * 150 + (t.r - 1) * 16 - 128} bend={0.5} strips={24} /></div>
+    <div className="bnBook" data-own-click><Book pages={[<div key="e" className="bkp bkpEnd" />, ...bookPages()]} height={t.r * 150 + (t.r - 1) * 16 - 128} bend={0.5} strips={24} onStart={() => play("rustle")} /></div>
   );
   if (t.k === "confetti") return (
     <div className="bnConfetti">
-      <div className="bnScale" data-own-click onClick={() => setReplay((n) => n + 1)}><SuccessCard trigger={replay} /></div>
+      <div className="bnScale" data-own-click onClick={() => { setReplay((n) => n + 1); play("pop"); }}><SuccessCard trigger={replay} /></div>
     </div>
   );
   if (t.k in TYPE_EFFECTS) {
     const e = TYPE_EFFECTS[t.k as TypeEffectKey];
-    return <div className="bnFill" style={{ background: e.look.bg }}><TypeCanvas effect={e} fit={(e.look.fit ?? 0.78) * 0.78} /></div>;
+    return <div className="bnFill" style={{ background: e.look.bg }} onPointerDown={() => play("bloop", { pitch: 0.8, gap: 80 })}><TypeCanvas effect={e} fit={(e.look.fit ?? 0.78) * 0.78} /></div>;
   }
   return <MiniSite kind={t.k as TransitionKind} auto={3000 + (t.k.length % 4) * 350} />;
 }
@@ -119,7 +120,7 @@ function Card({ t, open, paused, onOpen }: { t: Tile; open: boolean; paused: boo
           onClick={(e) => { if (!(e.target as HTMLElement).closest("[data-own-click]")) onOpen(); }}
           onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onOpen(); } }} aria-label={`${nameOf(t.k)}. Press Enter to open.`}>
           <div className="bnPreview">{live ? <Preview t={t} /> : null}</div>
-          <span className="bnTag">{t.tag ?? (t.group === "Type" ? "Type" : t.group === "Transitions" ? "Transition" : t.group === "Components" ? "Component" : "Library")}</span>
+          <span className="bnTag">{t.tag ?? (t.group === "Type" ? "Type" : t.group === "Transitions" ? "Transition" : t.group === "Components" ? (compOf(t.k.slice(4))?.verb ?? "Component") : "Library")}</span>
           <span className="bnName">{nameOf(t.k)}</span>
           <span className="bnGo" aria-hidden="true" onClick={(e) => { e.stopPropagation(); onOpen(); }}><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M5 11 11 5M6 5h5v5" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
         </motion.div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, useSyncExternalStore } from "react";
 import rippleTs from "./ripple/ripple.ts?raw";
 import rippleTsx from "./ripple/RippleCanvas.tsx?raw";
 import confettiTs from "./confetti/confetti.ts?raw";
@@ -23,6 +23,7 @@ import { compOf, COMPS } from "./site/components";
 import { TRANS_KEYS, TRANS_META, TransInstall, TransPlayground, TransPreview, transPrompt } from "./site/TransitionPage";
 import type { TransitionKind } from "./transitions/transitions";
 import { Later } from "./site/sheet";
+import { sound } from "./sound/sound";
 
 const REPO = "https://github.com/johntony1/qr-code-animatio";
 
@@ -324,6 +325,21 @@ function Brand() {
 }
 
 /** the repo's star count, if GitHub answers */
+/** sounds on or off, remembered */
+function SoundToggle() {
+  const on = useSyncExternalStore(sound.subscribe, sound.enabled, () => true);
+  return (
+    <button type="button" className="topPill soundPill" aria-pressed={on} aria-label={on ? "Sound on. Turn it off" : "Sound off. Turn it on"} title={on ? "Sound on" : "Sound off"} onClick={() => sound.toggle()}>
+      <svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3.5 7.5h2.6L10 4.2v11.6l-3.9-3.3H3.5z" fill="currentColor" stroke="none" />
+        <path d="M13 7.2a4 4 0 0 1 0 5.6" style={{ opacity: on ? 1 : 0, transition: "opacity 160ms ease" }} />
+        <path d="M15.3 5a7.2 7.2 0 0 1 0 10" style={{ opacity: on ? 1 : 0, transition: "opacity 160ms ease 40ms" }} />
+        <path d="M13.2 7.6l4.4 4.8M17.6 7.6l-4.4 4.8" style={{ opacity: on ? 0 : 1, transition: "opacity 160ms ease" }} />
+      </svg>
+    </button>
+  );
+}
+
 function useStars() {
   const [stars, setStars] = useState<number | null>(null);
   useEffect(() => {
@@ -403,6 +419,7 @@ export default function App() {
           <a className="topLink" href={REPO} target="_blank" rel="noopener noreferrer">Source</a>
         </nav>
         <div className="topRight">
+          <SoundToggle />
           <SearchButton go={go} />
           <a className="topPill" href={REPO} target="_blank" rel="noopener noreferrer" aria-label={stars !== null ? `GitHub, ${stars} stars` : "GitHub"}>
             <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M8 .2a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2" /></svg>
