@@ -10,7 +10,7 @@ import { play } from "../sound/sound";
 import { TRANS_CUE } from "../demos/MiniSite";
 import type { ReactNode } from "react";
 
-export const TRANS_KEYS: TransitionKind[] = ["burn", "paper", "reveal", "ink", "curtain", "pixels", "zoom"];
+export const TRANS_KEYS: TransitionKind[] = ["burn", "paper", "reveal", "ink", "curtain", "pixels"];
 
 export const TRANS_META: Record<TransitionKind, { name: string; desc: string; how: string }> = {
   burn: { name: "Burn", desc: "The page burns away from where you click: a ragged charred edge, a flickering ember line and a little smoke, with the next page underneath.",
