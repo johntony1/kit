@@ -1,13 +1,142 @@
-// Macro pad: a little aluminium device in two parts. A lid with a black screen held by four
-// screws, a fabric strap for a hinge, and a base tray with four mechanical keys (magenta 0,
-// black 1, magenta 2, black enter). A USB cable leaves on the left and a braided magenta cable
-// loops behind. Each key travels down into the tray and springs back; 0, 1 and 2 type onto the
-// screen, enter confirms and clears.
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+// Macro pad: a little anodised aluminium device in two parts, drawn as a real 3/4 render.
+// Every solid (lid, base tray, key caps, switch housings, USB plug) is modelled as lofted
+// rounded rectangles in 3D, projected through one perspective camera and shaded per facet
+// against one key light, so bevels, side faces and rim lights all agree. A lid with a black
+// glass screen and four countersunk screws, a fabric strap for a hinge, a deep base tray with
+// four mechanical keys (magenta 0, black 1, magenta 2, black enter), a USB-C plug on the left
+// and a braided magenta cable looping behind. Each key travels down into its switch and springs
+// back; 0, 1 and 2 type onto the screen, enter confirms and clears.
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { motion, useReducedMotion, useSpring, useTransform } from "framer-motion";
 import { play } from "../sound/sound";
 
-const VW = 400, VH = 400;
+/* ── tiny 3D kit ─────────────────────────────────────────────────────── */
+
+type V3 = [number, number, number];
+type P2 = [number, number];
+type RGB = [number, number, number];
+const deg = Math.PI / 180;
+const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const mul = (a: V3, k: number): V3 => [a[0] * k, a[1] * k, a[2] * k];
+const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const nrm = (a: V3): V3 => mul(a, 1 / (Math.hypot(a[0], a[1], a[2]) || 1));
+
+// world: x right, y away from the viewer, z up. Camera a little left of centre, looking down.
+const AZ = -8 * deg, EL = 23 * deg, DIST = 1250;
+const TGT: V3 = [0, 30, 60];
+const DIR: V3 = [Math.sin(AZ) * Math.cos(EL), -Math.cos(AZ) * Math.cos(EL), Math.sin(EL)];
+const CAM = add(TGT, mul(DIR, DIST));
+const FWD = mul(DIR, -1);
+const RGT = nrm(cross(FWD, [0, 0, 1]));
+const UPV = cross(RGT, FWD);
+const LIGHT = nrm([-0.5, -0.55, 0.9]);
+
+function proj(p: V3): P2 {
+  const d = sub(p, CAM);
+  const z = dot(d, FWD);
+  return [(dot(d, RGT) * DIST) / z, (-dot(d, UPV) * DIST) / z];
+}
+
+const hex = (h: string): RGB => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const mix = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const css = (c: RGB) => `rgb(${c.map((v) => Math.round(Math.max(0, Math.min(255, v)))).join(",")})`;
+
+type Mat = { dark: RGB; light: RGB; amb: number; ks: number; sh: number; rim: number };
+const ALU: Mat = { dark: hex("#2b3245"), light: hex("#c2cbe2"), amb: 0.2, ks: 0.55, sh: 34, rim: 0.3 };
+const ALU_IN: Mat = { dark: hex("#11141b"), light: hex("#5f6880"), amb: 0.12, ks: 0.12, sh: 16, rim: 0 };
+const PINK: Mat = { dark: hex("#36031d"), light: hex("#dc3a86"), amb: 0.22, ks: 0.2, sh: 16, rim: 0.12 };
+const BLACK: Mat = { dark: hex("#060608"), light: hex("#3a3c44"), amb: 0.14, ks: 0.24, sh: 22, rim: 0.14 };
+const HOUSING: Mat = { dark: hex("#050608"), light: hex("#2c2f37"), amb: 0.12, ks: 0.1, sh: 12, rim: 0.05 };
+const GLASSRIM: Mat = { dark: hex("#030305"), light: hex("#1d2028"), amb: 0.2, ks: 0.4, sh: 30, rim: 0.1 };
+const PLUG: Mat = { dark: hex("#040405"), light: hex("#3a3c43"), amb: 0.1, ks: 0.5, sh: 40, rim: 0.2 };
+
+function shade(n: V3, p: V3, m: Mat) {
+  const nn = nrm(n);
+  const lam = Math.max(0, dot(nn, LIGHT));
+  const v = nrm(sub(CAM, p));
+  const h = nrm(add(LIGHT, v));
+  const spec = Math.pow(Math.max(0, dot(nn, h)), m.sh) * m.ks;
+  const fr = Math.pow(1 - Math.max(0, dot(nn, v)), 3) * m.rim;
+  let c = mix(m.dark, m.light, m.amb + (1 - m.amb) * lam);
+  c = mix(c, [255, 255, 255], Math.min(1, spec));
+  c = mix(c, [205, 218, 255], Math.min(1, fr));
+  return css(c);
+}
+
+const f2 = (n: number) => n.toFixed(2);
+const path = (pts: P2[], close = true) => "M" + pts.map((p) => `${f2(p[0])} ${f2(p[1])}`).join("L") + (close ? "Z" : "");
+
+// rounded rectangle in a plane, counter clockwise: corners front right, back right, back left, front left
+const NC = 7;
+function rr(hw: number, hh: number, r: number): [number, number][] {
+  r = Math.max(0.8, Math.min(r, hw, hh));
+  const out: [number, number][] = [];
+  const cs: [number, number, number][] = [[hw - r, -hh + r, -90], [hw - r, hh - r, 0], [-hw + r, hh - r, 90], [-hw + r, -hh + r, 180]];
+  for (const [cx, cy, a0] of cs) for (let i = 0; i <= NC; i++) {
+    const a = (a0 + (90 * i) / NC) * deg;
+    out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+  }
+  return out;
+}
+// the front half of a ring, side walls included up to where the back corners start
+function front<T>(ring: T[]): T[] {
+  const k = NC + 1;
+  return [ring[3 * k - 1], ...ring.slice(3 * k), ...ring.slice(0, k), ring[k]];
+}
+
+type Face = { d: string; fill: string };
+function walls(rings: V3[][], m: Mat, inward = false): Face[] {
+  const out: (Face & { z: number })[] = [];
+  for (let r = 0; r < rings.length - 1; r++) {
+    const A = rings[r], B = rings[r + 1];
+    for (let i = 0; i < A.length; i++) {
+      const j = (i + 1) % A.length;
+      let n = cross(sub(A[j], A[i]), sub(B[i], A[i]));
+      if (inward) n = mul(n, -1);
+      const c = mul(add(add(A[i], A[j]), add(B[i], B[j])), 0.25);
+      if (dot(n, sub(CAM, c)) <= 0) continue;
+      out.push({ d: path([A[i], A[j], B[j], B[i]].map(proj)), fill: shade(n, c, m), z: Math.hypot(...sub(c, CAM)) });
+    }
+  }
+  if (inward) out.sort((a, b) => b.z - a.z);
+  return out;
+}
+function normalOf(ring: V3[]): V3 {
+  let n: V3 = [0, 0, 0];
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length];
+    n = add(n, [(a[1] - b[1]) * (a[2] + b[2]), (a[2] - b[2]) * (a[0] + b[0]), (a[0] - b[0]) * (a[1] + b[1])]);
+  }
+  return n;
+}
+const centroid = (ring: V3[]) => mul(ring.reduce((s, p) => add(s, p), [0, 0, 0] as V3), 1 / ring.length);
+const capFill = (ring: V3[], m: Mat) => shade(normalOf(ring), centroid(ring), m);
+const rp = (ring: V3[]) => path(ring.map(proj));
+
+function hull(pts: P2[]): P2[] {
+  const p = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cr = (o: P2, a: P2, b: P2) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo: P2[] = [], up: P2[] = [];
+  for (const q of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (const q of [...p].reverse()) { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  return [...lo.slice(0, -1), ...up.slice(0, -1)];
+}
+// affine map that lays flat 2D artwork onto a plane at o spanned by ex (svg x) and ey (svg y)
+function plane(o: V3, ex: V3, ey: V3) {
+  const p0 = proj(o), px = proj(add(o, mul(ex, 10))), py = proj(add(o, mul(ey, 10)));
+  return `matrix(${f2((px[0] - p0[0]) / 10)} ${((px[1] - p0[1]) / 10).toFixed(4)} ${((py[0] - p0[0]) / 10).toFixed(4)} ${f2((py[1] - p0[1]) / 10)} ${f2(p0[0])} ${f2(p0[1])})`;
+}
+type Screw = { sink: string; head: string; slot: string };
+function screw(c: V3, ex: V3, ey: V3): Screw {
+  const ring = (r: number) => path(Array.from({ length: 22 }, (_, i) => { const a = (i / 22) * Math.PI * 2; return proj(add(c, add(mul(ex, Math.cos(a) * r), mul(ey, Math.sin(a) * r)))); }));
+  const ln = (a: number, r: number) => { const d = add(mul(ex, Math.cos(a) * r), mul(ey, Math.sin(a) * r)); return path([proj(sub(c, d)), proj(add(c, d))], false); };
+  return { sink: ring(4.6), head: ring(3.4), slot: ln(35 * deg, 2.1) + ln(125 * deg, 2.1) };
+}
+
+/* ── the model ───────────────────────────────────────────────────────── */
+
 type KeyId = "0" | "1" | "2" | "enter";
 const KEYS: { id: KeyId; tone: "pink" | "black"; label: string }[] = [
   { id: "0", tone: "pink", label: "0" },
@@ -15,61 +144,228 @@ const KEYS: { id: KeyId; tone: "pink" | "black"; label: string }[] = [
   { id: "2", tone: "pink", label: "2" },
   { id: "enter", tone: "black", label: "Enter" },
 ];
-const KW = 62, KG = 5, KX0 = 68.5, KTOP = 249, TRAVEL = 7;
+const TRAVEL = 6.5;
 const MAX = 9;
 const INITIAL = "21.02-22.02";
 
-function Screw({ x, y, id }: { x: number; y: number; id: string }) {
+const BW = 150, BD = 66, BR = 24, BZ = 36;
+const LW = 146, LH = 150, LR = 22, LT = 16, TILT = 15 * deg;
+const HINGE: V3 = [0, BD + 8, 60];
+const VV: V3 = [0, Math.sin(TILT), Math.cos(TILT)];
+const VW: V3 = [0, -Math.cos(TILT), Math.sin(TILT)];
+const KX = [-96, -32, 32, 96], KCY = -2, KH = 29, KB = 33, KTOP = 55.5, KTILT = 0.08, KBACK = 1.5;
+
+const baseRing = (ins: number, z: number): V3[] => rr(BW - ins, BD - ins, BR - ins).map(([a, b]) => [a, b, z]);
+const lidPt = (u: number, v: number, w: number): V3 => add(add(add(HINGE, [u, 0, 0]), mul(VV, v)), mul(VW, w));
+const lidRing = (ins: number, w: number): V3[] => rr(LW - ins, LH / 2 - ins, LR - ins).map(([a, b]) => lidPt(a, b + LH / 2, w));
+
+type KeyModel = {
+  id: KeyId; tone: "pink" | "black"; label: string; i: number;
+  housing: Face[]; housingTop: Face; vents: string[];
+  skirt: Face[]; top: string; topFill: string; topEdge: string; labelM: string;
+  dx: number; dy: number; hit: P2[];
+};
+
+function buildKey(i: number): KeyModel {
+  const k = KEYS[i];
+  const kx = KX[i];
+  const m = k.tone === "pink" ? PINK : BLACK;
+  // switch housing: a dark box standing on the tray floor
+  const hRing = (ins: number, z: number): V3[] => rr(24 - ins, 24 - ins, 3).map(([a, b]) => [kx + a, KCY + b, z]);
+  const housing = walls([hRing(0, 12), hRing(0, KB + 1)], HOUSING);
+  const hTop = hRing(0, KB + 1);
+  const vents: string[] = [];
+  for (let s = -1; s <= 1; s++) {
+    const x0 = kx + s * 13 - 4.5, y = KCY - 24.05;
+    vents.push(rp([[x0, y, 27], [x0 + 9, y, 27], [x0 + 9, y, 31], [x0, y, 31]]));
+  }
+  // cap: a tapered skirt, a rounded top edge and a top face tilted a touch toward the viewer
+  const cRing = (ins: number, z: number, tilt: number, back: number): V3[] =>
+    rr(KH - ins, KH - ins, 5 + ins * 0.35).map(([a, b]) => [kx + a, KCY + back + b, z + tilt * b]);
+  const rings = [cRing(0, KB, 0, 0), cRing(0.4, KB + 1.2, 0, 0), cRing(3.4, KTOP - 4, KTILT * 0.7, KBACK * 0.8), cRing(4.8, KTOP - 0.8, KTILT, KBACK), cRing(6.3, KTOP, KTILT, KBACK)];
+  const skirt = walls(rings, m);
+  const top = rings[rings.length - 1];
+  const tp = (a: number, b: number): V3 => [kx + a, KCY + KBACK + b, KTOP + KTILT * b];
+  const c0 = proj(tp(0, 0)), c1 = proj(add(tp(0, 0), [0, 0, -TRAVEL]));
+  const hit = hull([...rings[0], ...top].map(proj));
+  return {
+    id: k.id, tone: k.tone, label: k.label, i, housing,
+    housingTop: { d: rp(hTop), fill: capFill(hTop, HOUSING) }, vents, skirt,
+    top: rp(top), topFill: capFill(top, m), topEdge: path(front(top).map(proj), false),
+    labelM: plane(tp(0, 0), [1, 0, 0], nrm([0, -1, -KTILT])),
+    dx: c1[0] - c0[0], dy: c1[1] - c0[1], hit,
+  };
+}
+
+function build() {
+  // lid
+  const lidWalls = walls([lidRing(3, 0), lidRing(0, 2.5), lidRing(0, LT - 3), lidRing(1.3, LT - 1), lidRing(3.2, LT)], ALU);
+  const lidFace = { d: rp(lidRing(3.2, LT)) + rp(lidRing(11, LT)), fill: capFill(lidRing(3.2, LT), ALU) };
+  const lidTopEdge = path(lidRing(3.2, LT).slice(NC + 1, 3 * (NC + 1)).map(proj), false);
+  const bezelStep = walls([lidRing(12.5, LT - 2), lidRing(11, LT)], ALU, true);
+  const ledge = { d: rp(lidRing(12.5, LT - 2)) + rp(lidRing(18, LT - 2)), fill: capFill(lidRing(12.5, LT - 2), ALU) };
+  const ledgeFront = path(lidRing(12.5, LT - 2).slice(NC + 1, 3 * (NC + 1)).map(proj), false);
+  const glassStep = walls([lidRing(19.2, LT - 3.5), lidRing(18, LT - 2)], GLASSRIM, true);
+  const glass = rp(lidRing(19.2, LT - 3.5));
+  const display = rp(lidRing(26, LT - 3.5));
+  const GW = LT - 3.4;
+  const refl = rp([lidPt(-70, 150, GW), lidPt(-18, 150, GW), lidPt(-92, 0, GW), lidPt(-144, 0, GW)]);
+  const refl2 = rp([lidPt(-6, 150, GW), lidPt(6, 150, GW), lidPt(-68, 0, GW), lidPt(-80, 0, GW)]);
+  const screenM = plane(lidPt(0, LH / 2 - 1, GW), [1, 0, 0], mul(VV, -1));
+  const lidScrews = [[-1, 1], [1, 1], [-1, -1], [1, -1]].map(([sx, sv]) =>
+    screw(lidPt(sx * (LW - LR + (LR - 7.2) * 0.7071), LH / 2 + sv * (LH / 2 - LR + (LR - 7.2) * 0.7071), LT + 0.02), [1, 0, 0], VV));
+
+  // fabric strap from the back of the base up behind the lid
+  const strapAt = (t: number, u: number): V3 => {
+    const a: V3 = [u, BD - 10, BZ - 2], b = lidPt(u, 14, 6), c: V3 = [u, BD + 16, (BZ + HINGE[2]) / 2 + 2];
+    const s = 1 - t;
+    return add(add(mul(a, s * s), mul(c, 2 * s * t)), mul(b, t * t));
+  };
+  const strapPts: P2[] = [];
+  for (let t = 0; t <= 1.001; t += 0.1) strapPts.push(proj(strapAt(t, -30)));
+  for (let t = 1; t >= -0.001; t -= 0.1) strapPts.push(proj(strapAt(t, 30)));
+  const strap = path(strapPts);
+  const strapSeams = [-26, 26].map((u) => path(Array.from({ length: 11 }, (_, i) => proj(strapAt(i / 10, u))), false));
+
+  // base
+  const baseWalls = walls([baseRing(4, 0), baseRing(0, 4), baseRing(0, BZ - 4), baseRing(1.3, BZ - 1), baseRing(3.2, BZ)], ALU);
+  const baseFrontEdge = path(front(baseRing(3.2, BZ)).map(proj), false);
+  const baseSeam = path(front(baseRing(0, BZ - 12)).map(proj), false);
+  const rimTop = { d: rp(baseRing(3.2, BZ)) + rp(baseRing(13, BZ)), fill: capFill(baseRing(3.2, BZ), ALU) };
+  const chamfer = walls([baseRing(16, BZ - 3), baseRing(13, BZ)], ALU, true);
+  const trayWalls = walls([baseRing(16, 12), baseRing(16, BZ - 3)], ALU_IN, true);
+  const floor = rp(baseRing(16, 12));
+  const opening = rp(baseRing(16, BZ - 3));
+  const frontClip = path([...front(baseRing(-2, BZ)).map(proj), ...front(baseRing(16, BZ - 3)).map(proj).reverse()]);
+  const chamferEdge = path(front(baseRing(16, BZ - 3)).map(proj), false);
+  const baseScrews = [[-1, 1], [1, 1], [-1, -1], [1, -1]].map(([sx, sy]) =>
+    screw([sx * (BW - BR + (BR - 7.6) * 0.7071), sy * (BD - BR + (BR - 7.6) * 0.7071), BZ + 0.02], [1, 0, 0], [0, 1, 0]));
+  const shadow = rp(baseRing(6, 0));
+
+  // USB-C plug in the left end, with a strain relief
+  const pRing = (x: number, hz: number, hy: number, r: number): V3[] => rr(hz, hy, r).map(([a, b]) => [x, b, 19 + a]);
+  const plug = walls([pRing(-BW + 4, 8, 12, 6), pRing(-BW - 24, 8, 12, 6), pRing(-BW - 27, 7, 11, 5.4), pRing(-BW - 28, 5.6, 9.6, 4.6),
+    pRing(-BW - 29, 5, 6.6, 4.4), pRing(-BW - 40, 4.6, 5.6, 4.2)], PLUG);
+  const plugEnd = pRing(-BW - 40, 4.6, 5.6, 4.2);
+  const plugCap = { d: rp(plugEnd), fill: capFill(plugEnd, PLUG) };
+  const cableStart = proj([-BW - 40, 0, 19]);
+
+  const keys = KEYS.map((_, i) => buildKey(i));
+  const keyOrder = [...keys].sort((a, b) => Math.hypot(...sub([KX[b.i], KCY, 45], CAM)) - Math.hypot(...sub([KX[a.i], KCY, 45], CAM)));
+
+  // frame: everything solid, then pad
+  const all: P2[] = [...baseRing(0, 0), ...baseRing(0, BZ), ...lidRing(0, 0), ...lidRing(0, LT), ...plugEnd].map(proj);
+  const minX = Math.min(...all.map((p) => p[0])), maxX = Math.max(...all.map((p) => p[0]));
+  const minY = Math.min(...all.map((p) => p[1])), maxY = Math.max(...all.map((p) => p[1]));
+  const PAD = 10;
+  const vb = { x: minX - PAD, y: minY - PAD, w: maxX - minX + PAD * 2, h: maxY - minY + PAD * 2 + 6 };
+
+  // braided cable: enters top right, loops behind the lid on the left, crosses behind the strap,
+  // drops behind the right end and runs under the front of the base, out to the left
+  const X = (t: number) => minX + (maxX - minX) * t, Y = (t: number) => minY + (maxY - minY) * t;
+  const braid = sampleChain([X(1.12), Y(0.0)], [
+    [[X(0.85), Y(-0.07)], [X(0.4), Y(-0.1)], [X(0.15), Y(0.02)]],
+    [[X(-0.04), Y(0.1)], [X(-0.04), Y(0.42)], [X(0.25), Y(0.5)]],
+    [[X(0.55), Y(0.58)], [X(0.98), Y(0.5)], [X(1.02), Y(0.7)]],
+    [[X(1.06), Y(0.92)], [X(0.8), Y(1.06)], [X(0.45), Y(1.05)]],
+    [[X(0.15), Y(1.04)], [X(-0.02), Y(1.0)], [X(-0.14), Y(1.08)]],
+  ]);
+  const usb = `M${f2(cableStart[0])} ${f2(cableStart[1])} C${f2(cableStart[0] - 30)} ${f2(cableStart[1] + 2)} ${f2(cableStart[0] - 48)} ${f2(cableStart[1] + 22)} ${f2(cableStart[0] - 58)} ${f2(cableStart[1] + 70)}`;
+
+  return {
+    vb, lidWalls, lidFace, lidTopEdge, bezelStep, ledge, ledgeFront, glassStep, glass, display, refl, refl2, screenM, lidScrews,
+    strap, strapSeams, baseWalls, baseFrontEdge, baseSeam, rimTop, chamfer, chamferEdge, trayWalls, floor, opening, frontClip, baseScrews, shadow,
+    plug, plugCap, usb, keys, keyOrder, braid,
+  };
+}
+
+function sampleChain(p0: P2, segs: [P2, P2, P2][]) {
+  const pts: P2[] = [p0];
+  let a = p0;
+  for (const [c1, c2, b] of segs) {
+    for (let i = 1; i <= 40; i++) {
+      const t = i / 40, s = 1 - t;
+      pts.push([s * s * s * a[0] + 3 * s * s * t * c1[0] + 3 * s * t * t * c2[0] + t * t * t * b[0], s * s * s * a[1] + 3 * s * s * t * c1[1] + 3 * s * t * t * c2[1] + t * t * t * b[1]]);
+    }
+    a = b;
+  }
+  const lane = (off: number) => path(pts.map((p, i) => {
+    const q = pts[Math.min(pts.length - 1, i + 1)], o = pts[Math.max(0, i - 1)];
+    const dx = q[0] - o[0], dy = q[1] - o[1], l = Math.hypot(dx, dy) || 1;
+    return [p[0] - (dy / l) * off, p[1] + (dx / l) * off] as P2;
+  }), false);
+  return { core: lane(0), lanes: [-2.9, -1.45, 0, 1.45, 2.9].map(lane), hi: lane(-2.6), lo: lane(3.1) };
+}
+
+const M = build();
+
+/* ── components ──────────────────────────────────────────────────────── */
+
+function ScrewG({ s, id }: { s: Screw; id: string }) {
   return (
     <g>
-      <circle cx={x} cy={y + 0.6} r={3.9} fill="rgba(20,24,34,.45)" />
-      <circle cx={x} cy={y} r={3.5} fill={`url(#${id}-screw)`} stroke="rgba(30,34,46,.55)" strokeWidth={0.5} />
-      <path d={`M${x - 1.8} ${y + 1.1}l3.6 -2.2`} stroke="rgba(30,34,46,.6)" strokeWidth={0.8} strokeLinecap="round" />
+      <path d={s.sink} fill={`url(#${id}-sink)`} />
+      <path d={s.head} fill={`url(#${id}-screw)`} stroke="rgba(20,24,34,.5)" strokeWidth={0.4} />
+      <path d={s.slot} stroke="rgba(28,32,44,.75)" strokeWidth={0.75} strokeLinecap="round" fill="none" />
     </g>
   );
 }
 
-function Key({ x, tone, label, id, pressed, reduced }: { x: number; tone: "pink" | "black"; label: string; id: string; pressed: boolean; reduced: boolean | null }) {
+function Key({ k, id, pressed, reduced }: { k: KeyModel; id: string; pressed: boolean; reduced: boolean | null }) {
   const t = useSpring(0, { stiffness: 1100, damping: 26, mass: 0.6 });
   useEffect(() => { if (reduced) t.jump(pressed ? 1 : 0); else t.set(pressed ? 1 : 0); }, [pressed, reduced, t]);
-  const ty = useTransform(t, (v) => v * TRAVEL);
-  const pink = tone === "pink";
-  const g = pink ? "pk" : "bk";
-  const top = 0, faceB = 46;
+  const x = useTransform(t, (v) => v * k.dx);
+  const y = useTransform(t, (v) => v * k.dy);
+  const pink = k.tone === "pink";
   return (
-    <motion.g style={{ y: ty }}>
-      {/* skirt: the cap's front face, tapering up to the top face */}
-      <path d={`M${x + 3} ${KTOP + 4} Q${x + 3} ${KTOP} ${x + 8} ${KTOP} H${x + KW - 8} Q${x + KW - 3} ${KTOP} ${x + KW - 3} ${KTOP + 4} L${x + KW} ${KTOP + 80} H${x} Z`}
-        fill={`url(#${id}-${g}-skirt)`} />
-      {/* side shading on the skirt */}
-      <path d={`M${x + 3} ${KTOP + 6} L${x} ${KTOP + 80} H${x + 6} L${x + 7} ${KTOP + 8} Z`} fill="rgba(0,0,0,.28)" />
-      <path d={`M${x + KW - 3} ${KTOP + 6} L${x + KW} ${KTOP + 80} H${x + KW - 6} L${x + KW - 7} ${KTOP + 8} Z`} fill="rgba(0,0,0,.18)" />
-      {/* top face, slightly dished, with a lit back edge */}
-      <rect x={x + 6} y={KTOP + top} width={KW - 12} height={faceB} rx={6} fill={`url(#${id}-${g}-top)`} />
-      <rect x={x + 6.5} y={KTOP + 0.5} width={KW - 13} height={faceB - 1} rx={5.6} fill="none" stroke={pink ? "rgba(255,190,220,.45)" : "rgba(255,255,255,.16)"} strokeWidth={0.8} />
-      <path d={`M${x + 8} ${KTOP + faceB} H${x + KW - 8}`} stroke={pink ? "rgba(70,0,30,.55)" : "rgba(0,0,0,.6)"} strokeWidth={1.2} />
-      <rect x={x + 10} y={KTOP + 4} width={KW - 20} height={14} rx={5} fill={`url(#${id}-sheen)`} />
-      {/* legend */}
-      {label === "Enter" ? (
-        <path d={`M${x + 40} ${KTOP + 14} V${KTOP + 26} H${x + 23} M${x + 28.5} ${KTOP + 20.5} L${x + 22.5} ${KTOP + 26} L${x + 28.5} ${KTOP + 31.5}`}
-          fill="none" stroke="#f3f3f5" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
-      ) : (
-        <text x={x + KW / 2} y={KTOP + 34} textAnchor="middle" fill="#f6f4f6" fontSize={31}
-          style={{ fontFamily: '"DIN Condensed","DIN Alternate","Barlow Condensed","Roboto Condensed","Arial Narrow",sans-serif', fontWeight: 700 }}>{label}</text>
-      )}
+    <motion.g style={{ x, y }}>
+      {k.skirt.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.5} strokeLinejoin="round" />)}
+      <path d={k.top} fill={k.topFill} />
+      {/* the dish: darker toward the back, a soft pool of light toward the front */}
+      <path d={k.top} fill={`url(#${id}-dish)`} />
+      <path d={k.top} fill={`url(#${id}-${pink ? "pkspot" : "bkspot"})`} />
+      <path d={k.topEdge} fill="none" stroke={pink ? "rgba(255,190,222,.55)" : "rgba(255,255,255,.22)"} strokeWidth={0.8} strokeLinecap="round" />
+      <g transform={k.labelM}>
+        {k.label === "Enter" ? (
+          <path d="M8 -9 V2 H-8 M-3 -3.5 L-8.5 2 L-3 7.5" fill="none" stroke="#f1f1f4" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+        ) : (
+          <text x={0} y={10} textAnchor="middle" fill="#f8f4f7" fontSize={29}
+            style={{ fontFamily: '"DIN Condensed","DIN Alternate","Barlow Condensed","Roboto Condensed","Arial Narrow",sans-serif', fontWeight: 700 }}>{k.label}</text>
+        )}
+      </g>
     </motion.g>
   );
+}
+
+function useFit(size: "card" | "big") {
+  const ref = useRef<HTMLDivElement>(null);
+  const [s, setS] = useState(0.8);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      const w = el.clientWidth, h = el.clientHeight;
+      const clear = size === "big" ? 170 : h >= 300 ? 150 : 30;
+      const side = size === "big" ? Math.min(200, w * 0.14) : h >= 300 ? 110 : 220;
+      setS(Math.max(0.2, Math.min((w - side) / M.vb.w, (h - clear) / M.vb.h, size === "big" ? 1.75 : 1)));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [size]);
+  return { ref, s };
 }
 
 export default function MacroPad({ size = "card" }: { size?: "card" | "big" }) {
   const id = useId().replace(/:/g, "");
   const reduced = useReducedMotion();
+  const { ref, s: scale } = useFit(size);
   const [pressed, setPressed] = useState<Record<KeyId, boolean>>({ "0": false, "1": false, "2": false, enter: false });
   const [text, setText] = useState<string>(INITIAL);
   const [fresh, setFresh] = useState(true);
   const [ok, setOk] = useState(false);
   const okTimer = useRef<number | undefined>(undefined);
-  const devRef = useRef<HTMLDivElement>(null);
   useEffect(() => () => window.clearTimeout(okTimer.current), []);
 
   const fire = useCallback((k: KeyId) => {
@@ -100,198 +396,193 @@ export default function MacroPad({ size = "card" }: { size?: "card" | "big" }) {
   };
   const onKeyUp = (e: React.KeyboardEvent) => { const k = keyFor(e); if (k) { e.preventDefault(); up(k); } };
 
-  const scale = size === "big" ? 1.45 : 0.76;
+  const { vb } = M;
+  const W = vb.w * scale, H = vb.h * scale;
   const shown = ok ? "" : text;
+  const SCREEN_FONT = 'Futura,"Century Gothic","Avenir Next",Avenir,"Trebuchet MS",sans-serif';
 
   return (
-    <div data-own-click style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+    <div ref={ref} data-own-click style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
       <style>{`
-        .mp-dev{outline:none;user-select:none;-webkit-user-select:none;border-radius:28px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+        .mp-dev{outline:none;user-select:none;-webkit-user-select:none;border-radius:24px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
         .mp-dev:focus-visible{box-shadow:0 0 0 2px #191a19,0 0 0 4px #e0408a}
-        .mp-key{cursor:pointer}
+        .mp-key{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
         .mp-key:focus{outline:none}
-        .mp-key{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
         .mp-caret{animation:mp-blink 1.05s steps(1) infinite}
-        @keyframes mp-blink{50%{opacity:0}}
+        @keyframes mp-blink{50%{fill-opacity:0}}
         @media (prefers-reduced-motion: reduce){.mp-caret{animation:none}}
+        .mp-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
       `}</style>
-      <div ref={devRef} className="mp-dev" role="group" tabIndex={0} aria-label="Macro pad. Press 0, 1, 2 or Enter."
+      <div className="mp-dev" role="group" tabIndex={0} aria-label="Macro pad. Press 0, 1, 2 or Enter."
         onKeyDown={onKeyDown} onKeyUp={onKeyUp} onBlur={() => setPressed({ "0": false, "1": false, "2": false, enter: false })}
-        style={{ width: VW * scale, height: VH * scale, position: "relative" }}>
-        <svg viewBox={`0 0 ${VW} ${VH}`} width={VW * scale} height={VH * scale} style={{ display: "block", overflow: "visible" }}>
+        style={{ width: W, height: H, position: "relative" }}>
+        <svg viewBox={`${f2(vb.x)} ${f2(vb.y)} ${f2(vb.w)} ${f2(vb.h)}`} width={W} height={H} style={{ display: "block", overflow: "visible" }} aria-hidden="true">
           <defs>
-            {/* aluminium: cool blue grey, lit from above */}
-            <linearGradient id={`${id}-lidface`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#b9c1d6" /><stop offset=".12" stopColor="#9ea7c0" /><stop offset=".6" stopColor="#8d96b0" /><stop offset="1" stopColor="#7f88a2" />
-            </linearGradient>
-            <linearGradient id={`${id}-lidside`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#6d7590" /><stop offset="1" stopColor="#434a60" />
-            </linearGradient>
-            <linearGradient id={`${id}-baseface`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#b7bfd4" /><stop offset=".25" stopColor="#9ba4bd" /><stop offset="1" stopColor="#8790aa" />
-            </linearGradient>
-            <linearGradient id={`${id}-baselip`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#bfc6d3" /><stop offset=".35" stopColor="#a3aabb" /><stop offset="1" stopColor="#8d94a6" />
-            </linearGradient>
-            <linearGradient id={`${id}-baseside`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#77809a" /><stop offset=".5" stopColor="#59617a" /><stop offset="1" stopColor="#3b4155" />
-            </linearGradient>
-            <linearGradient id={`${id}-sweep`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stopColor="#000" stopOpacity=".16" /><stop offset=".3" stopColor="#fff" stopOpacity=".06" /><stop offset=".55" stopColor="#fff" stopOpacity="0" /><stop offset="1" stopColor="#000" stopOpacity=".18" />
-            </linearGradient>
-            <linearGradient id={`${id}-bezel`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#3a3e4a" /><stop offset=".5" stopColor="#23262e" /><stop offset="1" stopColor="#4c5160" />
-            </linearGradient>
-            <linearGradient id={`${id}-screen`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#14161c" /><stop offset=".5" stopColor="#0a0b0f" /><stop offset="1" stopColor="#0e1015" />
-            </linearGradient>
-            <linearGradient id={`${id}-glass`} x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#fff" stopOpacity=".07" /><stop offset=".4" stopColor="#fff" stopOpacity=".015" /><stop offset=".41" stopColor="#fff" stopOpacity="0" />
-            </linearGradient>
-            <linearGradient id={`${id}-tray`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#2a2e38" /><stop offset=".3" stopColor="#14161c" /><stop offset="1" stopColor="#0c0d11" />
-            </linearGradient>
-            <radialGradient id={`${id}-screw`} cx=".35" cy=".3" r=".8">
-              <stop offset="0" stopColor="#eef1f6" /><stop offset=".5" stopColor="#a9b0bf" /><stop offset="1" stopColor="#6c7384" />
+            <radialGradient id={`${id}-screw`} cx=".36" cy=".3" r=".85">
+              <stop offset="0" stopColor="#f2f5fb" /><stop offset=".45" stopColor="#aab2c6" /><stop offset="1" stopColor="#5b6378" />
             </radialGradient>
-            <linearGradient id={`${id}-pk-top`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#d23a80" /><stop offset=".55" stopColor="#bb216a" /><stop offset="1" stopColor="#a5175b" />
+            <radialGradient id={`${id}-sink`} cx=".5" cy=".62" r=".6">
+              <stop offset=".55" stopColor="#3b4256" /><stop offset="1" stopColor="#8f98b1" />
+            </radialGradient>
+            <linearGradient id={`${id}-sweep`} x1="0" y1="0" x2="1" y2=".25">
+              <stop offset="0" stopColor="#fff" stopOpacity=".12" /><stop offset=".35" stopColor="#fff" stopOpacity=".02" /><stop offset=".7" stopColor="#000" stopOpacity=".05" /><stop offset="1" stopColor="#000" stopOpacity=".2" />
             </linearGradient>
-            <linearGradient id={`${id}-pk-skirt`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#a8165c" /><stop offset=".35" stopColor="#8e0f4c" /><stop offset="1" stopColor="#4e0628" />
+            <linearGradient id={`${id}-glass`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#0c0e13" /><stop offset="1" stopColor="#050609" />
             </linearGradient>
-            <linearGradient id={`${id}-bk-top`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#3b3d45" /><stop offset=".55" stopColor="#2a2c33" /><stop offset="1" stopColor="#212227" />
+            <linearGradient id={`${id}-display`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#11141b" /><stop offset=".6" stopColor="#090a0e" /><stop offset="1" stopColor="#0c0e13" />
             </linearGradient>
-            <linearGradient id={`${id}-bk-skirt`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#25262c" /><stop offset=".4" stopColor="#18191d" /><stop offset="1" stopColor="#0a0a0c" />
+            <linearGradient id={`${id}-refl`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stopColor="#dfe6ff" stopOpacity="0" /><stop offset=".5" stopColor="#dfe6ff" stopOpacity=".07" /><stop offset="1" stopColor="#dfe6ff" stopOpacity="0" />
             </linearGradient>
-            <linearGradient id={`${id}-sheen`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#fff" stopOpacity=".16" /><stop offset="1" stopColor="#fff" stopOpacity="0" />
+            <linearGradient id={`${id}-floor`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#07080b" /><stop offset="1" stopColor="#14171e" />
             </linearGradient>
-            <linearGradient id={`${id}-strap`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#1c1e24" /><stop offset=".5" stopColor="#30333b" /><stop offset="1" stopColor="#1a1c21" />
+            <linearGradient id={`${id}-dish`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#000" stopOpacity=".26" /><stop offset=".55" stopColor="#000" stopOpacity=".04" /><stop offset="1" stopColor="#fff" stopOpacity=".06" />
             </linearGradient>
-            <pattern id={`${id}-weave`} width="3" height="3" patternUnits="userSpaceOnUse">
-              <rect width="3" height="3" fill="#2a2c33" /><rect width="1.5" height="3" fill="#353840" /><rect y="1.5" width="3" height=".5" fill="#1d1f24" />
+            <radialGradient id={`${id}-pkspot`} cx=".4" cy=".72" r=".6">
+              <stop offset="0" stopColor="#ff9cc8" stopOpacity=".28" /><stop offset="1" stopColor="#ff9cc8" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id={`${id}-bkspot`} cx=".4" cy=".72" r=".6">
+              <stop offset="0" stopColor="#fff" stopOpacity=".1" /><stop offset="1" stopColor="#fff" stopOpacity="0" />
+            </radialGradient>
+            <pattern id={`${id}-weave`} width="3.2" height="3.2" patternUnits="userSpaceOnUse" patternTransform="rotate(-8)">
+              <rect width="3.2" height="3.2" fill="#25272e" /><rect width="1.6" height="1.6" fill="#3d4049" /><rect x="1.6" y="1.6" width="1.6" height="1.6" fill="#33363e" />
             </pattern>
-            <linearGradient id={`${id}-usb`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#3a3c42" /><stop offset=".4" stopColor="#16171a" /><stop offset="1" stopColor="#060607" />
+            <linearGradient id={`${id}-strapShade`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#000" stopOpacity=".65" /><stop offset=".55" stopColor="#000" stopOpacity=".1" /><stop offset="1" stopColor="#000" stopOpacity=".45" />
             </linearGradient>
-            <filter id={`${id}-blur8`} x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="8" /></filter>
-            <filter id={`${id}-blur2`} x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.6" /></filter>
-            <filter id={`${id}-glow`} x="-10%" y="-40%" width="120%" height="180%"><feGaussianBlur stdDeviation="2.2" /></filter>
-            <clipPath id={`${id}-baseclip`}><rect x="40" y="238" width="320" height="122" rx="22" /></clipPath>
-            <clipPath id={`${id}-trayclip`}><rect x="64" y="200" width="272" height="132" rx="11" /></clipPath>
+            <radialGradient id={`${id}-fade`} gradientUnits="userSpaceOnUse" cx={vb.x + vb.w / 2} cy={vb.y + vb.h / 2} r={Math.max(vb.w, vb.h) * 0.66}>
+              <stop offset=".72" stopColor="#fff" /><stop offset="1" stopColor="#fff" stopOpacity="0" />
+            </radialGradient>
+            <mask id={`${id}-cablemask`} maskUnits="userSpaceOnUse" x={vb.x - vb.w} y={vb.y - vb.h} width={vb.w * 3} height={vb.h * 3}>
+              <rect x={vb.x - vb.w} y={vb.y - vb.h} width={vb.w * 3} height={vb.h * 3} fill={`url(#${id}-fade)`} />
+            </mask>
+            <filter id={`${id}-blur10`} x="-40%" y="-80%" width="180%" height="260%"><feGaussianBlur stdDeviation="10" /></filter>
+            <filter id={`${id}-blur3`} x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="3" /></filter>
+            <filter id={`${id}-glow`} x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="1.6" /></filter>
+            <clipPath id={`${id}-opening`}><path d={M.opening} /></clipPath>
+            <clipPath id={`${id}-front`}><path d={M.frontClip} /></clipPath>
+            <clipPath id={`${id}-glassclip`}><path d={M.glass} /></clipPath>
           </defs>
 
-          {/* braided cable looping behind both halves */}
-          <g fill="none" strokeLinecap="round">
-            {(() => {
-              const d = "M620 96 C520 60 440 84 412 72 C330 50 214 34 168 66 C132 92 142 170 222 184 C292 196 338 204 352 236 C368 272 352 340 302 360 C236 384 118 384 46 356 C0 338 -60 330 -160 360";
-              return (<>
-                <path d={d} stroke="#3c0520" strokeWidth={14} />
-                <path d={d} stroke="#8a1150" strokeWidth={12} />
-                <path d={d} stroke="#b72a6e" strokeWidth={10} strokeDasharray="2.2 2.6" />
-                <path d={d} stroke="#5a0a33" strokeWidth={10} strokeDasharray="1.2 3.6" strokeDashoffset={1.6} />
-                <path d={d} stroke="#ff8cc0" strokeOpacity={0.18} strokeWidth={2.5} transform="translate(0 -2.5)" />
-                <path d={d} stroke="#2a0215" strokeOpacity={0.5} strokeWidth={2} transform="translate(0 4)" />
-              </>);
-            })()}
+          {/* braided cable, behind everything */}
+          <g mask={`url(#${id}-cablemask)`} fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <path d={M.braid.core} stroke="#000" strokeOpacity={0.5} strokeWidth={12} transform="translate(0 4)" filter={`url(#${id}-blur3)`} />
+            <path d={M.braid.core} stroke="#3e0420" strokeWidth={9.4} />
+            {M.braid.lanes.map((d, j) => (
+              <g key={j}>
+                <path d={d} stroke="#a3205e" strokeWidth={1.9} strokeDasharray="2.4 2.4" strokeDashoffset={j * 0.95} strokeLinecap="butt" />
+                <path d={d} stroke="#6c0d3b" strokeWidth={1.9} strokeDasharray="1.2 3.6" strokeDashoffset={j * 0.95 + 2.6} strokeLinecap="butt" />
+              </g>
+            ))}
+            <path d={M.braid.hi} stroke="#ff9ccb" strokeOpacity={0.22} strokeWidth={1.3} />
+            <path d={M.braid.lo} stroke="#1c010d" strokeOpacity={0.7} strokeWidth={1.6} />
           </g>
 
           {/* soft contact shadow */}
-          <ellipse cx={200} cy={366} rx={160} ry={12} fill="rgba(0,0,0,.75)" filter={`url(#${id}-blur8)`} />
+          <path d={M.shadow} fill="rgba(0,0,0,.85)" filter={`url(#${id}-blur10)`} transform="translate(0 10)" />
+          <path d={M.shadow} fill="rgba(0,0,0,.9)" filter={`url(#${id}-blur3)`} transform="translate(0 3)" />
 
-          {/* strap hinge between the halves */}
-          <rect x={168} y={214} width={64} height={34} fill={`url(#${id}-weave)`} />
-          <rect x={168} y={214} width={64} height={34} fill={`url(#${id}-strap)`} opacity={0.55} />
-          <path d="M168 222 H232 M168 242 H232" stroke="rgba(0,0,0,.4)" strokeWidth={1} />
+          {/* fabric strap hinge */}
+          <path d={M.strap} fill={`url(#${id}-weave)`} />
+          <path d={M.strap} fill={`url(#${id}-strapShade)`} />
+          {M.strapSeams.map((d, i) => <path key={i} d={d} fill="none" stroke="rgba(255,255,255,.07)" strokeWidth={0.7} strokeDasharray="1.4 1.2" />)}
 
-          {/* lid: thickness, then the face */}
-          <rect x={50} y={94} width={300} height={138} rx={20} fill={`url(#${id}-lidside)`} />
-          <rect x={50} y={90} width={300} height={132} rx={20} fill={`url(#${id}-lidface)`} />
-          <rect x={50} y={90} width={300} height={132} rx={20} fill={`url(#${id}-sweep)`} />
-          <rect x={50.7} y={90.7} width={298.6} height={130.6} rx={19.4} fill="none" stroke="rgba(235,240,255,.38)" strokeWidth={1.1} />
-          <path d="M70 221.4 H330" stroke="rgba(40,44,56,.5)" strokeWidth={1} />
-          {/* stepped frame around the screen */}
-          <rect x={66} y={104} width={268} height={104} rx={13} fill="#7f88a3" />
-          <rect x={66} y={104} width={268} height={104} rx={13} fill="none" stroke="rgba(255,255,255,.4)" strokeWidth={1} />
-          <rect x={72} y={109} width={256} height={94} rx={10} fill={`url(#${id}-bezel)`} />
-          <rect x={80} y={116} width={240} height={80} rx={5} fill={`url(#${id}-screen)`} />
-          <rect x={80} y={116} width={240} height={80} rx={5} fill="none" stroke="rgba(0,0,0,.8)" strokeWidth={1.4} />
-          <Screw x={61} y={101} id={id} /><Screw x={339} y={101} id={id} /><Screw x={61} y={211} id={id} /><Screw x={339} y={211} id={id} />
-
-          {/* base: thickness, face, tray recess */}
-          <rect x={40} y={246} width={320} height={120} rx={22} fill={`url(#${id}-baseside)`} />
-          <rect x={40} y={238} width={320} height={114} rx={22} fill={`url(#${id}-baseface)`} />
-          <rect x={40} y={238} width={320} height={114} rx={22} fill={`url(#${id}-sweep)`} />
-          <rect x={40.7} y={238.7} width={318.6} height={112.6} rx={21.4} fill="none" stroke="rgba(235,240,255,.38)" strokeWidth={1.1} />
-          <rect x={58} y={247} width={284} height={92} rx={15} fill="#7e87a2" />
-          <rect x={58} y={247} width={284} height={92} rx={15} fill="none" stroke="rgba(255,255,255,.35)" strokeWidth={1} />
-          <rect x={64} y={252} width={272} height={80} rx={11} fill={`url(#${id}-tray)`} />
-          <Screw x={50} y={248} id={id} /><Screw x={350} y={248} id={id} /><Screw x={50} y={342} id={id} /><Screw x={350} y={342} id={id} />
-
-          {/* keys sit in the tray; the front lip hides their lower skirt */}
-          <g clipPath={`url(#${id}-trayclip)`}>
-            {/* switch housings under the caps */}
-            {KEYS.map((k, i) => {
-              const x = KX0 + i * (KW + KG);
-              return <rect key={k.id} x={x + 6} y={300} width={KW - 12} height={40} rx={3} fill="#0d0e12" stroke="rgba(255,255,255,.05)" />;
-            })}
+          {/* lid */}
+          {M.lidWalls.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.5} strokeLinejoin="round" />)}
+          <path d={M.lidFace.d} fill={M.lidFace.fill} fillRule="evenodd" />
+          <path d={M.lidFace.d} fill={`url(#${id}-sweep)`} fillRule="evenodd" />
+          <path d={M.lidTopEdge} fill="none" stroke="rgba(235,242,255,.7)" strokeWidth={0.9} strokeLinecap="round" />
+          {M.bezelStep.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.5} />)}
+          <path d={M.ledge.d} fill={M.ledge.fill} fillRule="evenodd" />
+          <path d={M.ledge.d} fill="rgba(20,26,44,.16)" fillRule="evenodd" />
+          <path d={M.ledgeFront} fill="none" stroke="rgba(235,242,255,.4)" strokeWidth={0.7} />
+          {M.glassStep.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.5} />)}
+          <path d={M.glass} fill={`url(#${id}-glass)`} />
+          <path d={M.display} fill={`url(#${id}-display)`} />
+          <g clipPath={`url(#${id}-glassclip)`}>
+            <path d={M.refl} fill={`url(#${id}-refl)`} />
+            <path d={M.refl2} fill="#dfe6ff" fillOpacity={0.025} />
           </g>
-          <g clipPath={`url(#${id}-baseclip)`}>
-            <g clipPath={`url(#${id}-trayclip)`}>
-              {KEYS.map((k, i) => (
-                <Key key={k.id} x={KX0 + i * (KW + KG)} tone={k.tone} label={k.label} id={id} pressed={pressed[k.id]} reduced={reduced} />
-              ))}
-            </g>
-            {/* inner shadow along the tray's back wall */}
-            <rect x={64} y={252} width={272} height={9} rx={4} fill="rgba(0,0,0,.45)" filter={`url(#${id}-blur2)`} />
-          </g>
-          {/* front lip of the tray, drawn over the key skirts */}
-          <path d="M64 322 H336 V332 Q336 336 332 336 H68 Q64 336 64 332 Z" fill="#0b0c10" />
-          <path d="M58 324 H342 V324 Q342 339 327 339 H73 Q58 339 58 324 Z" fill="#8a93ad" />
-          <path d="M64 324 H336" stroke="rgba(255,255,255,.55)" strokeWidth={1.2} />
-          <path d="M64 325.4 H336" stroke="rgba(0,0,0,.35)" strokeWidth={0.8} />
+          {M.lidScrews.map((s, i) => <ScrewG key={i} s={s} id={id} />)}
 
-          {/* USB plug on the left and its cable */}
-          <path d="M24 312 C0 314 -10 342 -22 378" fill="none" stroke="#050506" strokeWidth={17} strokeLinecap="round" />
-          <path d="M24 306 C2 309 -8 336 -20 372" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth={2} strokeLinecap="round" />
-          <rect x={8} y={296} width={46} height={30} rx={7} fill={`url(#${id}-usb)`} />
-          <rect x={8.5} y={296.5} width={45} height={29} rx={6.5} fill="none" stroke="rgba(255,255,255,.16)" />
+          {/* the screen text, laid onto the tilted glass */}
+          <g transform={M.screenM}>
+            {ok ? (
+              <motion.g key="ok" initial={reduced ? false : { opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 24 }}>
+                <text x={0} y={0} dominantBaseline="central" textAnchor="middle" fontSize={30} fill="#f3f4f7" style={{ fontFamily: SCREEN_FONT, fontWeight: 500, letterSpacing: "0.02em" }}>
+                  <tspan fill="#ff4f9c">{"✓ "}</tspan>Sent {text}
+                </text>
+              </motion.g>
+            ) : (
+              <g>
+                <text x={0} y={0} dominantBaseline="central" textAnchor="middle" fontSize={33} fill="#fff" opacity={0.5} filter={`url(#${id}-glow)`}
+                  style={{ fontFamily: SCREEN_FONT, fontWeight: 500, letterSpacing: "0.02em", fontVariantNumeric: "tabular-nums lining-nums" }}>{shown || " "}{!fresh && <tspan fillOpacity={0} fontWeight={300} dx={2}>|</tspan>}</text>
+                <text x={0} y={0} dominantBaseline="central" textAnchor="middle" fontSize={33} fill="#f6f7fa"
+                  style={{ fontFamily: SCREEN_FONT, fontWeight: 500, letterSpacing: "0.02em", fontVariantNumeric: "tabular-nums lining-nums" }}>
+                  {shown}
+                  {!fresh && <tspan className="mp-caret" fill="#ff4f9c" fontWeight={300} dx={2}>|</tspan>}
+                </text>
+              </g>
+            )}
+          </g>
+
+          {/* base */}
+          {M.baseWalls.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.5} strokeLinejoin="round" />)}
+          <path d={M.baseSeam} fill="none" stroke="rgba(18,22,34,.35)" strokeWidth={0.7} />
+          <path d={M.baseFrontEdge} fill="none" stroke="rgba(235,242,255,.75)" strokeWidth={0.9} strokeLinecap="round" />
+          <g>
+            <path d={M.rimTop.d} fill={M.rimTop.fill} fillRule="evenodd" />
+            <path d={M.rimTop.d} fill={`url(#${id}-sweep)`} fillRule="evenodd" />
+            {M.chamfer.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.5} />)}
+          </g>
+          {/* the tray: floor, shaded inner walls, switches */}
+          <g clipPath={`url(#${id}-opening)`}>
+            <path d={M.floor} fill={`url(#${id}-floor)`} />
+            {M.trayWalls.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.5} />)}
+            {M.keyOrder.map((k) => (
+              <g key={k.id}>
+                {k.housing.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.4} />)}
+                <path d={k.housingTop.d} fill={k.housingTop.fill} />
+                {k.vents.map((d, i) => <path key={i} d={d} fill="#010102" stroke="rgba(255,255,255,.07)" strokeWidth={0.4} />)}
+              </g>
+            ))}
+          </g>
+          {M.keyOrder.map((k) => <Key key={k.id} k={k} id={id} pressed={pressed[k.id]} reduced={reduced} />)}
+          {/* the front of the rim, again, over the key skirts */}
+          <g clipPath={`url(#${id}-front)`}>
+            <path d={M.rimTop.d} fill={M.rimTop.fill} fillRule="evenodd" />
+            <path d={M.rimTop.d} fill={`url(#${id}-sweep)`} fillRule="evenodd" />
+            {M.chamfer.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.5} />)}
+          </g>
+          <path d={M.chamferEdge} fill="none" stroke="rgba(10,12,18,.5)" strokeWidth={0.6} />
+          {M.baseScrews.map((s, i) => <ScrewG key={i} s={s} id={id} />)}
+
+          {/* USB-C plug and its cable */}
+          <g mask={`url(#${id}-cablemask)`} fill="none" strokeLinecap="round">
+            <path d={M.usb} stroke="#030304" strokeWidth={10.5} />
+            <path d={M.usb} stroke="rgba(255,255,255,.14)" strokeWidth={1.2} transform="translate(-1.6 -2.2)" />
+          </g>
+          {M.plug.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.5} strokeLinejoin="round" />)}
+          <path d={M.plugCap.d} fill={M.plugCap.fill} />
         </svg>
 
-        {/* the screen text: HTML for crisp tabular digits */}
-        <div aria-live="polite" style={{
-          position: "absolute", left: 82 * scale, top: 118 * scale, width: 236 * scale, height: 76 * scale,
-          display: "grid", placeItems: "center", pointerEvents: "none", color: "#f2f3f5",
-          fontFamily: '"Inter",system-ui,sans-serif', fontWeight: 400, fontSize: 34 * scale, letterSpacing: "0.02em",
-          fontVariantNumeric: "tabular-nums lining-nums", textShadow: `0 0 ${3 * scale}px rgba(255,255,255,.35)`, whiteSpace: "pre",
-        }}>
-          {ok ? (
-            <motion.span key="ok" initial={reduced ? false : { opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: "spring", stiffness: 500, damping: 24 }} style={{ display: "inline-flex", alignItems: "center", gap: 10 * scale }}>
-              <svg width={26 * scale} height={26 * scale} viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5 9.5 18 20 6.5" fill="none" stroke="#e0408a" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" /></svg>
-              <span>Sent {text}</span>
-            </motion.span>
-          ) : (
-            <span>
-              {shown}
-              {!fresh && <span className="mp-caret" aria-hidden="true" style={{ display: "inline-block", width: 3 * scale, height: 30 * scale, marginLeft: 3 * scale, verticalAlign: "-0.12em", background: "#e0408a", boxShadow: `0 0 ${4 * scale}px #e0408a` }} />}
-            </span>
-          )}
-        </div>
+        <div className="mp-sr" aria-live="polite">{ok ? `Sent ${text}` : text}</div>
 
-        {/* hit areas for the keys, over the key caps */}
-        {KEYS.map((k, i) => {
-          const x = KX0 + i * (KW + KG);
+        {/* hit areas for the keys, shaped to each cap's outline */}
+        {M.keys.map((k) => {
+          const xs = k.hit.map((p) => (p[0] - vb.x) * scale), ys = k.hit.map((p) => (p[1] - vb.y) * scale);
+          const l = Math.min(...xs), t = Math.min(...ys), r = Math.max(...xs), b = Math.max(...ys);
+          const poly = xs.map((x, i) => `${(x - l).toFixed(1)}px ${(ys[i] - t).toFixed(1)}px`).join(",");
           return (
             <button key={k.id} type="button" className="mp-key" tabIndex={-1} aria-label={k.label}
               onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); down(k.id); fire(k.id); }}
               onPointerUp={() => up(k.id)} onPointerCancel={() => up(k.id)} onLostPointerCapture={() => up(k.id)}
               onClick={(e) => { if (e.detail === 0) { fire(k.id); } }}
-              style={{ position: "absolute", left: x * scale, top: (KTOP - 2) * scale, width: KW * scale, height: 80 * scale, padding: 0, border: 0, background: "transparent" }} />
+              style={{ position: "absolute", left: l, top: t, width: r - l, height: b - t, padding: 0, border: 0, background: "transparent", clipPath: `polygon(${poly})` }} />
           );
         })}
       </div>
