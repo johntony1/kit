@@ -4,7 +4,7 @@
 // rounded corners and the dish catch the light the way a moulded cap does.
 // Press it and it sinks; let go and it slides along the slot to the other end and stays there.
 // The slot behind it lights up white as it goes, the slot ahead stays a dark groove.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion, useSpring, useTransform } from "framer-motion";
 import { play } from "../sound/sound";
 
@@ -116,13 +116,15 @@ const FOOT = "M" + ring(0.5, 0.5, 0.13).map(([a, b]) => proj([a, b, 0]).map((v) 
 const UNIT = proj([1, 0, 0]); // one cap width along the slot, on screen
 const P0 = proj([SLOT0, 0, 0]), P1 = proj([SLOT1, 0, 0]);
 
-// the frame: both ends of the travel, with room for the shadow
+// the frame: the real outline of the cap at both ends of its travel, the whole slot, and the
+// shadow that falls below and to the right, so the piece can be centred as one object
 const BOX = (() => {
   const xs: number[] = [], ys: number[] = [];
-  for (const a of [-0.55, TRAVEL + 0.55]) for (const b of [-0.55, 0.55]) for (const z of [0, H]) { const [x, y] = proj([a, b, z]); xs.push(x); ys.push(y); }
-  [P0, P1].forEach(([x, y]) => { xs.push(x); ys.push(y); });
-  const m = 18;
-  return { x: Math.min(...xs) - m, y: Math.min(...ys) - m, w: Math.max(...xs) - Math.min(...xs) + 2 * m, h: Math.max(...ys) - Math.min(...ys) + 2 * m + 10 };
+  const pts = buildRings().flat();
+  for (const off of [0, TRAVEL]) for (const [a, b, z] of pts) { const [x, y] = proj([a + off, b, z]); xs.push(x); ys.push(y); }
+  [P0, P1].forEach(([x, y]) => { xs.push(x - 5, x + 5); ys.push(y - 5, y + 5); });
+  const x0 = Math.min(...xs) - 6, x1 = Math.max(...xs) + 12, y0 = Math.min(...ys) - 6, y1 = Math.max(...ys) + 18;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 })();
 
 export function Keycap({ on, onToggle, width }: { on: boolean; onToggle: () => void; width: number }) {
@@ -160,19 +162,23 @@ export function Keycap({ on, onToggle, width }: { on: boolean; onToggle: () => v
         <defs>
           <filter id="kc-blur-l" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9" /></filter>
           <filter id="kc-blur-s" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4" /></filter>
-          <filter id="kc-glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="2.2" /></filter>
+          <filter id="kc-glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="2.8" /></filter>
           <filter id="kc-soft" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="0.3" /></filter>
           <clipPath id="kc-dish"><path d={DISH_CLIP} /></clipPath>
         </defs>
 
-        {/* the slot: a groove cut in the surface, a lip of light on its far edge */}
-        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} stroke="rgba(255,255,255,.07)" strokeWidth={6.4} strokeLinecap="round" transform="translate(0.6 1.2)" />
-        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} stroke="#0b0c0c" strokeWidth={5.2} strokeLinecap="round" />
-        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} stroke="#2a2f36" strokeWidth={2.6} strokeLinecap="round" transform="translate(0 0.7)" />
-        {/* the lit slot behind the cap */}
+        {/* the slot: a groove cut into the charcoal surface. A soft dark bed, the far wall in
+            shadow, a thin lip of light on the near edge where the surface turns down into it */}
+        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} stroke="rgba(255,255,255,.09)" strokeWidth={7.6} strokeLinecap="round" transform="translate(0.5 1.3)" />
+        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} stroke="rgba(0,0,0,.55)" strokeWidth={7.6} strokeLinecap="round" transform="translate(0 -0.4)" />
+        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} stroke="#0c0d0c" strokeWidth={6.2} strokeLinecap="round" />
+        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} stroke="#1a1c1a" strokeWidth={3} strokeLinecap="round" transform="translate(0.2 1)" />
+        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} stroke="#000" strokeOpacity={0.7} strokeWidth={1.6} strokeLinecap="round" transform="translate(-0.2 -1.3)" />
+        {/* the lit slot behind the cap: a soft bloom in the groove and a clean white core */}
         <motion.g style={{ opacity: litO }}>
-          <motion.line x1={P0[0]} y1={P0[1]} x2={litX2} y2={litY2} stroke="rgba(235,241,255,.5)" strokeWidth={6} strokeLinecap="round" filter="url(#kc-glow)" />
-          <motion.line x1={P0[0]} y1={P0[1]} x2={litX2} y2={litY2} stroke="#f4f7fb" strokeWidth={3.4} strokeLinecap="round" />
+          <motion.line x1={P0[0]} y1={P0[1]} x2={litX2} y2={litY2} stroke="rgba(225,234,255,.42)" strokeWidth={8} strokeLinecap="round" filter="url(#kc-glow)" />
+          <motion.line x1={P0[0]} y1={P0[1]} x2={litX2} y2={litY2} stroke="#dfe6f0" strokeWidth={4} strokeLinecap="round" />
+          <motion.line x1={P0[0]} y1={P0[1]} x2={litX2} y2={litY2} stroke="#ffffff" strokeWidth={2} strokeLinecap="round" transform="translate(0 -0.4)" />
         </motion.g>
 
         {/* contact shadow: a wide soft one and a tight one at the foot */}
@@ -193,12 +199,26 @@ export function Keycap({ on, onToggle, width }: { on: boolean; onToggle: () => v
   );
 }
 
-/** the block: one keycap that slides from end to end of its slot, with a key sound on each press */
+/** the block: one keycap that slides from end to end of its slot, with a key sound on each press.
+ * It measures its tile and sizes the whole travel (cap at both ends, slot, shadow) to fit, centred. */
 export default function KeycapBlock({ size = "card" }: { size?: "card" | "big" }) {
   const [on, setOn] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(size === "big" ? 640 : 300);
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const update = () => {
+      const W = el.clientWidth, Hh = el.clientHeight; if (!W || !Hh) return;
+      const big = size === "big";
+      const side = big ? 96 : 40, clear = big ? 140 : Hh < 260 ? 68 : 128;
+      setW(Math.max(80, Math.min(big ? 820 : 340, W - 2 * side, ((Hh - clear) * BOX.w) / BOX.h)));
+    };
+    const ro = new ResizeObserver(update); ro.observe(el); update();
+    return () => ro.disconnect();
+  }, [size]);
   return (
-    <div data-own-click style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-      <Keycap on={on} onToggle={() => setOn((v) => !v)} width={size === "big" ? 860 : 330} />
+    <div ref={ref} data-own-click style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+      <Keycap on={on} onToggle={() => setOn((v) => !v)} width={w} />
     </div>
   );
 }
