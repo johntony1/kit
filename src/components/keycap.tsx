@@ -2,9 +2,10 @@
 // The cap is a real little 3D model (rings lofted from the rounded base, up the tapered walls,
 // over a soft fillet and down into a cylindrical dish), projected and shaded per facet, so the
 // rounded corners and the dish catch the light the way a moulded cap does.
-// Press it and it sinks; let go and it slides along the slot to the other end and stays there.
+// Press it and it sinks. Drag it and it slides along the slot like a slider thumb and stays where
+// you leave it (0 to 1); a plain click sends it to the far end.
 // The slot behind it lights up white as it goes, the slot ahead stays a dark groove.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion, useSpring, useTransform } from "framer-motion";
 import { play } from "../sound/sound";
 
@@ -127,12 +128,18 @@ const BOX = (() => {
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 })();
 
-export function Keycap({ on, onToggle, width }: { on: boolean; onToggle: () => void; width: number }) {
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+const ULEN = Math.hypot(UNIT[0], UNIT[1]);
+const UDIR = [UNIT[0] / ULEN, UNIT[1] / ULEN];
+
+export function Keycap({ value, onChange, width }: { value: number; onChange: (v: number) => void; width: number }) {
   const reduced = useReducedMotion();
   const [down, setDown] = useState(false);
-  const pos = useSpring(on ? 1 : 0, { stiffness: 210, damping: 24, mass: 1 });
+  const pos = useSpring(value, { stiffness: 210, damping: 24, mass: 1 });
   const dip = useSpring(0, { stiffness: 900, damping: 30, mass: 0.6 });
-  useEffect(() => { if (reduced) pos.jump(on ? 1 : 0); else pos.set(on ? 1 : 0); }, [on, pos, reduced]);
+  const drag = useRef<{ id: number; x: number; y: number; v0: number; moved: boolean; step: number } | null>(null);
+  const live = useRef(false); // while dragging, the cap follows the pointer exactly
+  useEffect(() => { if (reduced || live.current) pos.jump(value); else pos.set(value); }, [value, pos, reduced]);
   useEffect(() => { if (reduced) dip.jump(down ? 1 : 0); else dip.set(down ? 1 : 0); }, [down, dip, reduced]);
 
   const tx = useTransform(pos, (p) => UNIT[0] * TRAVEL * p);
@@ -145,18 +152,63 @@ export function Keycap({ on, onToggle, width }: { on: boolean; onToggle: () => v
   const litY2 = useTransform(pos, (p) => P0[1] + (UNIT[1] * (TRAVEL * p - SLOT0)));
   const litO = useTransform(pos, (p) => Math.min(1, Math.max(0, p * 3)));
 
+  // a plain click (or Space/Enter) sends the cap to the far end from where it sits
+  const jump = () => { live.current = false; onChange(value >= 0.5 ? 0 : 1); };
   const press = () => { if (!down) { setDown(true); play("key"); } };
-  const release = (commit: boolean) => { if (!down) return; setDown(false); if (commit) onToggle(); };
+  const release = (commit: boolean) => { if (!down) return; setDown(false); if (commit) jump(); };
+  const nudge = (v: number) => { live.current = false; const n = clamp01(Math.round(v * 100) / 100); if (n !== value) { play("detent", { gap: 40 }); onChange(n); } };
+
+  // the cap's screen scale: svg units to css px
+  const scale = width / BOX.w;
+  const pct = Math.round(value * 100);
+
+  const vectorCaps = useMemo(() => (
+    <g filter="url(#kc-soft)">
+      {FACETS.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.7} strokeLinejoin="round" />)}
+      <g clipPath="url(#kc-dish)">{DISH_BANDS.map((f, i) => <path key={i} d={f.d} fill={f.fill} />)}</g>
+    </g>
+  ), []);
 
   return (
-    <button type="button" role="switch" aria-checked={on} aria-label="Keycap" className="kc-btn"
-      onPointerDown={(e) => { if (e.button === 0) { e.currentTarget.setPointerCapture(e.pointerId); press(); } }}
-      onPointerUp={() => release(true)} onPointerCancel={() => release(false)}
-      onKeyDown={(e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); press(); } }}
+    <div role="slider" tabIndex={0} aria-label="Keycap slider" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-valuetext={`${pct}%`}
+      aria-orientation="horizontal" className="kc-btn"
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, v0: value, moved: false, step: Math.floor(value * 10 + 1e-6) };
+        press();
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current; if (!d || d.id !== e.pointerId) return;
+        const dx = e.clientX - d.x, dy = e.clientY - d.y;
+        if (!d.moved && Math.hypot(dx, dy) < 4) return;
+        d.moved = true; live.current = true;
+        const along = dx * UDIR[0] + dy * UDIR[1]; // the pointer projected onto the slot
+        const v = clamp01(d.v0 + along / (ULEN * TRAVEL * scale));
+        const step = Math.floor(v * 10 + 1e-6);
+        if (step !== d.step) { d.step = step; play("detent", { gap: 40 }); }
+        pos.jump(v);
+        onChange(v);
+      }}
+      onPointerUp={(e) => {
+        const d = drag.current; if (!d || d.id !== e.pointerId) return;
+        drag.current = null;
+        if (d.moved) { setDown(false); live.current = false; } else release(true);
+      }}
+      onPointerCancel={() => { drag.current = null; live.current = false; release(false); }}
+      onKeyDown={(e) => {
+        const k = e.key;
+        if (k === "ArrowRight" || k === "ArrowUp") { e.preventDefault(); nudge(value + 0.05); }
+        else if (k === "ArrowLeft" || k === "ArrowDown") { e.preventDefault(); nudge(value - 0.05); }
+        else if (k === "PageUp") { e.preventDefault(); nudge(value + 0.1); }
+        else if (k === "PageDown") { e.preventDefault(); nudge(value - 0.1); }
+        else if (k === "Home") { e.preventDefault(); nudge(0); }
+        else if (k === "End") { e.preventDefault(); nudge(1); }
+        else if ((k === " " || k === "Enter") && !e.repeat) { e.preventDefault(); press(); }
+      }}
       onKeyUp={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); release(true); } }}
-      onBlur={() => release(false)}
-      onClick={(e) => { if (e.detail === 0 && !down) { play("key"); onToggle(); } }}
-      style={{ padding: 0, border: 0, background: "none", cursor: "pointer", display: "block", borderRadius: 18, touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}>
+      onBlur={() => { if (!drag.current) release(false); }}
+      style={{ padding: 0, border: 0, background: "none", cursor: down ? "grabbing" : "grab", display: "block", borderRadius: 18, touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTapHighlightColor: "transparent" }}>
       <style>{`.kc-btn:focus-visible{outline:2px solid rgba(255,255,255,.55);outline-offset:4px}`}</style>
       <svg viewBox={`${BOX.x} ${BOX.y} ${BOX.w} ${BOX.h}`} width={width} height={(width * BOX.h) / BOX.w} aria-hidden="true" style={{ display: "block", overflow: "visible" }}>
         <defs>
@@ -189,20 +241,17 @@ export function Keycap({ on, onToggle, width }: { on: boolean; onToggle: () => v
 
         {/* the cap */}
         <motion.g style={{ x: tx, y: ty }}>
-          <g filter="url(#kc-soft)">
-            {FACETS.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.7} strokeLinejoin="round" />)}
-            <g clipPath="url(#kc-dish)">{DISH_BANDS.map((f, i) => <path key={i} d={f.d} fill={f.fill} />)}</g>
-          </g>
+          {vectorCaps}
         </motion.g>
       </svg>
-    </button>
+    </div>
   );
 }
 
-/** the block: one keycap that slides from end to end of its slot, with a key sound on each press.
+/** the block: one keycap slider in its slot, with a key sound on press and soft detents as it slides.
  * It measures its tile and sizes the whole travel (cap at both ends, slot, shadow) to fit, centred. */
 export default function KeycapBlock({ size = "card" }: { size?: "card" | "big" }) {
-  const [on, setOn] = useState(false);
+  const [value, setValue] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(size === "big" ? 640 : 300);
   useEffect(() => {
@@ -218,7 +267,7 @@ export default function KeycapBlock({ size = "card" }: { size?: "card" | "big" }
   }, [size]);
   return (
     <div ref={ref} data-own-click style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-      <Keycap on={on} onToggle={() => setOn((v) => !v)} width={w} />
+      <Keycap value={value} onChange={setValue} width={w} />
     </div>
   );
 }
