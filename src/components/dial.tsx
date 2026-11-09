@@ -1,7 +1,7 @@
-// Power dial: a white rounded-square base, like an app icon, with a recessed ring holding a round
-// white knob. The knob carries an I mark (on) and an O mark (off). Turn it (drag), click it or use
+// Power dial: a dark charcoal rounded-square base, like an app icon, with a recessed ring holding a round
+// dark knob. The knob carries an I mark (on) and an O mark (off). Turn it (drag), click it or use
 // the arrow keys: it snaps between two positions with a detent. On, the fine ribbed ring around the
-// knob glows blue and the I lights; off, the ring dims to grey.
+// knob glows blue and the I lights; off, the ring dims to a dark grey rib ring.
 import { useEffect, useId, useRef, useState } from "react";
 import { play } from "../sound/sound";
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
@@ -39,11 +39,12 @@ export default function Dial({ size = "card" }: { size?: "card" | "big" }) {
   const light = useSpring(1, { stiffness: 150, damping: 26 });
   useEffect(() => { if (reduced) light.jump(on ? 1 : 0); else light.set(on ? 1 : 0); }, [on, light, reduced]);
 
-  const ringBase = useTransform(light, [0, 1], ["#bfc4c9", "#24a8e6"]);
-  const ringEdge = useTransform(light, [0, 1], ["#a3a9af", "#0a64a3"]);
-  const ribs = useTransform(light, [0, 1], ["#e3e6e9", "#aaeaff"]);
+  const ringBase = useTransform(light, [0, 1], ["#2c2e2d", "#24a8e6"]);
+  const ringEdge = useTransform(light, [0, 1], ["#151615", "#0a64a3"]);
+  const ribs = useTransform(light, [0, 1], ["#484b49", "#aaeaff"]);
   const glow = useTransform(light, [0, 1], [0, 0.85]);
-  const markI = useTransform(light, [0, 1], ["#b9bec3", "#10a3ec"]);
+  const markI = useTransform(light, [0, 1], ["#8a8f8c", "#5fd0ff"]);
+  const wallGlow = useTransform(light, [0, 1], [0, 0.4]);
   const markGlow = useTransform(light, [0, 0.6, 1], [0, 0, 0.8]);
 
   const commit = (next: boolean) => {
@@ -96,11 +97,22 @@ export default function Dial({ size = "card" }: { size?: "card" | "big" }) {
     else if (e.key === " " || e.key === "Enter") { e.preventDefault(); commit(!onRef.current); }
   };
 
-  const w = size === "big" ? 480 : 236, h = (w * VB.h) / VB.w, k = w / VB.w;
+  // fit the tile: the base (200 units) keeps ~64px clear top and bottom on tall tiles, ~22px on short ones
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    const el = boxRef.current; if (!el) return;
+    const ro = new ResizeObserver(([e]) => setBox({ w: e.contentRect.width, h: e.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const maxBase = size === "big" ? 400 : 210;
+  const fitBase = box ? Math.min(box.h - (box.h >= 300 ? 128 : 44), box.w - 96) : maxBase;
+  const k = Math.max(60, Math.min(maxBase, fitBase)) / 200, w = VB.w * k, h = VB.h * k;
   const u = (n: string) => `url(#${id}-${n})`;
 
   return (
-    <div data-own-click style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+    <div ref={boxRef} data-own-click style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
       <style>{`.dl-btn{padding:0;border:0;background:none;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent;border-radius:24%;outline:none;user-select:none;-webkit-user-select:none}
 .dl-btn:active{cursor:grabbing}
 .dl-btn:focus-visible{box-shadow:0 0 0 3px #191a19,0 0 0 5px #3fb6ff}`}</style>
@@ -110,28 +122,48 @@ export default function Dial({ size = "card" }: { size?: "card" | "big" }) {
         style={{ width: 200 * k, height: 200 * k, display: "block", position: "relative" }}>
         <svg ref={svgRef} viewBox={`${VB.x} ${VB.y} ${VB.w} ${VB.h}`} width={w} height={h} aria-hidden="true" style={{ display: "block", overflow: "visible", position: "absolute", left: VB.x * k, top: VB.y * k, pointerEvents: "none" }}>
           <defs>
-            {/* base: a soft white pillow, grey toward its edges and its lower side */}
+            {/* base: a charcoal pillow, deeper toward its edges and its lower side */}
             <linearGradient id={`${id}-edge`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#eef0f1" /><stop offset=".6" stopColor="#d9dcdf" /><stop offset="1" stopColor="#b3b7bc" />
+              <stop offset="0" stopColor="#2f312f" /><stop offset=".55" stopColor="#232523" /><stop offset="1" stopColor="#141514" />
             </linearGradient>
             <linearGradient id={`${id}-top`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#ffffff" /><stop offset=".6" stopColor="#f7f8f9" /><stop offset="1" stopColor="#eef0f2" />
+              <stop offset="0" stopColor="#373937" /><stop offset=".55" stopColor="#2d2f2d" /><stop offset="1" stopColor="#262826" />
             </linearGradient>
-            <radialGradient id={`${id}-well`} cx=".5" cy=".5" r=".5">
-              <stop offset=".86" stopColor="#d5d9dc" /><stop offset=".96" stopColor="#e9ecee" /><stop offset="1" stopColor="#f6f7f8" stopOpacity="0" />
+            <radialGradient id={`${id}-sheen`} cx=".5" cy="0" r=".75">
+              <stop offset="0" stopColor="#fff" stopOpacity=".07" /><stop offset="1" stopColor="#fff" stopOpacity="0" />
             </radialGradient>
-            {/* knob */}
+            <linearGradient id={`${id}-rim`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#fff" stopOpacity=".16" /><stop offset=".22" stopColor="#fff" stopOpacity=".05" /><stop offset=".5" stopColor="#fff" stopOpacity="0" />
+            </linearGradient>
+            {/* the well: a dark recess, shaded at the top, a faint lit lip at the bottom */}
+            <radialGradient id={`${id}-well`} cx=".5" cy=".5" r=".5">
+              <stop offset=".8" stopColor="#121312" /><stop offset=".93" stopColor="#191a19" /><stop offset="1" stopColor="#1d1f1d" stopOpacity="0" />
+            </radialGradient>
+            <linearGradient id={`${id}-wellLip`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#000" stopOpacity=".7" /><stop offset=".5" stopColor="#000" stopOpacity=".15" /><stop offset=".8" stopColor="#fff" stopOpacity=".04" /><stop offset="1" stopColor="#fff" stopOpacity=".13" />
+            </linearGradient>
+            <linearGradient id={`${id}-ringLight`} x1=".85" y1="0" x2=".15" y2="1">
+              <stop offset="0" stopColor="#fff" stopOpacity=".2" /><stop offset=".45" stopColor="#fff" stopOpacity=".03" /><stop offset=".6" stopColor="#000" stopOpacity="0" /><stop offset="1" stopColor="#000" stopOpacity=".3" />
+            </linearGradient>
+            {/* knob: a dark soft touch cylinder */}
             <linearGradient id={`${id}-wall`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#eceef0" /><stop offset=".55" stopColor="#e2e5e8" /><stop offset=".85" stopColor="#cfd3d7" /><stop offset="1" stopColor="#b5babf" />
+              <stop offset="0" stopColor="#2a2c2a" /><stop offset=".55" stopColor="#222422" /><stop offset=".85" stopColor="#1a1b1a" /><stop offset="1" stopColor="#101110" />
             </linearGradient>
             <linearGradient id={`${id}-wallSide`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stopColor="#5a6168" stopOpacity=".18" /><stop offset=".2" stopColor="#5a6168" stopOpacity="0" />
-              <stop offset=".8" stopColor="#5a6168" stopOpacity="0" /><stop offset="1" stopColor="#5a6168" stopOpacity=".2" />
+              <stop offset="0" stopColor="#000" stopOpacity=".45" /><stop offset=".22" stopColor="#000" stopOpacity="0" />
+              <stop offset=".78" stopColor="#000" stopOpacity="0" /><stop offset="1" stopColor="#000" stopOpacity=".5" />
             </linearGradient>
             <linearGradient id={`${id}-face`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#eef1f2" /><stop offset=".3" stopColor="#e7ebec" /><stop offset=".49" stopColor="#dfe4e6" />
-              <stop offset=".53" stopColor="#f5f7f8" /><stop offset=".62" stopColor="#f3f5f7" /><stop offset="1" stopColor="#f7f8f9" />
+              <stop offset="0" stopColor="#323432" /><stop offset=".3" stopColor="#2c2e2c" /><stop offset=".49" stopColor="#252725" />
+              <stop offset=".53" stopColor="#2f312f" /><stop offset=".62" stopColor="#2d2f2d" /><stop offset="1" stopColor="#292b29" />
             </linearGradient>
+            <radialGradient id={`${id}-faceSheen`} cx=".5" cy=".12" r=".55">
+              <stop offset="0" stopColor="#fff" stopOpacity=".09" /><stop offset="1" stopColor="#fff" stopOpacity="0" />
+            </radialGradient>
+            <filter id={`${id}-grain`} x="0" y="0" width="100%" height="100%">
+              <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="2" seed="4" />
+              <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .9 -.35" />
+            </filter>
             <filter id={`${id}-b1`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.2" /></filter>
             <filter id={`${id}-b3`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" /></filter>
             <filter id={`${id}-b5`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" /></filter>
@@ -142,55 +174,64 @@ export default function Dial({ size = "card" }: { size?: "card" | "big" }) {
           </defs>
 
           {/* the base's shadow on the dark tile: a wide soft one and a tight contact one */}
-          <rect x="8" y="22" width="184" height="186" rx="50" fill="#000" opacity=".6" filter={u("b8")} />
-          <rect x="3" y="8" width="194" height="196" rx="48" fill="#000" opacity=".55" filter={u("b3")} />
+          <rect x="6" y="24" width="188" height="188" rx="52" fill="#000" opacity=".75" filter={u("b8")} />
+          <rect x="2" y="7" width="196" height="197" rx="48" fill="#000" opacity=".7" filter={u("b3")} />
 
-          {/* the base: grey at its rounded edges, a blurred white top swelling out of it */}
+          {/* the base: dark at its rounded edges, a blurred lighter top swelling out of it */}
           <g clipPath={u("baseClip")}>
             <rect x="0" y="0" width="200" height="200" rx="48" fill={u("edge")} />
-            <rect x="7" y="4" width="186" height="182" rx="42" fill={u("top")} filter={u("b5")} />
-            <rect x="0" y="0" width="200" height="200" rx="48" fill="none" stroke="#fff" strokeWidth="2" opacity=".9" transform="translate(0 .8)" />
+            <rect x="8" y="5" width="184" height="180" rx="42" fill={u("top")} filter={u("b5")} />
+            <rect x="0" y="0" width="200" height="120" fill={u("sheen")} />
+            <rect x="0" y="0" width="200" height="200" rx="48" fill="#000" filter={u("grain")} opacity=".18" />
+            <rect x=".75" y=".75" width="198.5" height="198.5" rx="47.25" fill="none" stroke={u("rim")} strokeWidth="1.5" />
           </g>
+          <rect x="-.5" y="-.5" width="201" height="201" rx="48.5" fill="none" stroke="#000" strokeOpacity=".55" strokeWidth="1" />
 
           {/* the recess the ring sits in */}
-          <circle cx={CX} cy={CY + 1} r={RING_OUT + 5} fill={u("well")} />
-          <circle cx={CX} cy={CY} r={RING_OUT + 0.8} fill="none" stroke="#9aa1a8" strokeOpacity=".55" strokeWidth="1" />
+          <circle cx={CX} cy={CY + 1} r={RING_OUT + 6} fill={u("well")} />
+          <circle cx={CX} cy={CY} r={RING_OUT + 1.2} fill="none" stroke={u("wellLip")} strokeWidth="1.6" />
 
-          {/* glow: blue light spilling onto the white base */}
-          <motion.circle cx={CX} cy={CY} r={RING_OUT - 2} fill="none" stroke="#2fc0ff" strokeWidth="10" filter={u("b8")} style={{ opacity: glow }} />
+          {/* glow: blue light spilling onto the dark base */}
+          <motion.circle cx={CX} cy={CY} r={RING_OUT - 2} fill="none" stroke="#2fc0ff" strokeWidth="12" filter={u("b8")} style={{ opacity: glow }} />
           <motion.circle cx={CX} cy={CY} r={RING_OUT} fill="none" stroke="#6ad6ff" strokeWidth="4" filter={u("b3")} style={{ opacity: glow }} />
 
           {/* the ribbed ring: a coloured band, fine radial ribs, dark rims, light from the top right */}
           <g clipPath={u("ringClip")}>
             <motion.circle cx={CX} cy={CY} r={(RING_IN + RING_OUT) / 2} fill="none" strokeWidth={RING_OUT - RING_IN} style={{ stroke: ringBase }} />
             <motion.path d={TICKS} strokeWidth=".8" style={{ stroke: ribs, opacity: 0.8 }} />
-            <path d={`M${CX} ${CY - RING_OUT} A${RING_OUT} ${RING_OUT} 0 0 1 ${CX + RING_OUT} ${CY}`} fill="none" stroke="#fff" strokeOpacity=".28" strokeWidth={(RING_OUT - RING_IN) * 2} />
-            <motion.circle cx={CX} cy={CY} r={RING_IN + 2.5} fill="none" strokeWidth="3" strokeOpacity=".35" style={{ stroke: ringEdge }} />
+            <circle cx={CX} cy={CY} r={(RING_IN + RING_OUT) / 2} fill="none" stroke={u("ringLight")} strokeWidth={RING_OUT - RING_IN} />
+            <motion.circle cx={CX} cy={CY} r={RING_IN + 2.5} fill="none" strokeWidth="3" strokeOpacity=".45" style={{ stroke: ringEdge }} />
           </g>
           <motion.circle cx={CX} cy={CY} r={RING_OUT - 0.5} fill="none" strokeWidth="1.2" style={{ stroke: ringEdge }} />
 
           {/* the knob's shadow on the ring, heavier at the bottom right */}
-          <circle cx={CX + 2.5} cy={CY + 3} r={KNOB + 1} fill="#032a44" opacity=".5" filter={u("b3")} />
-          <circle cx={CX + 0.5} cy={CY + 1} r={KNOB + 0.4} fill="#000" opacity=".3" filter={u("b1")} />
+          <circle cx={CX + 2.5} cy={CY + 3.5} r={KNOB + 1.5} fill="#000" opacity=".75" filter={u("b3")} />
+          <circle cx={CX + 0.5} cy={CY + 1} r={KNOB + 0.4} fill="#000" opacity=".6" filter={u("b1")} />
 
-          {/* the knob: a short white cylinder, its wall darker toward the bottom, then its face */}
+          {/* the knob: a short dark cylinder, its wall darker toward the bottom, then its face */}
           <path d={BODY} fill={u("wall")} />
           <path d={BODY} fill={u("wallSide")} />
+          <path d={`M${CX - KNOB + 0.6} ${CY - 1}A${KNOB - 0.6} ${KNOB - 0.6} 0 0 0 ${CX + KNOB - 0.6} ${CY - 1}`} fill="none" stroke="#fff" strokeOpacity=".05" strokeWidth="1" />
+          {/* the ring's light catching the bottom of the knob's wall */}
+          <motion.path d={`M${CX - KNOB + 4} ${CY + 18}A${KNOB - 0.8} ${KNOB - 0.8} 0 0 0 ${CX + KNOB - 4} ${CY + 18}`} fill="none" stroke="#3fc6ff" strokeWidth="1.4" filter={u("b1")} style={{ opacity: wallGlow }} />
           <circle cx={CX} cy={FY} r={KNOB} fill={u("face")} />
-          {/* the face's bevel: a bright lip at the bottom, a soft shade at the top */}
           <g clipPath={u("faceClip")}>
-            <circle cx={CX} cy={FY - 1.5} r={KNOB} fill="none" stroke="#fff" strokeWidth="3" filter={u("b1")} />
-            <circle cx={CX} cy={FY + 2} r={KNOB} fill="none" stroke="#9aa2a9" strokeOpacity=".35" strokeWidth="2.4" filter={u("b1")} />
+            <circle cx={CX} cy={FY} r={KNOB} fill={u("faceSheen")} />
+            <rect x={CX - KNOB} y={FY - KNOB} width={KNOB * 2} height={KNOB * 2} fill="#000" filter={u("grain")} opacity=".16" />
+            {/* the face's bevel: a lit lip at the top, a soft shade at the bottom */}
+            <circle cx={CX} cy={FY + 1.6} r={KNOB} fill="none" stroke="#fff" strokeOpacity=".16" strokeWidth="2.6" filter={u("b1")} />
+            <circle cx={CX} cy={FY - 2} r={KNOB} fill="none" stroke="#000" strokeOpacity=".45" strokeWidth="3" filter={u("b1")} />
           </g>
-          <circle cx={CX} cy={FY} r={KNOB - 0.3} fill="none" stroke="#c8cdd1" strokeOpacity=".6" strokeWidth=".6" />
+          <circle cx={CX} cy={FY} r={KNOB - 0.3} fill="none" stroke="#fff" strokeOpacity=".07" strokeWidth=".6" />
 
           {/* the marks turn with the knob; the shading stays with the light */}
           <motion.g style={{ rotate: angle, originX: "50%", originY: "50%" }}>
             <circle cx={CX} cy={FY} r={KNOB} fill="none" stroke="none" />
-            <motion.rect x={CX - 3} y={FY - KNOB + 11} width="6" height="17" rx="3" fill="#2fc0ff" filter={u("b3")} style={{ opacity: markGlow }} />
+            <motion.rect x={CX - 3.5} y={FY - KNOB + 10} width="7" height="19" rx="3.5" fill="#2fc0ff" filter={u("b3")} style={{ opacity: markGlow }} />
+            <rect x={CX - 1.4} y={FY - KNOB + 12.8} width="2.8" height="15" rx="1.4" fill="#000" opacity=".5" />
             <motion.rect x={CX - 1.4} y={FY - KNOB + 12} width="2.8" height="15" rx="1.4" style={{ fill: markI }} />
-            <circle cx={CX} cy={FY + KNOB - 19} r="6.2" fill="none" stroke="#fff" strokeWidth="2.2" transform="translate(0 .8)" />
-            <circle cx={CX} cy={FY + KNOB - 19} r="6.2" fill="none" stroke="#a6abb0" strokeWidth="1.8" />
+            <circle cx={CX} cy={FY + KNOB - 19} r="6.2" fill="none" stroke="#000" strokeOpacity=".55" strokeWidth="2" transform="translate(0 .9)" />
+            <circle cx={CX} cy={FY + KNOB - 19} r="6.2" fill="none" stroke="#9a9f9c" strokeWidth="1.8" />
           </motion.g>
         </svg>
       </button>
