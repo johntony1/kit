@@ -283,7 +283,7 @@ function softColor(img: ImageData, theme: Theme) {
 export function paintFrame(ctx: CanvasRenderingContext2D, ill: Illustration, t: number, h: number, theme: Theme, px: number, style: DotStyle, dpr = 1) {
   const win = bounds(ill);
   if (style === "stipple") {
-    const st = new Stipple(ill, theme, px, dpr);
+    const st = new Stipple(ill, theme, px, dpr, false);
     st.setTone(t, h);
     if (!layer) layer = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(st.W, st.H) : document.createElement("canvas");
     layer.width = st.W; layer.height = st.H;
@@ -331,66 +331,109 @@ function blueNoise() {
   return (BN = out);
 }
 
+/** how cells are chosen: atkinson diffuses error (crisp, high contrast, the classic Mac look);
+ *  blue noise thresholds each cell on its own (steadier while a scene moves) */
+export let DITHER: "atkinson" | "blue" = "blue";
+export const setDither = (d: "atkinson" | "blue") => { DITHER = d; };
+/** atkinson error diffusion in place: values end as on (>= .5) or off. Cells marked -1 are empty space */
+function atkinson(a: Float32Array, w: number, h: number) {
+  // serpentine: every other row runs right to left, which breaks up the herringbone
+  for (let y = 0; y < h; y++) {
+    const s = y & 1 ? -1 : 1;
+    for (let k = 0; k < w; k++) {
+      const x = s > 0 ? k : w - 1 - k, i = y * w + x, v = a[i];
+      if (v < 0) continue;
+      const o = v >= 0.5 ? 1 : 0, e = (v - o) / 8;
+      a[i] = o;
+      const add = (dx: number, dy: number) => { const X = x + dx * s, Y = y + dy; if (X >= 0 && X < w && Y < h) { const j = Y * w + X; if (a[j] >= 0) a[j] += e; } };
+      add(1, 0); add(2, 0); add(-1, 1); add(0, 1); add(1, 1); add(0, 2);
+    }
+  }
+}
+
 const hash = (x: number, y: number, s = 0) => ((((x * 73856093) ^ (y * 19349663) ^ (s * 83492791)) >>> 0) % 10007) / 10007;
 
-/** the stipple feel: dot size, how far the pointer reaches, how it drags and springs back */
+/** the stipple feel: dot size, how far the pointer reaches, how it drags, carves and heals */
 export const STIPPLE = {
   cell: 0.38, // css px per cell, as a share of the art's pitch
-  reach: 0.075, // pointer radius, as a share of the width
-  drag: 0.85, // how much of the pointer's motion the dots under it take
-  hole: 0.6, // how far dots part around a resting pointer, in radii
-  spring: 70, // pull back home
-  damping: 10, // a touch under critical: they settle with one soft wobble
+  pad: 0.14, // room around the art (share of its width) so dots can be pulled out past its edge
+  reach: 0.07, // pointer radius, as a share of the width
+  drag: 0.9, // hovering: how much of the pointer's motion the dots under it take (pulls edges like taffy)
+  hover: 0.22, // hovering: how far dots lean away from the pointer, in radii
+  carve: 1.05, // pressed: the hole the pointer clears, in radii (dots inside are packed onto its rim)
+  burst: 120, // a click throws the dots out, cells per second at the centre
+  heal: 3.4, // how fast a carved crack closes once the pointer has moved on (per second)
+  spring: 36, // pull back home: low, so cracks zip shut rather than snap
+  damping: 7.4, // a little under critical: shapes settle with one soft jelly wobble
 };
 
 export class Stipple {
-  /** canvas size in device pixels */
+  /** canvas size in device pixels (the art plus room around it) */
   W: number; H: number;
+  /** the room around the art, in device pixels on each side */
+  padX: number; padY: number;
   private cell: number; private dot: number; private cols: number; private rows: number; private ox: number; private oy: number;
-  private on = new Int32Array(0); private col = new Uint32Array(0); private n = 0;
+  private ac: number; private ar: number; private aq: number; private arow: number;
+  private dens: Float32Array | null = null;
+  private on = new Int32Array(0); private col = new Uint32Array(0); private jit = new Float32Array(0); private n = 0;
   private img: ImageData | null = null; private buf: Uint32Array | null = null;
   // the displacement field: one node every F cells, each a damped spring
-  private F = 3; private fw: number; private fh: number;
+  private F = 2; private fw: number; private fh: number;
   private Dx: Float32Array; private Dy: Float32Array; private Vx: Float32Array; private Vy: Float32Array;
-  private px = 0; private py = 0; private inside = false; private mx = 0; private my = 0; private R: number;
+  // the opening a press carves stays carved for a moment after the pointer moves on, then zips shut
+  private Mx: Float32Array; private My: Float32Array; private ph = [0, 0, 0];
+  private px = 0; private py = 0; private inside = false; private pressed = false; private kick = false; private mx = 0; private my = 0; private R: number;
   /** true while the dots are away from home or the pointer is on them */
   active = false;
 
-  constructor(private ill: Illustration, private theme: Theme, pitch: number, dpr: number) {
+  constructor(private ill: Illustration, private theme: Theme, pitch: number, dpr: number, roomy = true) {
     const win = bounds(ill);
-    this.W = Math.max(1, Math.round(win.w * pitch * dpr)); this.H = Math.max(1, Math.round(win.h * pitch * dpr));
+    const aw = win.w * pitch * dpr, ah = win.h * pitch * dpr;
+    this.padX = roomy ? Math.round(aw * STIPPLE.pad) : 0; this.padY = roomy ? Math.round(ah * STIPPLE.pad) : 0;
+    this.W = Math.max(1, Math.round(aw) + this.padX * 2); this.H = Math.max(1, Math.round(ah) + this.padY * 2);
     this.cell = Math.max(3, Math.round(pitch * dpr * STIPPLE.cell));
-    this.dot = this.cell <= 4 ? this.cell - 1 : Math.round(this.cell * 0.74);
+    this.dot = this.cell <= 4 ? this.cell - 1 : Math.round(this.cell * 0.72);
     this.cols = Math.floor(this.W / this.cell); this.rows = Math.floor(this.H / this.cell);
     this.ox = Math.floor((this.W - this.cols * this.cell) / 2); this.oy = Math.floor((this.H - this.rows * this.cell) / 2);
+    // the art's own cells inside the padded grid
+    this.aq = Math.round((this.padX - this.ox) / this.cell); this.arow = Math.round((this.padY - this.oy) / this.cell);
+    this.ac = Math.max(1, Math.round(aw / this.cell)); this.ar = Math.max(1, Math.round(ah / this.cell));
     this.fw = Math.ceil(this.cols / this.F) + 2; this.fh = Math.ceil(this.rows / this.F) + 2;
     const m = this.fw * this.fh;
     this.Dx = new Float32Array(m); this.Dy = new Float32Array(m); this.Vx = new Float32Array(m); this.Vy = new Float32Array(m);
-    this.R = Math.max(5, this.cols * STIPPLE.reach);
+    this.Mx = new Float32Array(m); this.My = new Float32Array(m);
+    this.R = Math.max(5, this.ac * STIPPLE.reach);
   }
 
   /** sample the scene at time t, hover h, and decide which cells are lit and in what tint */
   setTone(t: number, h: number) {
-    const win = bounds(this.ill), ss = 2, cols = this.cols, rows = this.rows;
-    const img = renderHi(this.ill, t, h, (cols * ss) / win.w, win, true, 0.03);
+    const win = bounds(this.ill), ac = this.ac, ar = this.ar, cols = this.cols;
+    // one sample per cell, at its centre: silhouettes and detail lines stay crisp instead of fraying
+    const img = renderHi(this.ill, t, h, ac / win.w, win, true, 0.02);
     const d = img.data, iw = img.width, ih = img.height, bn = blueNoise();
     const A = hex(this.theme.a), B = hex(this.theme.b ?? this.theme.a);
-    if (this.on.length < cols * rows) { this.on = new Int32Array(cols * rows); this.col = new Uint32Array(cols * rows); }
-    let n = 0;
-    for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
-      let s = 0;
-      for (let y = 0; y < ss; y++) {
-        const yy = Math.min(ih - 1, r * ss + y);
-        for (let x = 0; x < ss; x++) s += d[(yy * iw + Math.min(iw - 1, q * ss + x)) * 4];
-      }
-      const v = s / (ss * ss * 255);
-      if (v < 0.03) continue;
-      const u = q / cols, w = r / rows;
-      // light from the top left: every flat face gets a slow ramp, which is what makes dithering sing
+    const size = this.cols * this.rows;
+    if (this.on.length < size) { this.on = new Int32Array(size); this.col = new Uint32Array(size); this.jit = new Float32Array(size); }
+    // density per cell first, then decide which cells light
+    if (!this.dens || this.dens.length < ac * ar) this.dens = new Float32Array(ac * ar);
+    const dn = this.dens;
+    for (let r = 0; r < ar; r++) for (let q = 0; q < ac; q++) {
+      const v = d[(Math.min(ih - 1, r) * iw + Math.min(iw - 1, q)) * 4] / 255;
+      const u = q / ac, w = r / ar;
+      // light from the top left: every flat face gets a slow ramp, which is what makes dithering sing.
       // tones are pushed apart (lit tops nearly solid, shaded walls sparse) so mid grey only lives in the ramps
-      const light = 1.22 - 0.62 * (u * 0.45 + w * 0.55);
-      const dens = Math.min(0.985, Math.pow(Math.max(0, (v - 0.26) / 0.74), 2.1) * light + (v > 0.26 ? 0.035 : 0));
-      if (dens <= bn[(r % BNS) * BNS + (q % BNS)]) continue;
+      const light = 1.42 - 0.95 * (u * 0.45 + w * 0.55);
+      dn[r * ac + q] = v < 0.05 ? -1 : Math.min(1, Math.pow(Math.max(0, (v - 0.26) / 0.74), 2.1) * light + (v > 0.26 ? 0.035 : 0));
+    }
+    if (DITHER === "atkinson") atkinson(dn, ac, ar);
+    let n = 0;
+    for (let r = 0; r < ar; r++) for (let q = 0; q < ac; q++) {
+      const dens = dn[r * ac + q];
+      if (dens < 0) continue;
+      const v = d[(Math.min(ih - 1, r) * iw + Math.min(iw - 1, q)) * 4] / 255;
+      const u = q / ac, w = r / ar;
+      const gq = q + this.aq, gr = r + this.arow;
+      if (DITHER === "atkinson" ? dens < 0.5 : dens <= bn[(gr % BNS) * BNS + (gq % BNS)]) continue;
       // the dot's own tint: the theme across the art, brighter on lit faces, with a small personal drift
       const k = w * 0.75 + u * 0.25, j = hash(q, r) - 0.5, j2 = hash(q, r, 1) - 0.5;
       const L = (0.6 + 0.4 * Math.min(1, v)) * (1 + j * 0.16);
@@ -401,62 +444,90 @@ export class Stipple {
         c += (i === 0 ? 1 : i === 2 ? -1 : 0) * j2 * 22; // warmer or cooler
         return Math.max(0, Math.min(255, Math.round(c * L)));
       };
-      this.on[n] = r * cols + q;
+      this.on[n] = gr * cols + gq;
       this.col[n] = ((255 << 24) | (ch(2) << 16) | (ch(1) << 8) | ch(0)) >>> 0;
+      // each dot travels a little more or less than its neighbours: torn edges come out hairy, like sand
+      this.jit[n] = 0.74 + 0.52 * hash(q, r, 2);
       n++;
     }
     this.n = n;
   }
 
+  private toCells(cx: number, cy: number, rect: DOMRect) {
+    return [((cx - rect.left) * (this.W / rect.width) - this.ox) / this.cell, ((cy - rect.top) * (this.H / rect.height) - this.oy) / this.cell];
+  }
   /** the pointer, in client coordinates over a box of rect */
   point(cx: number, cy: number, rect: DOMRect) {
-    const x = ((cx - rect.left) * (this.W / rect.width) - this.ox) / this.cell;
-    const y = ((cy - rect.top) * (this.H / rect.height) - this.oy) / this.cell;
+    const [x, y] = this.toCells(cx, cy, rect);
     if (this.inside) { this.mx += x - this.px; this.my += y - this.py; }
     this.px = x; this.py = y; this.inside = true; this.active = true;
   }
-  leave() { this.inside = false; this.mx = this.my = 0; }
+  /** a press: the dots burst out from under it and stay parted while it is held */
+  down(cx: number, cy: number, rect: DOMRect) {
+    this.point(cx, cy, rect); this.pressed = true; this.kick = true;
+    // every press splats differently
+    this.ph = [Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28];
+  }
+  up() { this.pressed = false; }
+  leave() { this.inside = false; this.pressed = false; this.mx = this.my = 0; }
 
   /** move the springs on by dt seconds */
   step(dt: number) {
-    const { F, fw, fh, R, Dx, Dy, Vx, Vy } = this;
-    const lim = R * 0.9;
-    let mx = Math.max(-lim, Math.min(lim, this.mx)), my = Math.max(-lim, Math.min(lim, this.my));
+    const { F, fw, fh, R, Dx, Dy, Vx, Vy, Mx, My, pressed, ph } = this;
+    const heal = Math.exp(-dt * STIPPLE.heal);
+    const lim = R * 1.2;
+    const mx = Math.max(-lim, Math.min(lim, this.mx)), my = Math.max(-lim, Math.min(lim, this.my));
     this.mx = this.my = 0;
-    const K = STIPPLE.spring, C = STIPPLE.damping, R2 = R * R, hole = R * STIPPLE.hole;
+    const kick = this.kick; this.kick = false;
+    const K = STIPPLE.spring, C = STIPPLE.damping, R2 = R * R;
+    const r0 = R * STIPPLE.carve, lean = R * STIPPLE.hover, drag = pressed ? STIPPLE.drag * 0.38 : STIPPLE.drag;
     let moving = this.inside;
     for (let gy = 0; gy < fh; gy++) for (let gx = 0; gx < fw; gx++) {
       const i = gy * fw + gx;
-      let tx = 0, ty = 0;
+      let tx = 0, ty = 0, k = K;
       if (this.inside) {
         const dx = (gx - 1) * F - this.px, dy = (gy - 1) * F - this.py, d2 = dx * dx + dy * dy;
-        if (d2 < R2 * 9) {
-          const w = Math.exp(-d2 / R2);
-          Dx[i] += mx * w * STIPPLE.drag; Dy[i] += my * w * STIPPLE.drag;
-          const dd = Math.sqrt(d2) + 1e-3, o = hole * Math.exp(-d2 / (R2 * 0.5));
-          tx = (dx / dd) * o; ty = (dy / dd) * o;
+        if (d2 < R2 * 12) {
+          const w = Math.exp(-d2 / R2), dd = Math.sqrt(d2) + 1e-3, ux = dx / dd, uy = dy / dd;
+          Dx[i] += mx * w * drag; Dy[i] += my * w * drag;
+          if (pressed) {
+            // carve: a splat, not a circle. The rim wanders with the angle, so the hole has lobes and spikes
+            const a = Math.atan2(dy, dx);
+            const rr = r0 * (1 + 0.2 * Math.sin(3 * a + ph[0]) + 0.13 * Math.sin(7 * a + ph[1]) + 0.08 * Math.sin(13 * a + ph[2]));
+            // everything inside is packed onto the rim, the rim bulges outward and fades
+            const o = dd < rr ? rr - dd + rr * 0.16 : rr * 0.16 * Math.exp(-((dd - rr) * (dd - rr)) / R2);
+            const cx = ux * o, cy = uy * o;
+            // remember the opening, so a pressed drag leaves a crack that closes behind it
+            if (cx * cx + cy * cy > Mx[i] * Mx[i] + My[i] * My[i]) { Mx[i] = cx; My[i] = cy; }
+            k = K * 2.4; // held open firmly
+            if (kick) { const b = STIPPLE.burst * Math.exp(-d2 / (R2 * 2.2)); Vx[i] += ux * b; Vy[i] += uy * b; }
+          } else { const o = lean * Math.exp(-d2 / (R2 * 0.6)); tx = ux * o; ty = uy * o; }
         }
       }
-      Vx[i] += (-K * (Dx[i] - tx) - C * Vx[i]) * dt; Vy[i] += (-K * (Dy[i] - ty) - C * Vy[i]) * dt;
+      // the carved opening heals from the outside in: its memory fades, so the crack narrows and zips shut
+      if (!pressed || !this.inside) { Mx[i] *= heal; My[i] *= heal; }
+      else { Mx[i] *= Math.exp(-dt * STIPPLE.heal * 0.5); My[i] *= Math.exp(-dt * STIPPLE.heal * 0.5); }
+      if (Mx[i] * Mx[i] + My[i] * My[i] > tx * tx + ty * ty) { tx = Mx[i]; ty = My[i]; }
+      Vx[i] += (-k * (Dx[i] - tx) - C * Vx[i]) * dt; Vy[i] += (-k * (Dy[i] - ty) - C * Vy[i]) * dt;
       Dx[i] += Vx[i] * dt; Dy[i] += Vy[i] * dt;
-      if (!moving && (Math.abs(Dx[i]) + Math.abs(Dy[i]) > 0.02 || Math.abs(Vx[i]) + Math.abs(Vy[i]) > 0.05)) moving = true;
+      if (!moving && (Math.abs(Mx[i]) + Math.abs(My[i]) > 0.05 || Math.abs(Dx[i]) + Math.abs(Dy[i]) > 0.02 || Math.abs(Vx[i]) + Math.abs(Vy[i]) > 0.05)) moving = true;
     }
-    if (!moving) { Dx.fill(0); Dy.fill(0); Vx.fill(0); Vy.fill(0); }
+    if (!moving) { Dx.fill(0); Dy.fill(0); Vx.fill(0); Vy.fill(0); Mx.fill(0); My.fill(0); }
     this.active = moving;
   }
 
   /** every lit dot, displaced, in device pixels */
   private place(fn: (x: number, y: number, i: number) => void) {
-    const { F, fw, Dx, Dy, cols, cell, ox, oy } = this;
+    const { F, fw, fh, Dx, Dy, cols, cell, ox, oy, jit } = this;
     const live = this.active;
     for (let k = 0; k < this.n; k++) {
       const idx = this.on[k], q = idx % cols, r = (idx / cols) | 0;
       let x = q, y = r;
       if (live) {
-        const fx = q / F + 1, fy = r / F + 1, x0 = fx | 0, y0 = fy | 0, ax = fx - x0, ay = fy - y0;
-        const i = y0 * fw + x0;
-        x += (Dx[i] * (1 - ax) + Dx[i + 1] * ax) * (1 - ay) + (Dx[i + fw] * (1 - ax) + Dx[i + fw + 1] * ax) * ay;
-        y += (Dy[i] * (1 - ax) + Dy[i + 1] * ax) * (1 - ay) + (Dy[i + fw] * (1 - ax) + Dy[i + fw + 1] * ax) * ay;
+        const fx = q / F + 1, fy = r / F + 1, x0 = Math.min(fw - 2, fx | 0), y0 = Math.min(fh - 2, fy | 0), ax = fx - x0, ay = fy - y0;
+        const i = y0 * fw + x0, j = jit[k];
+        x += ((Dx[i] * (1 - ax) + Dx[i + 1] * ax) * (1 - ay) + (Dx[i + fw] * (1 - ax) + Dx[i + fw + 1] * ax) * ay) * j;
+        y += ((Dy[i] * (1 - ax) + Dy[i + 1] * ax) * (1 - ay) + (Dy[i + fw] * (1 - ax) + Dy[i + fw + 1] * ax) * ay) * j;
       }
       fn(Math.round(ox + x * cell), Math.round(oy + y * cell), k);
     }
@@ -568,7 +639,7 @@ export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pit
   const W = bx.w * pitch, H = bx.h * pitch;
   const parts: string[] = [];
   if (style === "stipple") {
-    const st = new Stipple(ill, theme, pitch, 1);
+    const st = new Stipple(ill, theme, pitch, 1, false);
     st.setTone(t, h);
     st.each((x, y, s, col) => parts.push(`<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="${col}"/>`));
   } else if (style === "halftone") {

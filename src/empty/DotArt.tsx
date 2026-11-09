@@ -4,6 +4,7 @@
 // and spring back home.
 import { useEffect, useLayoutEffect, useRef, useMemo, useState, useSyncExternalStore } from "react";
 import { theme as siteTheme } from "../site/theme";
+import { play } from "../sound/sound";
 import { bounds, paintFrame, Stipple, THEMES, type DotStyle, type Illustration, type Theme } from "./dots";
 
 export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitch = 9, look = "stipple" }: { ill: Illustration; theme?: Theme; hover?: boolean; fit?: number; maxPitch?: number; look?: DotStyle }) {
@@ -40,7 +41,7 @@ export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitc
     if (look === "stipple") return runStipple(c, ill, theme, pitch, dpr, seen, ill.kind, h, wantRef, st);
     const W = win.w * pitch, H = win.h * pitch;
     c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
-    c.style.width = `${W}px`; c.style.height = `${H}px`;
+    c.style.width = `${W}px`; c.style.height = `${H}px`; c.style.margin = "0";
     const ctx = c.getContext("2d")!;
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
     let raf = 0, last = performance.now(), t = 0, drawn = -1;
@@ -68,6 +69,13 @@ export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitc
   return (
     <div ref={box} className="dotArt" onPointerEnter={() => setOver(true)}
       onPointerMove={(e) => { const c = cv.current; if (c && st.current && e.pointerType !== "touch") st.current.point(e.clientX, e.clientY, c.getBoundingClientRect()); }}
+      onPointerDown={(e) => {
+        const c = cv.current;
+        if (!c || !st.current || e.pointerType === "touch" || e.button !== 0) return;
+        st.current.down(e.clientX, e.clientY, c.getBoundingClientRect());
+        play("rustle", { gap: 90, pitch: 0.9 + Math.random() * 0.2 });
+      }}
+      onPointerUp={() => st.current?.up()}
       onPointerLeave={() => { setOver(false); st.current?.leave(); }}>
       <canvas ref={cv} aria-label={ill.name} role="img" />
     </div>
@@ -81,7 +89,9 @@ function runStipple(c: HTMLCanvasElement, ill: Illustration, theme: Theme, pitch
   const s = new Stipple(ill, theme, pitch, dpr);
   ref.current = s;
   c.width = s.W; c.height = s.H;
+  // the canvas is bigger than the art by the room dots can be pulled into; that room hangs outside the layout box
   c.style.width = `${s.W / dpr}px`; c.style.height = `${s.H / dpr}px`;
+  c.style.margin = `${-s.padY / dpr}px ${-s.padX / dpr}px`;
   const ctx = c.getContext("2d")!;
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (still) s.leave();
