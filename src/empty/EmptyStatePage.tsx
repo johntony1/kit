@@ -35,11 +35,12 @@ export function emptyPrompt(ill: Illustration) {
 Use it for: ${ill.title}. ${ill.body}
 
 It is a ${ill.kind === "loop" ? "looping" : "hover"} illustration. A small isometric 3D scene is drawn with a pen
-(boxes, faces, lines) and rendered in one of two styles: halftone (each cell of a grid becomes one
-round dot sized by the shading, lit tops full, walls in shade smaller, no outlines, details as gaps)
-or soft (smooth pale volumes with a top-down gradient, fine grain and soft shadows).
+(boxes, faces, lines) and rendered in one of three styles: stipple (tiny square dots, one bit each,
+tone from how many are lit through a blue noise map, every dot its own slight tint, and the dots
+part around the pointer, smear along with it and spring back), halftone (one round dot per cell
+sized by the shading) or soft (smooth pale volumes with a gradient, fine grain and soft shadows).
 ${ill.kind === "loop" ? `It loops every ${ill.period ?? 3} seconds.` : "It rests, and plays while the pointer is over it."}
-Style: halftone, each cell of the grid is one dot sized by the shading, no outlines (pass look="soft" for smooth light volumes with grain).
+Style: stipple by default (pass look="halftone" or look="soft" for the other two).
 
 Add the three files below as they are (no dependencies beyond React), then render
 <DotArt ill={${ill.k}} /> inside a positioned box with a size. Keep the dot style, the timings
@@ -74,7 +75,7 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
   const [tab, setTab] = useState<"Preview" | "Code">("Preview");
   const [theme, setTheme] = useState<Theme>(THEMES[0]);
   const [gif, setGif] = useState<"idle" | "busy">("idle");
-  const [look, setLook] = useState<"Halftone" | "Soft">("Halftone");
+  const [look, setLook] = useState<"Stipple" | "Halftone" | "Soft">("Stipple");
   const style = look.toLowerCase() as DotStyle;
   const prompt = useCopy();
   const file = fileOf(ill.k);
@@ -94,7 +95,7 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
       <div className="bar">
         <div className="esSegs">
           <Seg label="View" value={tab} options={["Preview", "Code"] as const} onChange={setTab} />
-          <Seg label="Style" value={look} options={["Halftone", "Soft"] as const} onChange={setLook} />
+          <Seg label="Style" value={look} options={["Stipple", "Halftone", "Soft"] as const} onChange={setLook} />
         </div>
         <div className="barRight">
           <div className="esSwatches" role="radiogroup" aria-label="Dot colour">
@@ -112,7 +113,7 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
         <>
           <div className="panel esBig">
             <DotArt ill={ill} theme={theme} maxPitch={8} fit={0.92} look={style} />
-            {ill.kind === "hover" && <span className="esHint">Hover to play</span>}
+            <span className="esHint">{style === "stipple" ? "Move through the dots" : ill.kind === "hover" ? "Hover to play" : ""}</span>
           </div>
           <Later>
             <div className="panel esContext">

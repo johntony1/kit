@@ -227,7 +227,7 @@ export function colorize(img: ImageData, theme: Theme, cap = 1, gain = 1) {
   return img;
 }
 
-export type DotStyle = "halftone" | "soft";
+export type DotStyle = "stipple" | "halftone" | "soft";
 
 /** halftone cell size, in grid dots: bigger cells, fewer and bolder dots */
 export const CELL = 2;
@@ -282,6 +282,15 @@ function softColor(img: ImageData, theme: Theme) {
 /** paint one frame in a style onto ctx (already scaled so 1 unit = 1 css px). px: css px per grid dot */
 export function paintFrame(ctx: CanvasRenderingContext2D, ill: Illustration, t: number, h: number, theme: Theme, px: number, style: DotStyle, dpr = 1) {
   const win = bounds(ill);
+  if (style === "stipple") {
+    const st = new Stipple(ill, theme, px, dpr);
+    st.setTone(t, h);
+    if (!layer) layer = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(st.W, st.H) : document.createElement("canvas");
+    layer.width = st.W; layer.height = st.H;
+    st.draw(layer.getContext("2d") as CanvasRenderingContext2D);
+    ctx.drawImage(layer as CanvasImageSource, 0, 0, win.w * px, win.h * px);
+    return;
+  }
   if (style === "halftone") {
     eachHalftoneDot(ill, t, h, theme, px, (x, y, r, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); });
     return;
@@ -293,6 +302,184 @@ export function paintFrame(ctx: CanvasRenderingContext2D, ill: Illustration, t: 
   ctx.drawImage(layer as CanvasImageSource, 0, 0, win.w * px, win.h * px);
 }
 let layer: HTMLCanvasElement | OffscreenCanvas | null = null;
+
+/* ── stipple: tiny square dots, one bit each. Tone is how many cells are lit, not how big a dot is.
+ * Every cell has a fixed threshold from a blue noise map, so sparse tones scatter evenly with no
+ * pattern, and the dots never shimmer while the scene moves. Each dot keeps its own tint (a little
+ * brighter or dimmer, warmer or cooler), so a flat face reads as many colours up close.
+ * The pointer pushes through the dots like a finger through sand: they part around it, drag along
+ * with it into streaks, and spring back when it lets go. ── */
+
+const BNS = 64;
+let BN: Float32Array | null = null;
+/** a 64x64 blue noise threshold map (void and cluster, built once, about 40ms) */
+function blueNoise() {
+  if (BN) return BN;
+  const N = BNS, n = N * N, E = new Float32Array(n), on = new Uint8Array(n), out = new Float32Array(n);
+  const R = 5, s2 = 2 * 1.9 * 1.9, K: number[] = [];
+  for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) K.push(Math.exp(-(dx * dx + dy * dy) / s2));
+  let seed = 7;
+  for (let i = 0; i < n; i++) { seed = (seed * 16807) % 2147483647; E[i] = (seed / 2147483647) * 1e-3; }
+  for (let rank = 0; rank < n; rank++) {
+    let best = 0, bv = Infinity;
+    for (let i = 0; i < n; i++) if (!on[i] && E[i] < bv) { bv = E[i]; best = i; }
+    on[best] = 1; out[best] = (rank + 0.5) / n;
+    const bx = best % N, by = (best / N) | 0;
+    let k = 0;
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++, k++) E[((by + dy + N) % N) * N + ((bx + dx + N) % N)] += K[k];
+  }
+  return (BN = out);
+}
+
+const hash = (x: number, y: number, s = 0) => ((((x * 73856093) ^ (y * 19349663) ^ (s * 83492791)) >>> 0) % 10007) / 10007;
+
+/** the stipple feel: dot size, how far the pointer reaches, how it drags and springs back */
+export const STIPPLE = {
+  cell: 0.38, // css px per cell, as a share of the art's pitch
+  reach: 0.075, // pointer radius, as a share of the width
+  drag: 0.85, // how much of the pointer's motion the dots under it take
+  hole: 0.6, // how far dots part around a resting pointer, in radii
+  spring: 70, // pull back home
+  damping: 10, // a touch under critical: they settle with one soft wobble
+};
+
+export class Stipple {
+  /** canvas size in device pixels */
+  W: number; H: number;
+  private cell: number; private dot: number; private cols: number; private rows: number; private ox: number; private oy: number;
+  private on = new Int32Array(0); private col = new Uint32Array(0); private n = 0;
+  private img: ImageData | null = null; private buf: Uint32Array | null = null;
+  // the displacement field: one node every F cells, each a damped spring
+  private F = 3; private fw: number; private fh: number;
+  private Dx: Float32Array; private Dy: Float32Array; private Vx: Float32Array; private Vy: Float32Array;
+  private px = 0; private py = 0; private inside = false; private mx = 0; private my = 0; private R: number;
+  /** true while the dots are away from home or the pointer is on them */
+  active = false;
+
+  constructor(private ill: Illustration, private theme: Theme, pitch: number, dpr: number) {
+    const win = bounds(ill);
+    this.W = Math.max(1, Math.round(win.w * pitch * dpr)); this.H = Math.max(1, Math.round(win.h * pitch * dpr));
+    this.cell = Math.max(3, Math.round(pitch * dpr * STIPPLE.cell));
+    this.dot = this.cell <= 4 ? this.cell - 1 : Math.round(this.cell * 0.74);
+    this.cols = Math.floor(this.W / this.cell); this.rows = Math.floor(this.H / this.cell);
+    this.ox = Math.floor((this.W - this.cols * this.cell) / 2); this.oy = Math.floor((this.H - this.rows * this.cell) / 2);
+    this.fw = Math.ceil(this.cols / this.F) + 2; this.fh = Math.ceil(this.rows / this.F) + 2;
+    const m = this.fw * this.fh;
+    this.Dx = new Float32Array(m); this.Dy = new Float32Array(m); this.Vx = new Float32Array(m); this.Vy = new Float32Array(m);
+    this.R = Math.max(5, this.cols * STIPPLE.reach);
+  }
+
+  /** sample the scene at time t, hover h, and decide which cells are lit and in what tint */
+  setTone(t: number, h: number) {
+    const win = bounds(this.ill), ss = 2, cols = this.cols, rows = this.rows;
+    const img = renderHi(this.ill, t, h, (cols * ss) / win.w, win, true, 0.03);
+    const d = img.data, iw = img.width, ih = img.height, bn = blueNoise();
+    const A = hex(this.theme.a), B = hex(this.theme.b ?? this.theme.a);
+    if (this.on.length < cols * rows) { this.on = new Int32Array(cols * rows); this.col = new Uint32Array(cols * rows); }
+    let n = 0;
+    for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+      let s = 0;
+      for (let y = 0; y < ss; y++) {
+        const yy = Math.min(ih - 1, r * ss + y);
+        for (let x = 0; x < ss; x++) s += d[(yy * iw + Math.min(iw - 1, q * ss + x)) * 4];
+      }
+      const v = s / (ss * ss * 255);
+      if (v < 0.03) continue;
+      const u = q / cols, w = r / rows;
+      // light from the top left: every flat face gets a slow ramp, which is what makes dithering sing
+      // tones are pushed apart (lit tops nearly solid, shaded walls sparse) so mid grey only lives in the ramps
+      const light = 1.22 - 0.62 * (u * 0.45 + w * 0.55);
+      const dens = Math.min(0.985, Math.pow(Math.max(0, (v - 0.26) / 0.74), 2.1) * light + (v > 0.26 ? 0.035 : 0));
+      if (dens <= bn[(r % BNS) * BNS + (q % BNS)]) continue;
+      // the dot's own tint: the theme across the art, brighter on lit faces, with a small personal drift
+      const k = w * 0.75 + u * 0.25, j = hash(q, r) - 0.5, j2 = hash(q, r, 1) - 0.5;
+      const L = (0.6 + 0.4 * Math.min(1, v)) * (1 + j * 0.16);
+      const wh = Math.max(0, v - 0.85) * 0.9 + 0.05; // the brightest dots lean toward white
+      const ch = (i: number) => {
+        let c = A[i] + (B[i] - A[i]) * k;
+        c += (255 - c) * wh;
+        c += (i === 0 ? 1 : i === 2 ? -1 : 0) * j2 * 22; // warmer or cooler
+        return Math.max(0, Math.min(255, Math.round(c * L)));
+      };
+      this.on[n] = r * cols + q;
+      this.col[n] = ((255 << 24) | (ch(2) << 16) | (ch(1) << 8) | ch(0)) >>> 0;
+      n++;
+    }
+    this.n = n;
+  }
+
+  /** the pointer, in client coordinates over a box of rect */
+  point(cx: number, cy: number, rect: DOMRect) {
+    const x = ((cx - rect.left) * (this.W / rect.width) - this.ox) / this.cell;
+    const y = ((cy - rect.top) * (this.H / rect.height) - this.oy) / this.cell;
+    if (this.inside) { this.mx += x - this.px; this.my += y - this.py; }
+    this.px = x; this.py = y; this.inside = true; this.active = true;
+  }
+  leave() { this.inside = false; this.mx = this.my = 0; }
+
+  /** move the springs on by dt seconds */
+  step(dt: number) {
+    const { F, fw, fh, R, Dx, Dy, Vx, Vy } = this;
+    const lim = R * 0.9;
+    let mx = Math.max(-lim, Math.min(lim, this.mx)), my = Math.max(-lim, Math.min(lim, this.my));
+    this.mx = this.my = 0;
+    const K = STIPPLE.spring, C = STIPPLE.damping, R2 = R * R, hole = R * STIPPLE.hole;
+    let moving = this.inside;
+    for (let gy = 0; gy < fh; gy++) for (let gx = 0; gx < fw; gx++) {
+      const i = gy * fw + gx;
+      let tx = 0, ty = 0;
+      if (this.inside) {
+        const dx = (gx - 1) * F - this.px, dy = (gy - 1) * F - this.py, d2 = dx * dx + dy * dy;
+        if (d2 < R2 * 9) {
+          const w = Math.exp(-d2 / R2);
+          Dx[i] += mx * w * STIPPLE.drag; Dy[i] += my * w * STIPPLE.drag;
+          const dd = Math.sqrt(d2) + 1e-3, o = hole * Math.exp(-d2 / (R2 * 0.5));
+          tx = (dx / dd) * o; ty = (dy / dd) * o;
+        }
+      }
+      Vx[i] += (-K * (Dx[i] - tx) - C * Vx[i]) * dt; Vy[i] += (-K * (Dy[i] - ty) - C * Vy[i]) * dt;
+      Dx[i] += Vx[i] * dt; Dy[i] += Vy[i] * dt;
+      if (!moving && (Math.abs(Dx[i]) + Math.abs(Dy[i]) > 0.02 || Math.abs(Vx[i]) + Math.abs(Vy[i]) > 0.05)) moving = true;
+    }
+    if (!moving) { Dx.fill(0); Dy.fill(0); Vx.fill(0); Vy.fill(0); }
+    this.active = moving;
+  }
+
+  /** every lit dot, displaced, in device pixels */
+  private place(fn: (x: number, y: number, i: number) => void) {
+    const { F, fw, Dx, Dy, cols, cell, ox, oy } = this;
+    const live = this.active;
+    for (let k = 0; k < this.n; k++) {
+      const idx = this.on[k], q = idx % cols, r = (idx / cols) | 0;
+      let x = q, y = r;
+      if (live) {
+        const fx = q / F + 1, fy = r / F + 1, x0 = fx | 0, y0 = fy | 0, ax = fx - x0, ay = fy - y0;
+        const i = y0 * fw + x0;
+        x += (Dx[i] * (1 - ax) + Dx[i + 1] * ax) * (1 - ay) + (Dx[i + fw] * (1 - ax) + Dx[i + fw + 1] * ax) * ay;
+        y += (Dy[i] * (1 - ax) + Dy[i + 1] * ax) * (1 - ay) + (Dy[i + fw] * (1 - ax) + Dy[i + fw + 1] * ax) * ay;
+      }
+      fn(Math.round(ox + x * cell), Math.round(oy + y * cell), k);
+    }
+  }
+
+  /** paint into a canvas the size of W by H (device pixels; transforms are ignored) */
+  draw(ctx: CanvasRenderingContext2D) {
+    if (!this.img) { this.img = new ImageData(this.W, this.H); this.buf = new Uint32Array(this.img.data.buffer); }
+    const buf = this.buf!, W = this.W, H = this.H, s = this.dot, col = this.col;
+    buf.fill(0);
+    this.place((x, y, k) => {
+      if (x < 0 || y < 0 || x + s > W || y + s > H) return;
+      const c = col[k];
+      for (let yy = 0; yy < s; yy++) { const row = (y + yy) * W + x; for (let xx = 0; xx < s; xx++) buf[row + xx] = c; }
+    });
+    ctx.putImageData(this.img, 0, 0);
+  }
+
+  /** every dot as a square, for SVG: x, y, size in device pixels and a css colour */
+  each(fn: (x: number, y: number, s: number, col: string) => void) {
+    this.place((x, y, k) => { const c = this.col[k]; fn(x, y, this.dot, `rgb(${c & 255},${(c >> 8) & 255},${(c >> 16) & 255})`); });
+  }
+}
 
 /** the part of the grid the piece ever lights (sampled over its motion), plus a margin of dots */
 const boundsCache = new Map<string, { q0: number; r0: number; w: number; h: number }>();
@@ -376,11 +563,15 @@ export function paintDots(ctx: CanvasRenderingContext2D, grid: Float32Array, col
 /* ── exports ── */
 
 /** the current frame as an SVG: halftone is pure circles; soft is an embedded image */
-export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pitch = 8, style: DotStyle = "halftone") {
+export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pitch = 8, style: DotStyle = "stipple") {
   const bx = bounds(ill);
   const W = bx.w * pitch, H = bx.h * pitch;
   const parts: string[] = [];
-  if (style === "halftone") {
+  if (style === "stipple") {
+    const st = new Stipple(ill, theme, pitch, 1);
+    st.setTone(t, h);
+    st.each((x, y, s, col) => parts.push(`<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="${col}"/>`));
+  } else if (style === "halftone") {
     eachHalftoneDot(ill, t, h, theme, pitch, (x, y, r, col) => parts.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="${col}"/>`));
   } else {
     const img = softColor(renderHi(ill, t, h, pitch * 2, bx, true, 0.55), theme);
@@ -401,7 +592,7 @@ export function hoverAt(u: number) {
 }
 
 /** the loop (or the hover played in and out) as an animated GIF */
-export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24, style: DotStyle = "halftone"): Promise<Blob> {
+export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24, style: DotStyle = "stipple"): Promise<Blob> {
   const { GIFEncoder, quantize, applyPalette } = await import("gifenc");
   const dur = ill.kind === "loop" ? ill.period ?? 3 : 3.2;
   const n = Math.round(dur * fps);
