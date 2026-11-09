@@ -104,7 +104,7 @@ export default function Dial({ size = "card" }: { size?: "card" | "big" }) {
       <style>{`.dl-btn{padding:0;border:0;background:none;cursor:grab;touch-action:none;-webkit-tap-highlight-color:transparent;border-radius:24%;outline:none;user-select:none;-webkit-user-select:none}
 .dl-btn:active{cursor:grabbing}
 .dl-btn:focus-visible{box-shadow:0 0 0 3px #191a19,0 0 0 5px #3fb6ff}`}</style>
-      <button type="button" role="switch" aria-checked={on} aria-label="Power" title={on ? "On" : "Off"} className="dl-btn"
+      <button type="button" role="switch" aria-checked={on} aria-label="Power" className="dl-btn"
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onKeyDown={onKey}
         onClick={(e) => { if (e.detail === 0) commit(!onRef.current); }}
         style={{ width: 200 * k, height: 200 * k, display: "block", position: "relative" }}>
