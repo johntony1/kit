@@ -10,7 +10,7 @@ import { play } from "../sound/sound";
 
 // viewBox space: the bezel pill is 360 wide, centred on x = 180
 const VW = 360, CX = 180;
-const PT = 29, PB = 148, PL = 15, PR = 345, PRAD = (PB - PT) / 2, PCY = (PT + PB) / 2; // paddle base pill
+const PT = 33, PB = 148, PL = 18, PR = 342, PRAD = (PB - PT) / 2, PCY = (PT + PB) / 2; // paddle base pill
 
 /** the paddle's flat top edge (its pill outline) */
 function pillTop(x: number) {
@@ -21,8 +21,8 @@ function pillTop(x: number) {
 }
 /** how far the right toe lifts the silhouette at x (peak just right of centre, falls to the tip) */
 function toeLift(x: number) {
-  const s = x < 225 ? 80 : 64;
-  return 21 * Math.exp(-(((x - 225) / s) ** 2));
+  const s = x < 252 ? 74 : 112;
+  return 29 * Math.exp(-(((x - 252) / s) ** 2));
 }
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 const smooth = (v: number) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t); };
@@ -38,7 +38,7 @@ function body(hL: number, hR: number) {
 }
 
 /** the ridge where the flat top turns up into the right toe, drawn for height h (0..1+) */
-const RIDGE: [number, number][] = [[236, 4], [232, 22], [222, 54], [204, 88], [178, 116], [148, 136], [118, 150], [100, 156]];
+const RIDGE: [number, number][] = [[226, 0], [221, 20], [212, 48], [200, 78], [188, 106], [178, 128], [170, 146], [166, 158]];
 function ridge(h: number) {
   const k = Math.pow(clamp(h, 0, 1.2), 0.75);
   return RIDGE.map(([x, y]) => [PR + 20 - (PR + 20 - x) * k, y] as [number, number]);
@@ -70,7 +70,7 @@ function Toe({ h, id, mir }: { h: number; id: string; mir: boolean }) {
       {/* the rising face: crown catches the light, falling into shade toward the front and the tip */}
       <path d={region} fill={`url(#${id}-toe${mir ? "L" : "R"})`} filter={`url(#${id}-b6)`} />
       {/* deep shade in the concave valley just past the ridge */}
-      <path d={off(15)} fill="none" stroke="#030403" strokeOpacity={mir ? 0.8 : 0.72} strokeWidth="18" filter={`url(#${id}-b9)`} />
+      <path d={off(16)} fill="none" stroke="#030403" strokeOpacity={mir ? 0.62 : 0.52} strokeWidth="22" filter={`url(#${id}-b12)`} />
       {/* the rising face itself: lit when it faces the top left, a touch darker when it turns away */}
       {mir
         ? <path d={off(40)} fill="none" stroke="#000" strokeOpacity=".22" strokeWidth="22" filter={`url(#${id}-b12)`} />
@@ -78,8 +78,8 @@ function Toe({ h, id, mir }: { h: number; id: string; mir: boolean }) {
       {/* the lit lip of the flat top where it turns down into the valley */}
       <path d={off(-11)} fill="none" stroke="#fff" strokeOpacity={mir ? 0.08 : 0.11} strokeWidth="10" filter={`url(#${id}-b6)`} />
       {/* the soft highlight on the crown of the toe (pushed toward whichever side faces the light) */}
-      <ellipse cx={mir ? 300 : 276} cy={38 - 8 * h} rx={46 * h} ry={18} fill="#fff" opacity={mir ? 0.13 : 0.17} filter={`url(#${id}-b9)`} />
-      <ellipse cx={mir ? 304 : 272} cy={30 - 8 * h} rx={20 * h} ry={6} fill="#fff" opacity={mir ? 0.1 : 0.13} filter={`url(#${id}-b5)`} />
+      <ellipse cx={mir ? 270 : 250} cy={30 - 10 * h} rx={50 * h} ry={18} fill="#fff" opacity={mir ? 0.13 : 0.17} filter={`url(#${id}-b9)`} />
+      <ellipse cx={mir ? 274 : 246} cy={20 - 10 * h} rx={22 * h} ry={6} fill="#fff" opacity={mir ? 0.1 : 0.13} filter={`url(#${id}-b5)`} />
       {/* the flank toward the tip and the front: deep shade when it faces away, a soft sheen when it faces the light */}
       <ellipse cx={318} cy={122} rx={48} ry={32} fill="#000" opacity={(mir ? 0.3 : 0.6) * h} filter={`url(#${id}-b12)`} />
       {mir && <ellipse cx={334} cy={70} rx={14} ry={34} fill="#fff" opacity={0.045 * h} filter={`url(#${id}-b9)`} />}
@@ -93,7 +93,7 @@ function Lamp({ h, lit, mir, id }: { h: number; lit: boolean; mir: boolean; id: 
   if (a <= 0) return null;
   const sx = mir ? -1 : 1; // keep the specular on the top left in world space
   return (
-    <g opacity={a} transform={`translate(${(345 - (345 - 206) * h).toFixed(1)} 64)`}>
+    <g opacity={a} transform={`translate(${(345 - (345 - 193) * h).toFixed(1)} 70)`}>
       {lit && <circle r="10" fill="#3fc06c" opacity=".38" filter={`url(#${id}-b5)`} />}
       <circle r="4.4" fill="#050605" />
       <circle r="4.4" cy=".5" fill="none" stroke="#fff" strokeOpacity=".1" strokeWidth=".8" />
@@ -114,7 +114,7 @@ function Lamp({ h, lit, mir, id }: { h: number; lit: boolean; mir: boolean; id: 
 }
 
 // content box in viewBox units: the bezel and its lips run y 15..160 (plus a hair of shadow)
-const VY = 4, VH = 172;
+const VY = 0, VH = 182;
 
 export function SoftRockerSwitch({ on, onToggle, scale = 1 }: { on: boolean; onToggle: () => void; scale?: number }) {
   const id = useId().replace(/:/g, "");
@@ -134,8 +134,9 @@ export function SoftRockerSwitch({ on, onToggle, scale = 1 }: { on: boolean; onT
   const hL = Math.max(0, (-v + 0.15) / 1.15) ** 1.25 * squash;
   const lift = Math.max(hL, hR);
   // the raised end throws its shadow down and to the right (light from the top left)
-  const shX = CX + 14 + 70 * clamp(v, -1.2, 1.2);
+  const shX = CX + 8 + 46 * clamp(v, -1.2, 1.2);
   const d = body(hL, hR);
+  const lowL = clamp(1 - hL, 0, 1), lowR = clamp(1 - hR, 0, 1); // how low (flat, in the recess) each end is
 
   const W = VW * scale, H = VH * scale;
   return (
@@ -161,7 +162,7 @@ export function SoftRockerSwitch({ on, onToggle, scale = 1 }: { on: boolean; onT
           </filter>
           {/* the recess: its floor darkest under the upper wall, lifting toward the lower lip */}
           <linearGradient id={`${id}-bezel`} x1="0" y1="15" x2="0" y2="160" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#0b0c0b" /><stop offset=".35" stopColor="#111211" /><stop offset=".8" stopColor="#181a18" /><stop offset="1" stopColor="#1d1f1d" />
+            <stop offset="0" stopColor="#0e0f0e" /><stop offset=".07" stopColor="#171817" /><stop offset=".35" stopColor="#1d1f1d" /><stop offset=".85" stopColor="#252725" /><stop offset="1" stopColor="#2e302e" />
           </linearGradient>
           {/* charcoal soft-touch body, rolling into deep shade along its rounded front */}
           <linearGradient id={`${id}-body`} x1="0" y1="8" x2="0" y2="150" gradientUnits="userSpaceOnUse">
@@ -186,29 +187,36 @@ export function SoftRockerSwitch({ on, onToggle, scale = 1 }: { on: boolean; onT
             <stop offset="0" stopColor="#fff" stopOpacity=".36" /><stop offset=".5" stopColor="#fff" stopOpacity=".2" /><stop offset="1" stopColor="#fff" stopOpacity=".09" />
           </linearGradient>
           <linearGradient id={`${id}-rim`} x1="0" y1="15" x2="0" y2="160" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".6" stopColor="#fff" stopOpacity="0" /><stop offset="1" stopColor="#fff" stopOpacity=".11" />
+            <stop offset="0" stopColor="#fff" stopOpacity="0" /><stop offset=".6" stopColor="#fff" stopOpacity="0" /><stop offset="1" stopColor="#fff" stopOpacity=".16" />
+          </linearGradient>
+          <linearGradient id={`${id}-low`} x1={PL} y1="0" x2={PR} y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#000" stopOpacity={0.16 * lowL} /><stop offset=".45" stopColor="#000" stopOpacity="0" /><stop offset=".55" stopColor="#000" stopOpacity="0" /><stop offset="1" stopColor="#000" stopOpacity={0.16 * lowR} />
+          </linearGradient>
+          <linearGradient id={`${id}-lowEdge`} x1={PL} y1="0" x2={PR} y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#000" stopOpacity={0.75 * lowL} /><stop offset=".5" stopColor="#000" stopOpacity={0.3 * (lowL + lowR)} /><stop offset="1" stopColor="#000" stopOpacity={0.75 * lowR} />
           </linearGradient>
           <clipPath id={`${id}-clip`}><path d={d} /></clipPath>
           <clipPath id={`${id}-well`}><rect x="0" y="15" width={VW} height="145" rx="72.5" /></clipPath>
         </defs>
 
+        {/* the raised hump throws a soft shadow onto the surface below the bezel, offset toward its side */}
+        <ellipse cx={shX} cy={164} rx={132} ry={11} fill="#000" opacity={0.3 + 0.3 * lift} filter={`url(#${id}-b9)`} />
         {/* the cut in the tile: a faint lit edge along its lower rim, a dark ring all round */}
         <rect x="-1.5" y="14" width={VW + 3} height="148" rx="74" fill="none" stroke="#fff" strokeOpacity=".06" strokeWidth="1.2" transform="translate(0 1)" />
         {/* the recessed bezel */}
         <rect x="0" y="15" width={VW} height="145" rx="72.5" fill={`url(#${id}-bezel)`} />
         <g clipPath={`url(#${id}-well)`}>
           {/* the upper wall falls into deep shade */}
-          <rect x="-6" y="6" width={VW + 12} height="158" rx="78" fill="none" stroke="#000" strokeOpacity=".75" strokeWidth="12" filter={`url(#${id}-b5)`} />
-          {/* the raised end throws a soft shadow down and to the right on the recess floor */}
-          <ellipse cx={shX} cy={160} rx={130} ry={16} fill="#000" opacity={0.35 + 0.25 * lift} filter={`url(#${id}-b9)`} />
+          <rect x="-6" y="6" width={VW + 12} height="158" rx="78" fill="none" stroke="#000" strokeOpacity=".45" strokeWidth="8" filter={`url(#${id}-b5)`} />
         </g>
         <rect x=".5" y="15.5" width={VW - 1} height="144" rx="72" fill="none" stroke="#000" strokeOpacity=".55" strokeWidth="1" />
         {/* the lower lip of the recess catches the light */}
         <rect x=".6" y="15.6" width={VW - 1.2} height="143.8" rx="71.9" fill="none" stroke={`url(#${id}-rim)`} strokeWidth="1.2" />
 
         {/* the dark gap between paddle and bezel */}
-        <rect x="11.5" y="26" width="337" height="128.5" rx="64" fill="#060706" />
-        <rect x="11.5" y="26" width="337" height="128.5" rx="64" fill="none" stroke="#000" strokeOpacity=".6" strokeWidth="3" filter={`url(#${id}-b2)`} />
+        {/* the thin dark gap around the paddle, thicker along the bottom */}
+        <rect x={PL - 3} y={PT - 2.5} width={PR - PL + 6} height={PB - PT + 9} rx={(PB - PT + 9) / 2} fill="#050605" />
+        <rect x={PL - 3} y={PT - 2.5} width={PR - PL + 6} height={PB - PT + 9} rx={(PB - PT + 9) / 2} fill="none" stroke="#000" strokeOpacity=".5" strokeWidth="2" filter={`url(#${id}-b2)`} />
 
         {/* the paddle */}
         <g transform={`translate(0 ${(1.2 * pr).toFixed(2)})`}>
@@ -221,6 +229,9 @@ export function SoftRockerSwitch({ on, onToggle, scale = 1 }: { on: boolean; onT
             <path d={d} fill="none" stroke="#000" strokeOpacity=".45" strokeWidth="10" transform="translate(0 6)" filter={`url(#${id}-b6)`} />
             <Toe h={hR} id={id} mir={false} />
             <g transform={`translate(${VW} 0) scale(-1 1)`}><Toe h={hL} id={id} mir /></g>
+            {/* the low flat end sits in the recess: the bezel's upper wall shades its top, and it is a touch darker */}
+            <rect x={PL} y="-20" width={PR - PL} height="180" fill={`url(#${id}-low)`} />
+            <path d={d} fill="none" stroke={`url(#${id}-lowEdge)`} strokeWidth="16" transform="translate(0 -5)" filter={`url(#${id}-b6)`} />
             {/* soft-touch grain */}
             <rect x={PL} y="-20" width={PR - PL} height="180" filter={`url(#${id}-gl)`} opacity=".07" />
             <rect x={PL} y="-20" width={PR - PL} height="180" filter={`url(#${id}-gd)`} opacity=".35" />
