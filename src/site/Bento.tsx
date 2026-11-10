@@ -22,7 +22,7 @@ import { DotArt } from "../empty/DotArt";
 
 export type BentoLib = "ripple" | "confetti" | TypeEffectKey | TransitionKind | `cmp-${string}` | `es-${string}`;
 type Group = "Libraries" | "Components" | "Type" | "Transitions" | "Empty states";
-interface Tile { k: BentoLib; group: Group; c: number; r: number; tag?: string }
+interface Tile { k: BentoLib; group: Group; c: number; r: number; tag?: string; /** only under its own filter, not in All */ deep?: boolean }
 
 // the arrangement: 6 columns. Big features, halves, thirds, and one full-width row to end
 export const TILES: Tile[] = [
@@ -36,7 +36,8 @@ export const TILES: Tile[] = [
   { k: "reveal", group: "Transitions", c: 3, r: 2 }, { k: "ink", group: "Transitions", c: 3, r: 2 },
   { k: "curtain", group: "Transitions", c: 2, r: 2 }, { k: "pixels", group: "Transitions", c: 2, r: 2 },
   ...COMPS.slice(12).map((c) => ({ k: `cmp-${c.k}` as BentoLib, group: "Components" as Group, c: c.c, r: c.r })),
-  ...ILLS.slice(6).map((i) => ({ k: `es-${i.k}` as BentoLib, group: "Empty states" as Group, c: 2, r: 2 })),
+  // All shows a dozen empty states; the Empty states filter shows every one
+  ...ILLS.slice(6).map((i, n) => ({ k: `es-${i.k}` as BentoLib, group: "Empty states" as Group, c: 2, r: 2, deep: n >= 6 })),
 ];
 
 /** lay tiles into full rows of 6 columns so the grid never has holes, whatever the filter:
@@ -167,7 +168,7 @@ export function Home({ open, onOpen, onClose, detail }: { open: BentoLib | null;
     const id = setTimeout(() => setReady(true), 560);
     return () => clearTimeout(id);
   }, [open]);
-  const tiles = pack(TILES.filter((t) => filter === "All" || t.group === filter));
+  const tiles = pack(TILES.filter((t) => (filter === "All" ? !t.deep : t.group === filter)));
 
   useEffect(() => {
     if (!open) return;
@@ -188,7 +189,7 @@ export function Home({ open, onOpen, onClose, detail }: { open: BentoLib | null;
       </section>
       <div className="bnChips" role="radiogroup" aria-label="Filter effects">
         {(["All", "Components", "Empty states", "Libraries", "Type", "Transitions"] as const).map((f) => (
-          <button key={f} type="button" role="radio" aria-checked={f === filter} className={`bnChip ${f === filter ? "on" : ""}`} onClick={() => setFilter(f)}>{f}</button>
+          <button key={f} type="button" role="radio" aria-checked={f === filter} className={`bnChip ${f === filter ? "on" : ""}`} onClick={() => setFilter(f)}>{f}{f === "Empty states" && <span className="bnCount">{ILLS.length}</span>}</button>
         ))}
       </div>
       <div className="bnGrid">
