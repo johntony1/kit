@@ -50,7 +50,7 @@ export class Pen {
   private m: M = I;
   private stack: M[] = [];
   /** tone: faces are filled with light-shaded tones (no outlines), details become darker lines */
-  constructor(private c: CanvasRenderingContext2D, private ox: number, private oy: number, private tone = false, private lineTone = 0.08) {}
+  constructor(private c: CanvasRenderingContext2D, private ox: number, private oy: number, private tone = false, private lineTone = 0.08, private gaps = false) {}
   /** a face's line-art fill to a lit tone: top brightest, left wall mid, right wall darkest */
   private toneOf(f: number) { return f < 0.05 ? 0.3 : Math.min(1, 0.45 + f * 2.8); }
 
@@ -104,7 +104,7 @@ export class Pen {
   /** a line between points */
   line(pts: V3[], shade = SH.edge, lw = 0.55) {
     this.path(pts, false);
-    this.c.strokeStyle = this.g(this.tone ? (shade > 0.9 ? this.lineTone : Math.min(1, 0.45 + shade)) : shade); this.c.lineWidth = lw; this.c.lineCap = "round"; this.c.lineJoin = "round"; this.c.stroke();
+    this.c.strokeStyle = this.g(this.tone ? (shade > 0.9 || this.gaps ? this.lineTone : Math.min(1, 0.45 + shade)) : shade); this.c.lineWidth = lw; this.c.lineCap = "round"; this.c.lineJoin = "round"; this.c.stroke();
   }
   /** a solid dot in 3D */
   dot(p: V3, r: number, shade = SH.glow) {
@@ -194,7 +194,8 @@ export function renderGrid(ill: Illustration, t: number, h: number): Float32Arra
 
 /** the scene in grey at display resolution, for the smooth layer. px: pixels per dot */
 let hiCanvas: HTMLCanvasElement | OffscreenCanvas | null = null;
-export function renderHi(ill: Illustration, t: number, h: number, px: number, win: { q0: number; r0: number; w: number; h: number }, tone = false, lineTone = 0.08) {
+/** gaps: every detail line is cut out of the face (stipple reads details as gaps, not as brighter dots) */
+export function renderHi(ill: Illustration, t: number, h: number, px: number, win: { q0: number; r0: number; w: number; h: number }, tone = false, lineTone = 0.08, gaps = false) {
   const W = Math.max(1, Math.round(win.w * px)), H = Math.max(1, Math.round(win.h * px));
   if (!hiCanvas) hiCanvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(W, H) : document.createElement("canvas");
   if (hiCanvas.width !== W) hiCanvas.width = W;
@@ -204,7 +205,7 @@ export function renderHi(ill: Illustration, t: number, h: number, px: number, wi
   c.fillStyle = "#000"; c.fillRect(0, 0, W, H);
   const z = ill.zoom ?? 1;
   c.setTransform(px * z, 0, 0, px * z, -win.q0 * px, -win.r0 * px);
-  ill.draw(new Pen(c, ill.cols / 2 / z, ill.rows / 2 / z, tone, lineTone), t, h);
+  ill.draw(new Pen(c, ill.cols / 2 / z, ill.rows / 2 / z, tone, lineTone, gaps), t, h);
   return c.getImageData(0, 0, W, H);
 }
 
@@ -351,6 +352,16 @@ function atkinson(a: Float32Array, w: number, h: number) {
   }
 }
 
+/** face tone to dot density: right walls sparse, left walls dense, lit tops nearly solid */
+const CURVE: [number, number][] = [[0.05, 0], [0.3, 0.08], [0.55, 0.26], [0.63, 0.36], [0.7, 0.66], [0.76, 0.86], [0.85, 0.92], [1, 0.975]];
+function toneCurve(v: number) {
+  for (let i = 1; i < CURVE.length; i++) {
+    const [x1, y1] = CURVE[i];
+    if (v <= x1) { const [x0, y0] = CURVE[i - 1]; return y0 + ((v - x0) / (x1 - x0)) * (y1 - y0); }
+  }
+  return CURVE[CURVE.length - 1][1];
+}
+
 const hash = (x: number, y: number, s = 0) => ((((x * 73856093) ^ (y * 19349663) ^ (s * 83492791)) >>> 0) % 10007) / 10007;
 
 /** the stipple feel: dot size, how far the pointer reaches, how it drags, carves and heals */
@@ -374,7 +385,7 @@ export class Stipple {
   padX: number; padY: number;
   private cell: number; private dot: number; private cols: number; private rows: number; private ox: number; private oy: number;
   private ac: number; private ar: number; private aq: number; private arow: number;
-  private dens: Float32Array | null = null;
+  private dens: Float32Array | null = null; private vals: Float32Array | null = null; private was: Uint8Array | null = null;
   private on = new Int32Array(0); private col = new Uint32Array(0); private jit = new Float32Array(0); private n = 0;
   private img: ImageData | null = null; private buf: Uint32Array | null = null;
   // the displacement field: one node every F cells, each a damped spring
@@ -408,32 +419,45 @@ export class Stipple {
   /** sample the scene at time t, hover h, and decide which cells are lit and in what tint */
   setTone(t: number, h: number) {
     const win = bounds(this.ill), ac = this.ac, ar = this.ar, cols = this.cols;
-    // one sample per cell, at its centre: silhouettes and detail lines stay crisp instead of fraying
-    const img = renderHi(this.ill, t, h, ac / win.w, win, true, 0.02);
+    // two by two samples per cell: steadier edges while things move. A detail line anywhere in the
+    // cell pulls it down hard, so lines stay crisp gaps rather than turning grey
+    const ss = 2;
+    const img = renderHi(this.ill, t, h, (ac * ss) / win.w, win, true, 0.02, true);
     const d = img.data, iw = img.width, ih = img.height, bn = blueNoise();
     const A = hex(this.theme.a), B = hex(this.theme.b ?? this.theme.a);
     const size = this.cols * this.rows;
     if (this.on.length < size) { this.on = new Int32Array(size); this.col = new Uint32Array(size); this.jit = new Float32Array(size); }
-    // density per cell first, then decide which cells light
-    if (!this.dens || this.dens.length < ac * ar) this.dens = new Float32Array(ac * ar);
-    const dn = this.dens;
+    if (!this.dens || this.dens.length < ac * ar) { this.dens = new Float32Array(ac * ar); this.vals = new Float32Array(ac * ar); this.was = new Uint8Array(ac * ar); }
+    const dn = this.dens, vals = this.vals!, was = this.was!;
     for (let r = 0; r < ar; r++) for (let q = 0; q < ac; q++) {
-      const v = d[(Math.min(ih - 1, r) * iw + Math.min(iw - 1, q)) * 4] / 255;
+      let sum = 0, lo = 1;
+      for (let y = 0; y < ss; y++) {
+        const yy = Math.min(ih - 1, r * ss + y);
+        for (let x = 0; x < ss; x++) { const g = d[(yy * iw + Math.min(iw - 1, q * ss + x)) * 4] / 255; sum += g; if (g < lo) lo = g; }
+      }
+      const avg = sum / (ss * ss), v = Math.min(avg, (avg + lo) / 2);
+      vals[r * ac + q] = v;
       const u = q / ac, w = r / ar;
-      // light from the top left: every flat face gets a slow ramp, which is what makes dithering sing.
-      // tones are pushed apart (lit tops nearly solid, shaded walls sparse) so mid grey only lives in the ramps
-      const light = 1.42 - 0.95 * (u * 0.45 + w * 0.55);
-      dn[r * ac + q] = v < 0.05 ? -1 : Math.min(1, Math.pow(Math.max(0, (v - 0.26) / 0.74), 2.1) * light + (v > 0.26 ? 0.035 : 0));
+      // tones are kept apart, never parked at half: lit faces nearly solid, left walls dense, right
+      // walls clearly sparse. Half density is where dithering turns into mazes, so it only appears in
+      // the light ramp across a face (top left brighter), which is what makes the dither read as shape
+      const light = 1.12 - 0.3 * (u * 0.45 + w * 0.55);
+      dn[r * ac + q] = v < 0.05 ? -1 : Math.min(0.985, toneCurve(v) * light);
     }
     if (DITHER === "atkinson") atkinson(dn, ac, ar);
     let n = 0;
     for (let r = 0; r < ar; r++) for (let q = 0; q < ac; q++) {
-      const dens = dn[r * ac + q];
-      if (dens < 0) continue;
-      const v = d[(Math.min(ih - 1, r) * iw + Math.min(iw - 1, q)) * 4] / 255;
+      const i = r * ac + q, dens = dn[i];
+      if (dens < 0) { was[i] = 0; continue; }
+      const v = vals[i];
       const u = q / ac, w = r / ar;
       const gq = q + this.aq, gr = r + this.arow;
-      if (DITHER === "atkinson" ? dens < 0.5 : dens <= bn[(gr % BNS) * BNS + (gq % BNS)]) continue;
+      // hysteresis: a dot only changes state when its tone moves clearly past its threshold, so
+      // tiny tone changes between frames never make it blink
+      const th = bn[(gr % BNS) * BNS + (gq % BNS)];
+      const lit = DITHER === "atkinson" ? dens >= 0.5 : was[i] ? dens > th - 0.05 : dens > th + 0.05;
+      was[i] = lit ? 1 : 0;
+      if (!lit) continue;
       // the dot's own tint: the theme across the art, brighter on lit faces, with a small personal drift
       const k = w * 0.75 + u * 0.25, j = hash(q, r) - 0.5, j2 = hash(q, r, 1) - 0.5;
       const L = (0.6 + 0.4 * Math.min(1, v)) * (1 + j * 0.16);
