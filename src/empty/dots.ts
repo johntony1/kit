@@ -583,9 +583,11 @@ export function bounds(ill: Illustration, margin = 3) {
   if (hit) return hit;
   let q0 = ill.cols, r0 = ill.rows, q1 = -1, r1 = -1;
   const per = ill.period ?? 3;
-  for (let i = 0; i < 8; i++) {
-    for (const h of ill.kind === "hover" ? [0, 0.5, 1] : [0]) {
-      const g = renderGrid(ill, (i / 8) * per, h);
+  // sample enough moments that nothing that moves gets cropped mid motion
+  const N = 12;
+  for (let i = 0; i < N; i++) {
+    for (const h of ill.kind === "hover" ? [0, 0.35, 0.7, 1] : [0]) {
+      const g = renderGrid(ill, (i / N) * per, h);
       for (let r = 0; r < ill.rows; r++) for (let q = 0; q < ill.cols; q++) {
         if (g[r * ill.cols + q] < 0.035) continue;
         if (q < q0) q0 = q; if (q > q1) q1 = q; if (r < r0) r0 = r; if (r > r1) r1 = r;
