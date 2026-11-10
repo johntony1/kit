@@ -5,9 +5,9 @@
 import { useEffect, useLayoutEffect, useRef, useMemo, useState, useSyncExternalStore } from "react";
 import { theme as siteTheme } from "../site/theme";
 import { play } from "../sound/sound";
-import { bounds, lineBounds, paintFrame, Stipple, THEMES, type DotStyle, type Illustration, type Mode, type Theme } from "./dots";
+import { paintFrame, windowOf, Stipple, THEMES, type DotStyle, type Illustration, type Mode, type Theme } from "./dots";
 
-export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitch = 9, look = "stipple", touch = false, mode }: { ill: Illustration; theme?: Theme; hover?: boolean; fit?: number; maxPitch?: number; look?: DotStyle; touch?: boolean; mode?: Mode }) {
+export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitch = 9, look = "stipple", touch = false, mode, stage = false }: { ill: Illustration; theme?: Theme; hover?: boolean; fit?: number; maxPitch?: number; look?: DotStyle; touch?: boolean; mode?: Mode; stage?: boolean }) {
   // on a light page white dots would vanish: the White colour becomes ink there
   const siteLight = useSyncExternalStore(siteTheme.subscribe, () => siteTheme.get() === "light", () => false);
   const light = mode ? mode === "light" : siteLight;
@@ -27,20 +27,20 @@ export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitc
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
-    const b = look === "line" ? lineBounds(ill) : bounds(ill);
+    const b = windowOf(ill, look, stage);
     const ro = new ResizeObserver(() => setPitch(Math.max(2, Math.min(maxPitch, (el.clientWidth * fit) / b.w, (el.clientHeight * fit) / b.h))));
     ro.observe(el);
     const io = new IntersectionObserver(([e]) => setSeen(e.isIntersecting), { rootMargin: "100px" });
     io.observe(el);
     return () => { ro.disconnect(); io.disconnect(); };
-  }, [ill, fit, maxPitch, look]);
+  }, [ill, fit, maxPitch, look, stage]);
 
   useEffect(() => {
     const c = cv.current;
     if (!c) return;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const win = look === "line" ? lineBounds(ill) : bounds(ill);
-    if (look === "stipple") return runStipple(c, ill, theme, pitch, dpr, seen, ill.kind, h, wantRef, st);
+    const win = windowOf(ill, look, stage);
+    if (look === "stipple") return runStipple(c, ill, theme, pitch, dpr, seen, ill.kind, h, wantRef, st, stage);
     const W = win.w * pitch, H = win.h * pitch;
     c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
     c.style.width = `${W}px`; c.style.height = `${H}px`; c.style.margin = "0";
@@ -58,15 +58,15 @@ export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitc
       if (moving || drawn < 0) {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, W, H);
-        paintFrame(ctx, ill, still ? (ill.period ?? 3) * 0.3 : t, still ? Math.round(h.current) : h.current, theme, pitch, look, dpr, md);
+        paintFrame(ctx, ill, still ? (ill.period ?? 3) * 0.3 : t, still ? Math.round(h.current) : h.current, theme, pitch, look, dpr, md, stage);
         drawn = h.current;
       }
       raf = requestAnimationFrame(frame);
     };
     if (seen) raf = requestAnimationFrame(frame);
-    else { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); paintFrame(ctx, ill, 0, 0, theme, pitch, look, dpr, md); }
+    else { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); paintFrame(ctx, ill, 0, 0, theme, pitch, look, dpr, md, stage); }
     return () => cancelAnimationFrame(raf);
-  }, [ill, theme, pitch, seen, look, md]);
+  }, [ill, theme, pitch, seen, look, md, stage]);
 
   return (
     <div ref={box} className="dotArt" onPointerEnter={(e) => e.pointerType !== "touch" && setOver(true)}
@@ -93,8 +93,8 @@ export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitc
 /** the stipple loop: re-sample the scene only when it changes, move the springs every frame they
  *  are live, and paint only when something moved */
 function runStipple(c: HTMLCanvasElement, ill: Illustration, theme: Theme, pitch: number, dpr: number, seen: boolean, kind: Illustration["kind"],
-  h: { current: number }, want: { current: boolean }, ref: { current: Stipple | null }) {
-  const s = new Stipple(ill, theme, pitch, dpr);
+  h: { current: number }, want: { current: boolean }, ref: { current: Stipple | null }, stage = false) {
+  const s = new Stipple(ill, theme, pitch, dpr, true, stage);
   ref.current = s;
   c.width = s.W; c.height = s.H;
   // the canvas is bigger than the art by the room dots can be pulled into; that room hangs outside the layout box

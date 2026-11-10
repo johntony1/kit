@@ -56,10 +56,13 @@ export class Pen {
   ink: Ink | null = null;
   private u = 1;
   private plated = false;
-  /** the stage, worked out by a first pass over every floor shadow; null while measuring */
-  stage: { x0: number; x1: number; y0: number; y1: number } | null = null;
+  /** the stage: a rounded slab under the piece, on when a caller asks for it (see withStage) */
+  private staged = STAGE.on;
+  stage: { x0: number; x1: number; y0: number; y1: number } | null = STAGE.geom;
   private measuring = false;
-  setInk(ink: Ink, u: number, stage: Pen["stage"] = null, measuring = false) { this.ink = ink; this.u = u; this.stage = stage; this.measuring = measuring; return this; }
+  setInk(ink: Ink, u: number) { this.ink = ink; this.u = u; return this; }
+  /** a pass that draws nothing and only records where the floor shadows fall */
+  measure() { this.measuring = true; this.staged = false; this.stage = null; return this; }
   private inkFill(f: number) {
     const k = this.ink!;
     return f < 0.05 ? k.hole : f < 0.1 ? k.right : f < 0.16 ? k.left : f < 0.3 ? k.top : k.accentFill;
@@ -201,33 +204,36 @@ export class Pen {
   }
   /** a shadow on the floor: a soft dim ellipse */
   shadow(cx: number, cy: number, rx: number, ry: number, k = 0.12) {
-    if (this.ink) {
-      if (this.measuring) {
-        // a shadow's footprint in world units, at the floor this shadow sits on
-        const [wx, wy] = [this.m[0] * cx + this.m[1] * cy + this.m[3], this.m[4] * cx + this.m[5] * cy + this.m[7]], r = rx * 0.5;
-        const s = this.stage ?? (this.stage = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity });
-        s.x0 = Math.min(s.x0, wx - r); s.x1 = Math.max(s.x1, wx + r); s.y0 = Math.min(s.y0, wy - r); s.y1 = Math.max(s.y1, wy + r);
-        return;
-      }
-      if (!this.plated) {
-        this.plated = true;
-        const st = this.stage, fz = this.m[11];
-        if (st) { this.push(); this.m = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, fz]; this.plate((st.x0 + st.x1) / 2, (st.y0 + st.y1) / 2, (st.x1 - st.x0) / 2, (st.y1 - st.y0) / 2); this.pop(); }
-        else this.plate(cx, cy, rx * 0.5, rx * 0.5);
-      }
+    if (this.measuring) {
+      // a shadow's footprint in world units, at the floor this shadow sits on
+      const [wx, wy] = [this.m[0] * cx + this.m[1] * cy + this.m[3], this.m[4] * cx + this.m[5] * cy + this.m[7]], r = rx * 0.5;
+      const s = this.stage ?? (this.stage = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity });
+      s.x0 = Math.min(s.x0, wx - r); s.x1 = Math.max(s.x1, wx + r); s.y0 = Math.min(s.y0, wy - r); s.y1 = Math.max(s.y1, wy + r);
+      return;
+    }
+    if (this.staged) {
+      // one slab under every shadow, drawn in place of the first
+      if (this.plated) return;
+      this.plated = true;
+      const st = this.stage, fz = this.m[11];
+      if (st) { this.push(); this.m = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, fz]; this.plate((st.x0 + st.x1) / 2, (st.y0 + st.y1) / 2, (st.x1 - st.x0) / 2, (st.y1 - st.y0) / 2); this.pop(); }
+      else this.plate(cx, cy, rx * 0.5, rx * 0.5);
       return;
     }
     const [sx, sy] = this.pt([cx, cy, 0]);
     const c = this.c;
     c.save(); c.translate(sx, sy); c.scale(1, ry / rx);
     const g = c.createRadialGradient(0, 0, 0, 0, 0, rx);
-    g.addColorStop(0, this.g(k)); g.addColorStop(1, "rgba(0,0,0,0)");
+    g.addColorStop(0, this.ink ? this.ink.shadow : this.g(k)); g.addColorStop(1, "rgba(0,0,0,0)");
     c.fillStyle = g; c.beginPath(); c.arc(0, 0, rx, 0, Math.PI * 2); c.fill(); c.restore();
   }
   /** the line style's stage: a rounded slab the piece stands on, with a thinner ghost layer under it
    *  and a soft shadow. Drawn in place of the first floor shadow */
   plate(cx: number, cy: number, sx: number, sy: number) {
-    const k = this.ink!, c = this.c, T = 2.6, s = Math.max(sx, sy), rr = Math.min(sx, sy) * 0.26;
+    const c = this.c, T = 2.6, s = Math.max(sx, sy), rr = Math.min(sx, sy) * 0.26;
+    // the same slab in every style: inked in the line style, shaded faces and cut edges in the dot styles
+    const tone = (f: number) => this.g(this.tone ? this.toneOf(f) : f);
+    const k = this.ink ?? { top: tone(SH.top), left: tone(SH.left), right: tone(SH.right), edge: this.g(this.tone ? this.lineTone : SH.edge), ghost: this.g(this.tone ? this.lineTone : SH.edge), shadow: this.g(0.1) };
     const rounded = (z: number, grow = 0): V3[] => {
       const X = sx + grow, Y = sy + grow, R = rr + grow, out: V3[] = [];
       const corners: [number, number, number][] = [[X - R, Y - R, 0], [-(X - R), Y - R, 0.5], [-(X - R), -(Y - R), 1], [X - R, -(Y - R), 1.5]];
@@ -236,12 +242,12 @@ export class Pen {
     };
     const slab = (z0: number, h: number, grow: number, side: string, top: string, edge: string) => {
       for (let d = h; d >= 0; d -= 0.5) { this.path(rounded(z0 + h - d, grow)); c.fillStyle = side; c.fill(); }
-      this.path(rounded(z0, grow)); this.stroke(edge, 1);
+      this.path(rounded(z0, grow)); this.stroke(edge, this.ink ? 1 : 0.55 / this.u);
       // the two silhouette verticals: the slab's left and right extremes
       const lo = rounded(z0, grow).map((p) => this.pt(p)), xs = lo.map((p) => p[0]);
       const il = xs.indexOf(Math.min(...xs)), ir = xs.indexOf(Math.max(...xs));
-      for (const i of [il, ir]) { const b = lo[i]; c.beginPath(); c.moveTo(b[0], b[1]); c.lineTo(b[0], b[1] - h); this.stroke(edge, 1); }
-      this.path(rounded(z0 + h, grow)); c.fillStyle = top; c.fill(); this.stroke(edge, 1);
+      for (const i of [il, ir]) { const b = lo[i]; c.beginPath(); c.moveTo(b[0], b[1]); c.lineTo(b[0], b[1] - h); this.stroke(edge, this.ink ? 1 : 0.55 / this.u); }
+      this.path(rounded(z0 + h, grow)); c.fillStyle = top; c.fill(); this.stroke(edge, this.ink ? 1 : 0.55 / this.u);
     };
     // the shadow under it all
     const [hx, hy] = this.pt([cx, cy, -T - 2.2]);
@@ -330,14 +336,23 @@ export function inkOf(theme: Theme, mode: Mode): Ink {
     ? { top: "#ffffff", left: "#f6f7f9", right: "#eceef2", hole: "#f1f3f6", edge: "#a9b0ba", ghost: "#d0d4da", detail: "#bcc2ca", accent: acc, accentFill: mixHex("#ffffff", acc, 0.14), shadow: "rgba(30,40,60,.10)" }
     : { top: "#232528", left: "#1d1f22", right: "#17181b", hole: "#141517", edge: "#4a4e56", ghost: "#33363c", detail: "#41454c", accent: acc, accentFill: mixHex("#232528", acc, 0.2), shadow: "rgba(0,0,0,.45)" };
 }
+/** whether pens made now draw the stage, and where it goes. Set around a render with withStage */
+const STAGE: { on: boolean; geom: Pen["stage"] } = { on: false, geom: null };
+export function withStage<T>(ill: Illustration, on: boolean, fn: () => T): T {
+  const was = { ...STAGE };
+  STAGE.geom = on ? stageOf(ill) : null; STAGE.on = on;
+  try { return fn(); } finally { STAGE.on = was.on; STAGE.geom = was.geom; }
+}
+/** the window a piece needs in a style, stage or not */
+export const windowOf = (ill: Illustration, style: DotStyle, stage = false) => withStage(ill, stage, () => (style === "line" ? lineBounds(ill) : bounds(ill)));
 /** the stage under a piece: one slab under every floor shadow it casts. Measured once at rest, so
  *  the slab never moves while the piece does */
 const stageCache = new Map<string, Pen["stage"]>();
 let measureCv: OffscreenCanvas | HTMLCanvasElement | null = null;
-function stageOf(ill: Illustration, _t: number, _h: number): Pen["stage"] {
+function stageOf(ill: Illustration): Pen["stage"] {
   if (stageCache.has(ill.k)) return stageCache.get(ill.k)!;
   measureCv ??= typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(4, 4) : document.createElement("canvas");
-  const p = new Pen(measureCv.getContext("2d") as CanvasRenderingContext2D, 0, 0).setInk(inkOf(THEMES[0], "light"), 1, null, true);
+  const p = new Pen(measureCv.getContext("2d") as CanvasRenderingContext2D, 0, 0).measure();
   ill.draw(p, 0, 0);
   stageCache.set(ill.k, p.stage);
   return p.stage;
@@ -346,7 +361,7 @@ function stageOf(ill: Illustration, _t: number, _h: number): Pen["stage"] {
  *  over the whole motion, in grid dots */
 const lineCache = new Map<string, { q0: number; r0: number; w: number; h: number }>();
 export function lineBounds(ill: Illustration, margin = 3) {
-  const hit = lineCache.get(ill.k);
+  const key = `${ill.k}|${+STAGE.on}`, hit = lineCache.get(key);
   if (hit) return hit;
   const K = 2, W = ill.cols * K * 2, H = ill.rows * K * 2, ox = ill.cols * K / 2, oy = ill.rows * K / 2;
   const cv = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(W, H) : Object.assign(document.createElement("canvas"), { width: W, height: H });
@@ -357,7 +372,7 @@ export function lineBounds(ill: Illustration, margin = 3) {
   for (let i = 0; i < 8; i++) for (const h of ill.kind === "hover" ? [0, 0.5, 1] : [0]) {
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W, H);
     c.setTransform(K * z, 0, 0, K * z, ox, oy);
-    ill.draw(new Pen(c, ill.cols / 2 / z, ill.rows / 2 / z).setInk(ink, 1 / (K * z), stageOf(ill, (i / 8) * per, h)), (i / 8) * per, h);
+    ill.draw(new Pen(c, ill.cols / 2 / z, ill.rows / 2 / z).setInk(ink, 1 / (K * z)), (i / 8) * per, h);
     const d = c.getImageData(0, 0, W, H).data;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       if (d[(y * W + x) * 4 + 3] < 40) continue;
@@ -365,7 +380,7 @@ export function lineBounds(ill: Illustration, margin = 3) {
     }
   }
   const b = x1 < 0 ? bounds(ill) : { q0: Math.floor((x0 - ox) / K) - margin, r0: Math.floor((y0 - oy) / K) - margin, w: Math.ceil((x1 - x0) / K) + margin * 2 + 1, h: Math.ceil((y1 - y0) / K) + margin * 2 + 1 };
-  lineCache.set(ill.k, b);
+  lineCache.set(key, b);
   return b;
 }
 /** draw one frame of the line style onto ctx (already scaled so 1 unit = 1 css px) */
@@ -374,7 +389,7 @@ export function paintLine(ctx: CanvasRenderingContext2D, ill: Illustration, t: n
   ctx.save();
   ctx.transform(px * z, 0, 0, px * z, -win.q0 * px, -win.r0 * px);
   const ink = inkOf(theme, mode);
-  ill.draw(new Pen(ctx, ill.cols / 2 / z, ill.rows / 2 / z).setInk(ink, 1 / (px * z), stageOf(ill, t, h)), t, h);
+  ill.draw(new Pen(ctx, ill.cols / 2 / z, ill.rows / 2 / z).setInk(ink, 1 / (px * z)), t, h);
   ctx.restore();
 }
 
@@ -434,11 +449,12 @@ function eachHalftoneDot(ill: Illustration, t: number, h: number, theme: Theme, 
 }
 
 /** paint one frame in a style onto ctx (already scaled so 1 unit = 1 css px). px: css px per grid dot */
-export function paintFrame(ctx: CanvasRenderingContext2D, ill: Illustration, t: number, h: number, theme: Theme, px: number, style: DotStyle, dpr = 1, mode: Mode = "dark") {
+export function paintFrame(ctx: CanvasRenderingContext2D, ill: Illustration, t: number, h: number, theme: Theme, px: number, style: DotStyle, dpr = 1, mode: Mode = "dark", stage = false): void {
+  if (stage !== STAGE.on) return withStage(ill, stage, () => paintFrame(ctx, ill, t, h, theme, px, style, dpr, mode, stage));
   if (style === "line") return paintLine(ctx, ill, t, h, theme, px, mode);
   const win = bounds(ill);
   if (style === "stipple") {
-    const st = new Stipple(ill, theme, px, dpr, false);
+    const st = new Stipple(ill, theme, px, dpr, false, stage);
     st.setTone(t, h);
     if (!layer) layer = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(st.W, st.H) : document.createElement("canvas");
     layer.width = st.W; layer.height = st.H;
@@ -546,8 +562,8 @@ export class Stipple {
   /** true while the dots are away from home or the pointer is on them */
   active = false;
 
-  constructor(private ill: Illustration, private theme: Theme, pitch: number, dpr: number, roomy = true) {
-    const win = bounds(ill);
+  constructor(private ill: Illustration, private theme: Theme, pitch: number, dpr: number, roomy = true, private stage = false) {
+    const win = windowOf(ill, "stipple", stage);
     const aw = win.w * pitch * dpr, ah = win.h * pitch * dpr;
     this.padX = roomy ? Math.round(aw * STIPPLE.pad) : 0; this.padY = roomy ? Math.round(ah * STIPPLE.pad) : 0;
     this.W = Math.max(1, Math.round(aw) + this.padX * 2); this.H = Math.max(1, Math.round(ah) + this.padY * 2);
@@ -566,7 +582,8 @@ export class Stipple {
   }
 
   /** sample the scene at time t, hover h, and decide which cells are lit and in what tint */
-  setTone(t: number, h: number) {
+  setTone(t: number, h: number): void {
+    if (this.stage !== STAGE.on) return withStage(this.ill, this.stage, () => this.setTone(t, h));
     const win = bounds(this.ill), ac = this.ac, ar = this.ar, cols = this.cols;
     // two by two samples per cell: steadier edges while things move. A detail line anywhere in the
     // cell pulls it down hard, so lines stay crisp gaps rather than turning grey
@@ -729,7 +746,7 @@ export class Stipple {
 /** the part of the grid the piece ever lights (sampled over its motion), plus a margin of dots */
 const boundsCache = new Map<string, { q0: number; r0: number; w: number; h: number }>();
 export function bounds(ill: Illustration, margin = 3) {
-  const hit = boundsCache.get(ill.k);
+  const key = `${ill.k}|${+STAGE.on}`, hit = boundsCache.get(key);
   if (hit) return hit;
   let q0 = ill.cols, r0 = ill.rows, q1 = -1, r1 = -1;
   const per = ill.period ?? 3;
@@ -747,7 +764,7 @@ export function bounds(ill: Illustration, margin = 3) {
   if (q1 < 0) return { q0: 0, r0: 0, w: ill.cols, h: ill.rows };
   q0 = Math.max(0, q0 - margin); r0 = Math.max(0, r0 - margin);
   const b = { q0, r0, w: Math.min(ill.cols, q1 + margin + 1) - q0, h: Math.min(ill.rows, r1 + margin + 1) - r0 };
-  boundsCache.set(ill.k, b);
+  boundsCache.set(key, b);
   return b;
 }
 
@@ -810,12 +827,13 @@ export function paintDots(ctx: CanvasRenderingContext2D, grid: Float32Array, col
 /* ── exports ── */
 
 /** the current frame as an SVG: halftone is pure circles; soft is an embedded image */
-export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pitch = 8, style: DotStyle = "stipple", mode: Mode = "dark") {
+export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pitch = 8, style: DotStyle = "stipple", mode: Mode = "dark", stage = false): string {
+  if (stage !== STAGE.on) return withStage(ill, stage, () => toSVG(ill, t, h, theme, pitch, style, mode, stage));
   const bx = style === "line" ? lineBounds(ill) : bounds(ill);
   const W = bx.w * pitch, H = bx.h * pitch;
   const parts: string[] = [];
   if (style === "stipple") {
-    const st = new Stipple(ill, theme, pitch, 1, false);
+    const st = new Stipple(ill, theme, pitch, 1, false, stage);
     st.setTone(t, h);
     st.each((x, y, s, col) => parts.push(`<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="${col}"/>`));
   } else if (style === "halftone") {
@@ -839,11 +857,11 @@ export function hoverAt(u: number) {
 }
 
 /** the loop (or the hover played in and out) as an animated GIF */
-export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24, style: DotStyle = "stipple", mode: Mode = "dark"): Promise<Blob> {
+export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24, style: DotStyle = "stipple", mode: Mode = "dark", stage = false): Promise<Blob> {
   const { GIFEncoder, quantize, applyPalette } = await import("gifenc");
   const dur = ill.kind === "loop" ? ill.period ?? 3 : 3.2;
   const n = Math.round(dur * fps);
-  const bx = style === "line" ? lineBounds(ill) : bounds(ill);
+  const bx = windowOf(ill, style, stage);
   const W = bx.w * pitch, H = bx.h * pitch;
   const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
   const c = cv.getContext("2d", { willReadFrequently: true })!;
@@ -852,7 +870,7 @@ export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24
   for (let i = 0; i < n; i++) {
     const u = i / n;
     c.fillStyle = mode === "light" ? "#f7f8fa" : style === "line" ? "#0e0f11" : theme.bg; c.fillRect(0, 0, W, H);
-    paintFrame(c, ill, u * dur, ill.kind === "loop" ? 0 : hoverAt(u), theme, pitch, style, 1, mode);
+    paintFrame(c, ill, u * dur, ill.kind === "loop" ? 0 : hoverAt(u), theme, pitch, style, 1, mode, stage);
     const data = c.getImageData(0, 0, W, H).data;
     palette ??= quantize(data, 64);
     gif.writeFrame(applyPalette(data, palette), W, H, { palette, delay: Math.round(1000 / fps) });
