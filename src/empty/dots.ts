@@ -26,6 +26,9 @@ export interface Illustration {
   rows: number;
   /** dots per world unit (scenes are drawn in units; default 1) */
   zoom?: number;
+  /** a piece made of real UI rather than a drawn scene: the name of its component in empty/flat.
+   *  draw then only gives a small stand in for the dot exports */
+  flat?: string;
   /** draw the scene. t: seconds. h: hover 0..1 (eased). Draw back to front. */
   draw: (p: Pen, t: number, h: number) => void;
 }

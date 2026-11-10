@@ -5,6 +5,7 @@
 import { useEffect, useLayoutEffect, useRef, useMemo, useState, useSyncExternalStore } from "react";
 import { theme as siteTheme } from "../site/theme";
 import { play } from "../sound/sound";
+import { FLAT } from "./flat";
 import { paintFrame, windowOf, Stipple, THEMES, type DotStyle, type Illustration, type Mode, type Theme } from "./dots";
 
 export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitch = 9, look = "stipple", touch = false, mode, stage = false }: { ill: Illustration; theme?: Theme; hover?: boolean; fit?: number; maxPitch?: number; look?: DotStyle; touch?: boolean; mode?: Mode; stage?: boolean }) {
@@ -68,6 +69,7 @@ export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitc
     return () => cancelAnimationFrame(raf);
   }, [ill, theme, pitch, seen, look, md, stage]);
 
+  if (ill.flat && ill.flat in FLAT) { const F = FLAT[ill.flat as keyof typeof FLAT]; return <div ref={box} className="dotArt flatArt"><F mode={md} /></div>; }
   return (
     <div ref={box} className="dotArt" onPointerEnter={(e) => e.pointerType !== "touch" && setOver(true)}
       onPointerMove={(e) => {
