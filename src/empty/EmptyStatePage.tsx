@@ -48,8 +48,8 @@ ${f.src}
 `;
 }
 
-export function emptyPrompt(ill: Illustration) {
-  if (ill.flat && FLAT_SRC[ill.flat]) return flatPrompt(ill);
+export function emptyPrompt(ill: Illustration, ui = false) {
+  if (ui && ill.flat && FLAT_SRC[ill.flat]) return flatPrompt(ill);
   const src = fileOf(ill.k)?.[1] ?? "";
   return `# Add the "${ill.name}" dot matrix empty state
 
@@ -99,12 +99,12 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
   const [tab, setTab] = useState<"Preview" | "Code">("Preview");
   const [theme, setTheme] = useState<Theme>(THEMES[0]);
   const [gif, setGif] = useState<"idle" | "busy">("idle");
-  const [look, setLook] = useState<"Stipple" | "Halftone" | "Line">("Stipple");
+  const [look, setLook] = useState<"Stipple" | "Halftone" | "Line" | "UI">("Stipple");
   const [shade, setShade] = useState<"Dark" | "Light">("Dark");
   // the stage: the rounded slab the piece stands on. Line starts with it; any style can have it
   const [stage, setStage] = useState(false);
   const pick = (l: typeof look) => { setLook(l); if (l === "Line") setStage(true); };
-  const style = look.toLowerCase() as DotStyle;
+  const style = (look === "UI" ? "stipple" : look.toLowerCase()) as DotStyle;
   const mode = shade.toLowerCase() as Mode;
   const prompt = useCopy();
   const file = fileOf(ill.k);
@@ -117,7 +117,8 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
     try { save(await toGIF(ill, theme, 6, 24, style, mode, stage), `${slug}.gif`); } finally { setGif("idle"); }
   };
 
-  const flat = ill.flat ? FLAT_SRC[ill.flat] : undefined;
+  // pieces that also come as real UI get a fourth style, "UI", which shows that component instead
+  const flat = ill.flat && look === "UI" ? FLAT_SRC[ill.flat] : undefined;
   return (
     <div className="sheetPage">
       <h1 className="h1">{ill.name}</h1>
@@ -125,7 +126,7 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
       <div className="bar">
         <div className="esSegs">
           <Seg label="View" value={tab} options={["Preview", "Code"] as const} onChange={setTab} />
-          {!flat && <Seg label="Style" value={look} options={["Stipple", "Halftone", "Line"] as const} onChange={pick} />}
+          <Seg label="Style" value={look} options={ill.flat ? (["Stipple", "Halftone", "Line", "UI"] as const) : (["Stipple", "Halftone", "Line"] as const)} onChange={pick} />
           <Seg label="Mode" value={shade} options={["Dark", "Light"] as const} onChange={setShade} />
           {!flat && <Seg label="Stage" value={stage ? "Stage" : "No stage"} options={["No stage", "Stage"] as const} onChange={(v) => setStage(v === "Stage")} />}
         </div>
@@ -140,13 +141,13 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
           <button type="button" className="btn line" onClick={svg}>SVG</button>
           <button type="button" className="btn line" onClick={makeGif} aria-busy={gif === "busy"}>{gif === "busy" ? "Rendering" : "GIF"}</button>
           </>}
-          <button type="button" className="btn primary" onClick={() => prompt.copy(emptyPrompt(ill))}><CopyIcon done={prompt.done} />{prompt.done ? "Copied" : "Copy prompt"}</button>
+          <button type="button" className="btn primary" onClick={() => prompt.copy(emptyPrompt(ill, !!flat))}><CopyIcon done={prompt.done} />{prompt.done ? "Copied" : "Copy prompt"}</button>
         </div>
       </div>
       {tab === "Preview" ? (
         <>
           <div className={`panel esBig ${mode} ${flat ? "line" : style}`}>
-            <DotArt ill={ill} theme={theme} maxPitch={8} fit={0.92} look={style} mode={mode} stage={stage} touch />
+            <DotArt ill={ill} theme={theme} maxPitch={8} fit={0.92} look={style} mode={mode} stage={stage} ui={!!flat} touch />
             {flat ? null : style === "stipple" ? (
               <span className="esHint"><span className="onHover">Move through the dots, press to dig in</span><span className="onTouch">Press and drag through the dots</span></span>
             ) : ill.kind === "hover" && <span className="esHint">Hover to play</span>}
@@ -154,7 +155,7 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
           <Later>
             <div className={`panel esContext ${mode} ${flat ? "line" : style}`}>
               <div className="esEmpty">
-                <div className="esEmptyArt"><DotArt ill={ill} theme={theme} fit={1} look={style} mode={mode} stage={stage} /></div>
+                <div className="esEmptyArt"><DotArt ill={ill} theme={theme} fit={1} look={style} mode={mode} stage={stage} ui={!!flat} /></div>
                 <h3>{ill.title}</h3>
                 <p>{ill.body}</p>
                 <button type="button" className="btn primary">Get started</button>
