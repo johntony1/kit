@@ -28,7 +28,7 @@ function taper(p: Parameters<Illustration["draw"]>[0], x0: number, x1: number, a
 const hash = (n: number) => { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); };
 
 export const plug: Illustration = {
-  k: "plug", name: "Plug and socket", title: "Connection lost", body: "We can't reach the server right now. Check your connection and try again.",
+  k: "plug", name: "Plug and socket", title: "Not connected", body: "We can't reach the server right now. Check your connection and try again.",
   kind: "loop", period: 3, cols: 92, rows: 80, zoom: 1.42,
   draw(p, t) {
     const near = pulse(t, 3, 0.3);

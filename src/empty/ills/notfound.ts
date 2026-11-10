@@ -50,7 +50,7 @@ function glyph(p: Pen, g: { loops: P2[][]; caps: P2[][] }, tilt: number) {
 }
 
 export const notfound: Illustration = {
-  k: "notfound", name: "404", title: "Page not found", body: "The page you are looking for has moved or never existed. Let's get you back on track.",
+  k: "notfound", name: "404", title: "Error 404", body: "The page you are looking for has moved or never existed. Let's get you back on track.",
   kind: "loop", period: PERIOD, cols: 92, rows: 80, zoom: 1.42,
   draw(p, t) {
     const u = (t % PERIOD) / PERIOD;

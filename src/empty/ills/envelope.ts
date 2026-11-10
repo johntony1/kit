@@ -4,7 +4,7 @@ import { SH, type Illustration, type V3 } from "../dots";
 const X = 14, Y = 1.3, Z = 18; // half width, half thickness, height
 
 export const envelope: Illustration = {
-  k: "envelope", name: "Envelope", title: "No messages", body: "When someone writes to you, their message will land right here.",
+  k: "envelope", name: "Envelope", title: "No new mail", body: "When someone writes to you, their message will land right here.",
   kind: "hover", cols: 92, rows: 80, zoom: 1.42,
   draw(p, t, h) {
     p.translate(0, 0, -14);

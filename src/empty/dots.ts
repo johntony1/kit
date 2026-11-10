@@ -252,9 +252,9 @@ export class Pen {
     // the shadow under it all
     const [hx, hy] = this.pt([cx, cy, -T - 2.2]);
     c.save(); c.translate(hx, hy); c.scale(1, 0.5);
-    const g = c.createRadialGradient(0, 0, 0, 0, 0, s * 1.9);
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, s * 1.5);
     g.addColorStop(0, k.shadow); g.addColorStop(1, "rgba(0,0,0,0)");
-    c.fillStyle = g; c.beginPath(); c.arc(0, 0, s * 1.9, 0, Math.PI * 2); c.fill(); c.restore();
+    c.fillStyle = g; c.beginPath(); c.arc(0, 0, s * 1.5, 0, Math.PI * 2); c.fill(); c.restore();
     slab(-T - 1.6, 1.2, -0.4, k.right, k.left, k.ghost);
     slab(-T, T, 0, k.right, k.top, k.edge);
   }
@@ -377,7 +377,7 @@ export function lineBounds(ill: Illustration, margin = 3) {
     ill.draw(new Pen(c, ill.cols / 2 / z, ill.rows / 2 / z).setInk(ink, 1 / (K * z)), (i / 8) * per, h);
     const d = c.getImageData(0, 0, W, H).data;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      if (d[(y * W + x) * 4 + 3] < 40) continue;
+      if (d[(y * W + x) * 4 + 3] < 3) continue; // faint too: the stage's shadow must never end in a straight edge
       if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
     }
   }
