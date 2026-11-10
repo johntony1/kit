@@ -26,31 +26,38 @@ export const bank: Illustration = {
   k: "bank", name: "Add bank", title: "No bank account linked", body: "Link a bank account to get paid and move money in and out.",
   kind: "hover", cols: 92, rows: 80, zoom: 1.42,
   draw(p, _t, h) {
-    p.translate(0, 0, -12);
-    p.scale(0.86);
-    p.shadow(0, 2, 28, 14, 0.08);
-    // two steps, the front reaching out toward us
-    p.box(-16, -5, 0, 32, 15, 1.7, { top: 0.1, left: 0.09, right: 0.05, edge: 0.6 });
-    p.box(-14.5, -4, 1.7, 29, 12, 1.7, { top: 0.13, left: 0.1, right: 0.06, edge: 0.8 });
-    // the wall behind the columns, with a dark door
-    p.box(-11, -2.5, 3.4, 22, 5, 12.6, { top: 0.1, left: 0.07, right: 0.05, edge: 0.7 });
-    p.face([[-2.4, 2.53, 3.4], [2.4, 2.53, 3.4], [2.4, 2.53, 10.5], [-2.4, 2.53, 10.5]], 0.0, 0.7, 0.45);
-    // four columns along the front
-    for (const cx of [-9.4, -3.1, 3.1, 9.4]) {
-      p.cylinder(cx, 5.4, 3.4, 1.75, 12.6, { side: 0.18, top: 0.2, lw: 0.6 });
+    p.translate(0, 0, -13);
+    p.scale(0.95);
+    p.shadow(0, 2, 28, 14, 0.1);
+    p.rotate("z", -0.5); // turned so its columns face us
+    // two steps, the front reaching out toward us: lit tops, dense fronts, sparse ends
+    p.box(-16, -6, 0, 32, 16, 2, { edge: 0 });
+    p.box(-14.5, -5, 2, 29, 13, 1.6, { edge: 0 });
+    p.line([[-16, 10.03, 2], [16, 10.03, 2], [16.03, -6, 2]], SH.edge, 0.5);
+    // the wall behind the columns, in shade, with a dark door
+    p.box(-11, -3, 3.6, 22, 5, 12.6, { top: 0.2, left: 0.035, right: 0.05, edge: 0 });
+    p.clear([[-2.6, 2.03, 3.6], [2.6, 2.03, 3.6], [2.6, 2.03, 11], [-2.6, 2.03, 11]]);
+    // four bold columns along the front: lit, standing out from the shaded wall
+    for (const cx of [-9.2, -3.1, 3.1, 9.2]) {
+      p.box(cx - 1.9, 4.2, 3.6, 3.8, 3.8, 0.9, { edge: 0 }); // base
+      p.cylinder(cx, 6.1, 4.5, 1.7, 11.2, { side: 0.24, top: 0.2, edge: 0 });
     }
-    // the beam
-    p.box(-13, -3.5, 16, 26, 11, 2.8);
-    // the pediment: right slope, then the front triangle with an inset
-    const R = 29, F = 7.5, B = -3.5, Zb = 18.8;
-    p.face([[0, B, R], [0, F, R], [13, F, Zb], [13, B, Zb]], 0.04, 0.85, 0.55);
-    p.face([[-13, F, Zb], [13, F, Zb], [0, F, R]], 0.34, SH.edge, 0.75);
-    p.face([[-8.5, F + 0.03, Zb + 1.5], [8.5, F + 0.03, Zb + 1.5], [0, F + 0.03, R - 2.6]], 0.03, 0.75, 0.45);
+    // the beam: a lit top, a dense front with a cut line, a sparse end
+    p.box(-13.5, -4, 15.7, 27, 12.5, 2.8, { edge: 0 });
+    p.line([[-13.5, 8.53, 17.1], [13.5, 8.53, 17.1]], SH.edge, 0.6);
+    // the roof: two slopes and the front triangle, a cut inset in it
+    const R = 27.5, F = 8.5, B = -4, Zb = 18.5;
+    p.face([[-13.5, B, Zb], [0, B, R], [0, F, R], [-13.5, F, Zb]], 0.2, 0); // left slope, lit
+    p.face([[0, B, R], [0, F, R], [13.5, F, Zb], [13.5, B, Zb]], 0.065, 0); // right slope, in shade
+    p.face([[-13.5, F, Zb], [13.5, F, Zb], [0, F, R]], 0.14, 0);
+    p.line([[-13.5, F + 0.03, Zb], [13.5, F + 0.03, Zb], [0, F + 0.03, R], [-13.5, F + 0.03, Zb]], SH.edge, 0.6);
+    p.line([[-8.5, F + 0.03, Zb + 1.6], [8.5, F + 0.03, Zb + 1.6], [0, F + 0.03, R - 2.6], [-8.5, F + 0.03, Zb + 1.6]], SH.edge, 0.7);
+    p.dot([0, F + 0.05, Zb + 3.6], 1.3, 0); // a round window
     // the coin: bright, drops onto the front step and bounces
     const k = Math.min(1, h * 1.3);
     if (k > 0.01) {
       const cr = 3.8;
-      const [x, y] = p.pt([14, 9.5, 1.7 + cr + drop(k)]);
+      const [x, y] = p.pt([14, 8.5, 3.6 + cr + drop(k)]);
       p.screen((g) => {
         g.beginPath(); g.arc(x, y, cr, 0, Math.PI * 2); g.fillStyle = "#fff"; g.fill();
         g.strokeStyle = "#000"; g.lineWidth = 0.6;
@@ -62,7 +69,7 @@ export const bank: Illustration = {
     const b = Math.max(0, (h - 0.68) / 0.32);
     if (b > 0) {
       const pop = b < 0.65 ? ease(b / 0.65) * 1.18 : 1.18 - 0.18 * ease((b - 0.65) / 0.35);
-      badge(p, [15, -8, 29], 5 * pop);
+      badge(p, [13, -3, 24], 4.6 * pop);
     }
   },
 };

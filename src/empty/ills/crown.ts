@@ -1,9 +1,9 @@
-// No leaders yet: a crown resting on a cushion. A glint runs across its band and a sparkle pops on one point after another.
+// No leaders yet: a crown resting on a plain cushion. A glint runs across its band and a sparkle pops on one point after another.
 import { SH, type Illustration, type V3 } from "../dots";
 
 const P = 3.2; // seconds per loop
-const R = 11.5, ZB = 6; // crown radius, the cushion's top where it sits
-const BAND = 4.4, PEAK = 17.5, DIP = 8.5; // the solid band, the height of the points
+const R = 12, ZB = 5.5; // crown radius, the cushion's top where it sits
+const BAND = 5, PEAK = 19, DIP = 9; // the solid band, the height of the points
 const NPK = 5, N = 60;
 const S = Math.SQRT1_2;
 
@@ -22,27 +22,21 @@ export const crown: Illustration = {
   kind: "loop", period: P, cols: 92, rows: 80, zoom: 1.42,
   draw(p, t) {
     const u = (t % P) / P;
-    p.translate(0, 0, -12);
+    p.translate(0, 0, -13);
     p.shadow(0, 0, 27, 13, 0.12);
-    // the cushion: a plump lit square with piping round its top and tassels at the corners
-    const C = 14.5;
-    p.box(-C, -C, 0, C * 2, C * 2, ZB, { top: 0.2 });
-    p.line([[-C + 1, C + 0.03, ZB - 1.2], [C - 0.03, C + 0.03, ZB - 1.2], [C + 0.03, -C + 1, ZB - 1.2]], SH.edge, 0.55);
-    p.line([[-C + 1.6, C - 1.6, ZB + 0.03], [C - 1.6, C - 1.6, ZB + 0.03], [C - 1.6, -C + 1.6, ZB + 0.03], [-C + 1.6, -C + 1.6, ZB + 0.03], [-C + 1.6, C - 1.6, ZB + 0.03]], SH.edge, 0.55);
-    ([[-C, C], [C, C], [C, -C]] as [number, number][]).forEach(([x, y]) => {
-      const [sx, sy] = p.pt([x, y, ZB - 0.4]);
-      p.screen((c) => { c.strokeStyle = "#fff"; c.lineWidth = 0.7; c.beginPath(); c.moveTo(sx, sy); c.lineTo(sx, sy + 3.2); c.stroke(); });
-      p.dot([x, y, ZB - 4.6], 1.1, 1);
-    });
-    // the dent the crown makes in the cushion
-    p.disc(0, 0, ZB + 0.02, R + 1.2, 0.1, 0);
+    // the cushion: a plump square, lit on top, dense in front, sparse at the end, one line of piping cut round it
+    const C = 15;
+    p.box(-C, -C, 0, C * 2, C * 2, ZB, { top: 0.2, left: 0.12, right: 0.065, edge: 0 });
+    p.line([[-C + 0.5, C + 0.03, ZB * 0.55], [C, C + 0.03, ZB * 0.55], [C + 0.03, -C + 0.5, ZB * 0.55]], SH.edge, 0.6);
+    // the dent the crown makes in the cushion: a dark ring that sets it apart
+    p.disc(0, 0, ZB + 0.02, R + 1.6, 0.02, 0);
     p.translate(0, 0, ZB);
     // the inside of the back half, seen over the front: sparse
     const vis = (a: number) => Math.cos(a) * S + Math.sin(a) * S; // > 0 faces us
     for (let i = 0; i < N; i++) {
       const a0 = ang(i), a1 = ang(i + 1);
       if (vis((a0 + a1) / 2) > 0) continue;
-      p.face([[Math.cos(a0) * R, Math.sin(a0) * R, 0], [Math.cos(a1) * R, Math.sin(a1) * R, 0], [Math.cos(a1) * R, Math.sin(a1) * R, topAt(a1 - A0)], [Math.cos(a0) * R, Math.sin(a0) * R, topAt(a0 - A0)]], SH.right, 0);
+      p.face([[Math.cos(a0) * R, Math.sin(a0) * R, 0], [Math.cos(a1) * R, Math.sin(a1) * R, 0], [Math.cos(a1) * R, Math.sin(a1) * R, topAt(a1 - A0)], [Math.cos(a0) * R, Math.sin(a0) * R, topAt(a0 - A0)]], 0.1, 0);
     }
     // the front half's outside: lit toward the left, darker round to the right, a glint sweeping across
     const sweep = -Math.PI / 4 + 0.2 + ((u * 1.6) % 1.6) * Math.PI * 0.9;
@@ -51,16 +45,15 @@ export const crown: Illustration = {
       if (vis(am) <= 0) continue;
       const lit = Math.sin(am) > Math.cos(am) * 0.6; // faces +y, the lit side
       const glint = Math.abs(am - sweep) < 0.16 || Math.abs(am - sweep - Math.PI * 2) < 0.16;
-      p.face([[Math.cos(a0) * R, Math.sin(a0) * R, 0], [Math.cos(a1) * R, Math.sin(a1) * R, 0], [Math.cos(a1) * R, Math.sin(a1) * R, topAt(a1 - A0)], [Math.cos(a0) * R, Math.sin(a0) * R, topAt(a0 - A0)]], glint ? 0.34 : lit ? 0.22 : SH.left, 0);
+      p.face([[Math.cos(a0) * R, Math.sin(a0) * R, 0], [Math.cos(a1) * R, Math.sin(a1) * R, 0], [Math.cos(a1) * R, Math.sin(a1) * R, topAt(a1 - A0)], [Math.cos(a0) * R, Math.sin(a0) * R, topAt(a0 - A0)]], glint ? 0.4 : lit ? 0.24 : 0.15, 0);
     }
     // the band: two cut rings round the front, and gems between them
     const arc = (z: number, r = R + 0.04): V3[] => Array.from({ length: 25 }, (_, i) => { const a = -Math.PI / 4 + (Math.PI * i) / 24; return [Math.cos(a) * r, Math.sin(a) * r, z]; });
-    p.line(arc(0.9), SH.edge, 0.6);
-    p.line(arc(BAND), SH.edge, 0.6);
+    p.line(arc(BAND), SH.edge, 0.75);
     for (const a of [Math.PI / 4 - 0.95, Math.PI / 4, Math.PI / 4 + 0.95]) {
-      const x = Math.cos(a) * (R + 0.05), y = Math.sin(a) * (R + 0.05), m = (BAND + 0.9) / 2;
+      const x = Math.cos(a) * (R + 0.05), y = Math.sin(a) * (R + 0.05), m = BAND / 2;
       const tx = -Math.sin(a), ty = Math.cos(a);
-      p.clear([[x + tx * 1.3, y + ty * 1.3, m], [x, y, m + 1.1], [x - tx * 1.3, y - ty * 1.3, m], [x, y, m - 1.1]]);
+      p.clear([[x + tx * 1.6, y + ty * 1.6, m], [x, y, m + 1.5], [x - tx * 1.6, y - ty * 1.6, m], [x, y, m - 1.5]]);
     }
     // the rim of the top edge, cut, so the points read against the back half
     p.line(Array.from({ length: 31 }, (_, i) => { const a = -Math.PI / 4 + (Math.PI * i) / 30; return [Math.cos(a) * (R + 0.05), Math.sin(a) * (R + 0.05), topAt(a - A0) - 0.05] as V3; }), SH.edge, 0.6);

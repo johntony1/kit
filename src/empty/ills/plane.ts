@@ -1,4 +1,4 @@
-// No sent items: a paper plane gliding a gentle loop, banking into the turn, a dashed trail drawn out behind it.
+// No sent items: a big paper plane gliding on the spot, bobbing and rolling, a short dashed trail flowing out behind it.
 import { SH, type Illustration, type Pen, type V3 } from "../dots";
 
 const P = 6; // seconds per loop
@@ -13,16 +13,9 @@ const norm = (a: V3): V3 => { const L = Math.hypot(...a) || 1; return [a[0] / L,
 const F: V3 = norm([0.55, -1, 0]); // the heading: towards the screen's upper right
 const B: V3 = [-F[0], -F[1], 0]; // straight back along the floor plan
 
-// the trail it leaves, in the upright plane through its heading: back, up and over in one loop-the-loop, then back
-// out straight. A prolate cycloid: b runs backwards except near the top, where it doubles back into the loop
-const trail = (ph: number): [number, number] => {
-  const k = 1.8, kz = 1.75;
-  if (ph <= Math.PI * 2) return [k * (1.7 * ph + 5 * Math.sin(ph)), kz * (5 - 5 * Math.cos(ph) - ph * 0.6)];
-  return [k * (3.4 * Math.PI + (ph - Math.PI * 2) * 7), kz * (-Math.PI * 1.2 - (ph - Math.PI * 2) * 1.5)];
-};
 /** the plane in its own frame: nose along +f, wings out along s, up along u. Faces back to front, three tones by light */
 function paperPlane(p: Pen, o: V3, f: V3, s: V3, u: V3) {
-  const at = (a0: number, b0: number, c0: number): V3 => { const a = a0 * 1.3, b = b0 * 1.3, c = c0 * 1.3; return [o[0] + f[0] * a + s[0] * b + u[0] * c, o[1] + f[1] * a + s[1] * b + u[1] * c, o[2] + f[2] * a + s[2] * b + u[2] * c]; };
+  const at = (a0: number, b0: number, c0: number): V3 => { const a = a0 * 2.3, b = b0 * 2.3, c = c0 * 2.3; return [o[0] + f[0] * a + s[0] * b + u[0] * c, o[1] + f[1] * a + s[1] * b + u[1] * c, o[2] + f[2] * a + s[2] * b + u[2] * c]; };
   const nose = at(8, 0, 0), tailL = at(-6, 6.2, 0.6), tailR = at(-6, -6.2, 0.6), keelT = at(-6, 0, 0), keelB = at(-6, 0, -3), foldL = at(-6, 1.1, 0), foldR = at(-6, -1.1, 0);
   const faces: V3[][] = [
     [nose, foldL, tailL], // left wing
@@ -51,29 +44,29 @@ export const plane: Illustration = {
   kind: "loop", period: P, cols: 92, rows: 80, zoom: 1.42,
   draw(p, t) {
     const a = ((t % P) / P) * Math.PI * 2;
-    p.translate(-0.4, -5.6, -7);
-    p.scale(0.84);
-    // it glides round a small, gentle loop of its own, rolling and pitching a little as it goes
-    const o: V3 = [10 + Math.cos(a) * 1.6, -8 + Math.sin(a) * 1.6, Z0 + Math.sin(a) * 1.8];
-    // the dashed trail behind it, flowing away: bright dashes that fade towards the far end
-    const tail: V3 = [o[0] - F[0] * 8.6, o[1] - F[1] * 8.6, o[2]];
+    p.translate(2, -2, -Z0 - 1);
+    p.shadow(-1, 3, 22, 9, 0.1);
+    // it glides on the spot, bobbing and rolling a little as it goes
+    const o: V3 = [2 + Math.cos(a) * 1.2, -1 + Math.sin(a) * 1.2, Z0 + Math.sin(a) * 1.6];
+    // a short dashed trail behind it, flowing away: bright dashes that fade towards the far end
+    const tail: V3 = [o[0] - F[0] * 12, o[1] - F[1] * 12, o[2] - 1];
     p.screen((c) => {
       c.lineCap = "round";
-      const N = 24, END = Math.PI * 2 + 1.2, flow = (t % P) / P; // one dash step per loop, so it repeats seamlessly
+      const N = 6, flow = (t % P) / P * 2 % 1; // two dash steps per loop, so it repeats seamlessly
       for (let i = 0; i < N; i++) {
-        const k0 = (i + flow) / N, k1 = k0 + 0.45 / N;
+        const k0 = (i + flow) / N, k1 = k0 + 0.5 / N;
         const seg = Array.from({ length: 5 }, (_, j) => {
-          const [bk, up] = trail((k0 + ((k1 - k0) * j) / 4) * END);
+          const k = k0 + ((k1 - k0) * j) / 4, bk = k * 18, up = Math.sin(k * Math.PI * 1.4 - a) * 1.6 - k * 3;
           return p.pt([tail[0] + B[0] * bk, tail[1] + B[1] * bk, tail[2] + up]);
         });
-        const fade = 1 - k0 * 0.75;
+        const fade = 1 - k0 * 0.8;
         const n = Math.round(255 * fade);
-        c.strokeStyle = `rgb(${n},${n},${n})`; c.lineWidth = 0.9 + 0.5 * fade;
+        c.strokeStyle = `rgb(${n},${n},${n})`; c.lineWidth = 1.1 + 0.6 * fade;
         c.beginPath(); seg.forEach(([x, y], j) => (j ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
       }
     });
     // its frame: heading with a little pitch, then a roll
-    const pitch = 0.16 + Math.cos(a) * 0.1, roll = -0.62 + Math.sin(a) * 0.22; // rolled towards us so its wings show
+    const pitch = 0.14 + Math.cos(a) * 0.07, roll = -0.62 + Math.sin(a) * 0.16; // rolled towards us so its wings show
     const f = norm([F[0] * Math.cos(pitch), F[1] * Math.cos(pitch), Math.sin(pitch)]);
     let s = norm(cross([0, 0, 1], f));
     let u = cross(f, s);
