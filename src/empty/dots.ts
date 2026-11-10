@@ -284,8 +284,10 @@ export class Pen {
 const SS = 4;
 let scratch: HTMLCanvasElement | OffscreenCanvas | null = null;
 
-export function renderGrid(ill: Illustration, t: number, h: number): Float32Array {
-  const W = ill.cols * SS, H = ill.rows * SS;
+/** pad: extra dots on every side, so a piece that reaches past its own grid is still measured */
+export function renderGrid(ill: Illustration, t: number, h: number, pad = 0): Float32Array {
+  const C = ill.cols + pad * 2, Rw = ill.rows + pad * 2;
+  const W = C * SS, H = Rw * SS;
   if (!scratch) scratch = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(W, H) : document.createElement("canvas");
   if (scratch.width !== W) scratch.width = W;
   if (scratch.height !== H) scratch.height = H;
@@ -294,15 +296,15 @@ export function renderGrid(ill: Illustration, t: number, h: number): Float32Arra
   c.fillStyle = "#000"; c.fillRect(0, 0, W, H);
   c.setTransform(SS, 0, 0, SS, 0, 0);
   const z = ill.zoom ?? 1;
-  c.setTransform(SS * z, 0, 0, SS * z, 0, 0);
+  c.setTransform(SS * z, 0, 0, SS * z, pad * SS, pad * SS);
   ill.draw(new Pen(c, ill.cols / 2 / z, ill.rows / 2 / z), t, h);
   const px = c.getImageData(0, 0, W, H).data;
-  const out = new Float32Array(ill.cols * ill.rows);
-  for (let r = 0; r < ill.rows; r++) {
-    for (let q = 0; q < ill.cols; q++) {
+  const out = new Float32Array(C * Rw);
+  for (let r = 0; r < Rw; r++) {
+    for (let q = 0; q < C; q++) {
       let sum = 0;
       for (let y = 0; y < SS; y++) { const row = ((r * SS + y) * W + q * SS) * 4; for (let x = 0; x < SS; x++) sum += px[row + x * 4]; }
-      out[r * ill.cols + q] = sum / (SS * SS * 255);
+      out[r * C + q] = sum / (SS * SS * 255);
     }
   }
   return out;
@@ -748,22 +750,24 @@ const boundsCache = new Map<string, { q0: number; r0: number; w: number; h: numb
 export function bounds(ill: Illustration, margin = 3) {
   const key = `${ill.k}|${+STAGE.on}`, hit = boundsCache.get(key);
   if (hit) return hit;
-  let q0 = ill.cols, r0 = ill.rows, q1 = -1, r1 = -1;
+  // measured on a grid padded by a quarter on every side: art that reaches past the piece's own grid
+  // (a tall lanyard, a wide stage) is measured too, never cut flat at the grid's edge
+  const P = Math.round(Math.max(ill.cols, ill.rows) / 4), C = ill.cols + P * 2, Rw = ill.rows + P * 2;
+  let q0 = C, r0 = Rw, q1 = -1, r1 = -1;
   const per = ill.period ?? 3;
   // sample enough moments that nothing that moves gets cropped mid motion
   const N = 12;
   for (let i = 0; i < N; i++) {
     for (const h of ill.kind === "hover" ? [0, 0.35, 0.7, 1] : [0]) {
-      const g = renderGrid(ill, (i / N) * per, h);
-      for (let r = 0; r < ill.rows; r++) for (let q = 0; q < ill.cols; q++) {
-        if (g[r * ill.cols + q] < 0.035) continue;
+      const g = renderGrid(ill, (i / N) * per, h, P);
+      for (let r = 0; r < Rw; r++) for (let q = 0; q < C; q++) {
+        if (g[r * C + q] < 0.035) continue;
         if (q < q0) q0 = q; if (q > q1) q1 = q; if (r < r0) r0 = r; if (r > r1) r1 = r;
       }
     }
   }
   if (q1 < 0) return { q0: 0, r0: 0, w: ill.cols, h: ill.rows };
-  q0 = Math.max(0, q0 - margin); r0 = Math.max(0, r0 - margin);
-  const b = { q0, r0, w: Math.min(ill.cols, q1 + margin + 1) - q0, h: Math.min(ill.rows, r1 + margin + 1) - r0 };
+  const b = { q0: q0 - P - margin, r0: r0 - P - margin, w: q1 - q0 + 1 + margin * 2, h: r1 - r0 + 1 + margin * 2 };
   boundsCache.set(key, b);
   return b;
 }
