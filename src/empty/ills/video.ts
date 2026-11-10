@@ -48,9 +48,9 @@ export const video: Illustration = {
 
     // ripples run out from the button once it is pressed
     const r = Math.max(0, (h - 0.6) / 0.4);
-    if (r > 0) for (let i = 0; i < 2; i++) {
-      const u = (t * 0.7 + i / 2) % 1;
-      glowRing(p, [cx - 0.6, gy + 0.05, cz], 8 + u * 3, r * Math.sin(u * Math.PI) * 0.9, 0.8);
+    if (r > 0) for (let i = 0; i < 3; i++) {
+      const u = (t * 0.6 + i / 3) % 1;
+      glowRing(p, [cx - 0.6, gy + 0.05, cz], 7.5 + u * 5.5, r * Math.min(1, Math.sin(u * Math.PI) * 1.6), 2 - u);
     }
   },
 };

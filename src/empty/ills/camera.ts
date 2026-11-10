@@ -42,21 +42,12 @@ export const camera: Illustration = {
     const u = (t % 1.5) / 1.5;
     const blink = ready >= 1 && u > 0.15 && u < 0.35 ? Math.sin(((u - 0.15) / 0.2) * Math.PI) : 0;
 
-    // the flash on top, its window white when it fires
-    p.box(5, 0, Z1, 7, 3.4, 3, { top: 0.24, left: 0.13, right: 0.07 });
-    p.face([[5.6, 3.43, Z1 + 0.6], [11.4, 3.43, Z1 + 0.6], [11.4, 3.43, Z1 + 2.4], [5.6, 3.43, Z1 + 2.4]], 0.03 + blink * 0.97, SH.edge, 0.45);
-    if (blink > 0.3) {
-      const [fx, fy] = p.pt([8.5, 3.5, Z1 + 1.5]);
-      p.screen((g) => {
-        const n = Math.round(255 * Math.min(1, blink));
-        g.strokeStyle = `rgb(${n},${n},${n})`; g.lineWidth = 0.9; g.lineCap = "round";
-        for (let i = 0; i < 5; i++) {
-          const a = -Math.PI * 0.9 + i * 0.4;
-          g.beginPath(); g.moveTo(fx + Math.cos(a) * 5, fy + Math.sin(a) * 5); g.lineTo(fx + Math.cos(a) * (7 + 3 * blink), fy + Math.sin(a) * (7 + 3 * blink)); g.stroke();
-        }
-      });
-    }
-
+    // the flash: its own short pulse just after the shutter closes
+    const fu = (u - 0.22) / 0.3;
+    const flash = ready >= 1 && fu > 0 && fu < 1 ? Math.pow(Math.sin(fu * Math.PI), 0.6) : 0;
+    // the flash head sits on top, its window flush with the front and dark until it fires
+    p.box(4.5, 1.6, Z1, 7.5, Y - 1.6, 3.4, { top: 0.24, left: 0.13, right: 0.07 });
+    p.face([[5.1, Y + 0.03, Z1 + 0.6], [11.4, Y + 0.03, Z1 + 0.6], [11.4, Y + 0.03, Z1 + 2.8], [5.1, Y + 0.03, Z1 + 2.8]], 0.02 + flash * 0.98, SH.edge, 0.45);
     // the lens: a mount, then a barrel that extends on hover, then a focus ring and the glass
     const L = 2 + 7 * Math.min(1, h / 0.75);
     p.ringV("y", [LX, Y + 0.03, LZ], 8.2, 0.24, SH.edge, 0.55);
@@ -86,5 +77,17 @@ export const camera: Illustration = {
     const g: V3 = [LX - 1.6, Y + L + 0.08, LZ + 1.6];
     p.dot(g, 0.9, 1);
     p.dot([LX - 0.4, Y + L + 0.08, LZ + 2.4], 0.45, 0.9);
+    // the burst: a white star blooms out of the flash window, ringed by a dark halo so it reads
+    // against the lit body, then fades
+    if (flash > 0.05) {
+      const cx = 8.2, cz = Z1 + 1.7, y = Y + 0.4;
+      const star = (R: number, r0: number): V3[] => Array.from({ length: 16 }, (_, i) => {
+        const a = (i / 16) * Math.PI * 2 + Math.PI / 2, rr = i % 2 ? r0 : i % 4 ? R * 0.62 : R;
+        return [cx + Math.cos(a) * rr, y, cz + Math.sin(a) * rr] as V3;
+      });
+      const R = 3 + 6 * flash;
+      p.clear(star(R + 1.3, 1.6 + 1.6 * flash + 1));
+      p.face(star(R, 1.2 + 1.6 * flash), 1, 0);
+    }
   },
 };

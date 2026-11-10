@@ -42,17 +42,17 @@ export const store: Illustration = {
     p.line([[nx - 3, sy + 0.04, nz - 5.9], [nx + 0.8, sy + 0.04, nz - 5.9]], SH.edge, 0.6);
     p.pop();
     p.dot([nx, F + 0.4, nz], 0.6, 1);
-    // the awning: a lit slope out from the wall, then a striped valance with a scalloped hem
-    const z0 = 18.4, z1 = 16.6, y1 = Y + 2.6, zh = z1 - 3.2, xs = -X + 0.4, xe = X - 0.4, N = 9, w = (xe - xs) / N;
-    p.face([[xs, F, z0], [xe, F, z0], [xe, y1, z1], [xs, y1, z1]], 0.26, 0);
-    p.line([[xs, F + 0.05, z0 + 0.1], [xe, F + 0.05, z0 + 0.1]], SH.edge, 0.6);
+    // the awning: bold stripes run down the slope and on into a scalloped valance
+    const z0 = 18.6, z1 = 15.6, y1 = Y + 4.4, zh = z1 - 3, xs = -X + 0.4, xe = X - 0.4, N = 7, w = (xe - xs) / N;
     for (let i = 0; i < N; i++) {
-      const a = xs + i * w, b = a + w, lit = i % 2 === 0;
-      const hem: V3[] = [[a, y1, z1], [b, y1, z1], ...Array.from({ length: 9 }, (_, j) => { const u = (Math.PI * j) / 8; return [a + w / 2 + (Math.cos(u) * w) / 2, y1, zh - Math.sin(u) * 1.3] as V3; })];
-      p.face(hem, lit ? 0.27 : 0.02, 0);
+      const a = xs + i * w, b = a + w, lit = i % 2 === 0, f = lit ? 0.32 : 0.035;
+      p.face([[a, F, z0], [b, F, z0], [b, y1, z1], [a, y1, z1]], f, 0);
+      const hem: V3[] = [[a, y1, z1], [b, y1, z1], ...Array.from({ length: 9 }, (_, j) => { const u = (Math.PI * j) / 8; return [a + w / 2 + (Math.cos(u) * w) / 2, y1, zh - Math.sin(u) * 1.4] as V3; })];
+      p.face(hem, lit ? 0.26 : 0.03, 0);
     }
-    p.face([[xe, F, z0], [xe, y1, z1], [xe, y1, zh], [xe, F, zh + 1]], SH.right, 0); // its end
-    p.line([[xs, y1, z1], [xe, y1, z1]], SH.edge, 0.55); // the fold
+    p.face([[xe, F, z0], [xe, y1, z1], [xe, y1, zh], [xe, F, zh + 1.5]], SH.right, 0); // its end
+    p.line([[xs, F + 0.05, z0 + 0.1], [xe, F + 0.05, z0 + 0.1]], SH.edge, 0.6);
+    p.line([[xs, y1, z1], [xe, y1, z1]], SH.edge, 0.7); // the fold
     // a step in front of the door
     p.box(0.6, Y, 0, 9.8, 2.4, 0.9, { top: 0.24, left: 0.12, right: 0.065 });
   },
