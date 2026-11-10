@@ -7,7 +7,7 @@ import { theme as siteTheme } from "../site/theme";
 import { play } from "../sound/sound";
 import { bounds, paintFrame, Stipple, THEMES, type DotStyle, type Illustration, type Theme } from "./dots";
 
-export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitch = 9, look = "stipple" }: { ill: Illustration; theme?: Theme; hover?: boolean; fit?: number; maxPitch?: number; look?: DotStyle }) {
+export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitch = 9, look = "stipple", touch = false }: { ill: Illustration; theme?: Theme; hover?: boolean; fit?: number; maxPitch?: number; look?: DotStyle; touch?: boolean }) {
   // on a light page white dots would vanish: the White colour becomes ink there
   const light = useSyncExternalStore(siteTheme.subscribe, () => siteTheme.get() === "light", () => false);
   const theme: Theme = useMemo(() => (light && chosen.name === "White" ? { ...chosen, a: "#262a31", bg: "#f7f8f9" } : chosen), [light, chosen]);
@@ -67,17 +67,23 @@ export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitc
   }, [ill, theme, pitch, seen, look]);
 
   return (
-    <div ref={box} className="dotArt" onPointerEnter={() => setOver(true)}
-      onPointerMove={(e) => { const c = cv.current; if (c && st.current && e.pointerType !== "touch") st.current.point(e.clientX, e.clientY, c.getBoundingClientRect()); }}
+    <div ref={box} className="dotArt" onPointerEnter={(e) => e.pointerType !== "touch" && setOver(true)}
+      onPointerMove={(e) => {
+        const c = cv.current;
+        // a finger only moves the dots while it is down (and only where touch is on); a mouse moves them by hovering
+        if (!c || !st.current || (e.pointerType === "touch" && !(touch && e.buttons))) return;
+        st.current.point(e.clientX, e.clientY, c.getBoundingClientRect());
+      }}
       onPointerDown={(e) => {
         const c = cv.current;
-        if (!c || !st.current || e.pointerType === "touch" || e.button !== 0) return;
+        if (!c || !st.current || (e.pointerType === "touch" && !touch) || e.button !== 0) return;
         st.current.down(e.clientX, e.clientY, c.getBoundingClientRect());
         play("rustle", { gap: 90, pitch: 0.9 + Math.random() * 0.2 });
       }}
-      onPointerUp={() => st.current?.up()}
+      onPointerUp={(e) => { st.current?.up(); if (e.pointerType === "touch") st.current?.leave(); }}
+      onPointerCancel={() => st.current?.leave()}
       onPointerLeave={() => { setOver(false); st.current?.leave(); }}>
-      <canvas ref={cv} aria-label={ill.name} role="img" />
+      <canvas ref={cv} aria-label={ill.name} role="img" style={touch && look === "stipple" ? { touchAction: "none" } : undefined} />
     </div>
   );
 }

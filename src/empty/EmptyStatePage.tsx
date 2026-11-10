@@ -112,8 +112,10 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
       {tab === "Preview" ? (
         <>
           <div className="panel esBig">
-            <DotArt ill={ill} theme={theme} maxPitch={8} fit={0.92} look={style} />
-            <span className="esHint">{style === "stipple" ? "Move through the dots" : ill.kind === "hover" ? "Hover to play" : ""}</span>
+            <DotArt ill={ill} theme={theme} maxPitch={8} fit={0.92} look={style} touch />
+            {style === "stipple" ? (
+              <span className="esHint"><span className="onHover">Move through the dots, press to dig in</span><span className="onTouch">Press and drag through the dots</span></span>
+            ) : ill.kind === "hover" && <span className="esHint">Hover to play</span>}
           </div>
           <Later>
             <div className="panel esContext">

@@ -651,7 +651,9 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .esSwatch.on { box-shadow: 0 0 0 2px #0f100f, 0 0 0 3.5px rgba(255, 255, 255, 0.7); }
 .esSwatch:active { transform: scale(0.92); }
 .panel.esBig { position: relative; height: 520px; background: #0b0b0b; overflow: hidden; }
-.esHint { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); font-size: 12px; color: var(--muted); pointer-events: none; }
+.esHint { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); font-size: 12px; color: var(--muted); pointer-events: none; white-space: nowrap; }
+.esHint .onTouch { display: none; }
+@media (hover: none) { .esHint .onHover { display: none; } .esHint .onTouch { display: inline; } }
 .panel.esContext { margin-top: 12px; display: grid; place-items: center; padding: 48px 16px; background: #0b0b0b; }
 .esEmpty { display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 340px; }
 .esEmptyArt { position: relative; width: 240px; height: 210px; }
