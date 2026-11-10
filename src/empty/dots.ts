@@ -51,6 +51,26 @@ export class Pen {
   private stack: M[] = [];
   /** tone: faces are filled with light-shaded tones (no outlines), details become darker lines */
   constructor(private c: CanvasRenderingContext2D, private ox: number, private oy: number, private tone = false, private lineTone = 0.08, private gaps = false) {}
+  /** line art (the "line" style): pale faces with hairline outlines, details as grey strokes and
+   *  the brightest marks in the accent. u: world units per css pixel, so strokes stay one pixel */
+  ink: Ink | null = null;
+  private u = 1;
+  private plated = false;
+  /** the stage, worked out by a first pass over every floor shadow; null while measuring */
+  stage: { x0: number; x1: number; y0: number; y1: number } | null = null;
+  private measuring = false;
+  setInk(ink: Ink, u: number, stage: Pen["stage"] = null, measuring = false) { this.ink = ink; this.u = u; this.stage = stage; this.measuring = measuring; return this; }
+  private inkFill(f: number) {
+    const k = this.ink!;
+    return f < 0.05 ? k.hole : f < 0.1 ? k.right : f < 0.16 ? k.left : f < 0.3 ? k.top : k.accentFill;
+  }
+  private stroke(col: string, px = 1, dash?: number[]) {
+    const c = this.c;
+    c.strokeStyle = col; c.lineWidth = px * this.u; c.lineJoin = "round"; c.lineCap = "round";
+    c.setLineDash(dash ? dash.map((d) => d * this.u) : []);
+    c.stroke();
+    if (dash) c.setLineDash([]);
+  }
   /** a face's line-art fill to a lit tone: top brightest, left wall mid, right wall darkest */
   private toneOf(f: number) { return f < 0.05 ? 0.3 : Math.min(1, 0.45 + f * 2.8); }
 
@@ -80,6 +100,13 @@ export class Pen {
     return [this.ox + (X - Y) * 0.866, this.oy + (X + Y) * 0.5 - Z];
   }
 
+  /** a polygon's area on screen, in dots squared */
+  private area(pts: V3[]) {
+    const q = pts.map((p) => this.pt(p));
+    let a = 0;
+    for (let i = 0; i < q.length; i++) { const [x0, y0] = q[i], [x1, y1] = q[(i + 1) % q.length]; a += x0 * y1 - x1 * y0; }
+    return Math.abs(a) / 2;
+  }
   private path(pts: V3[], close = true) {
     const c = this.c;
     c.beginPath();
@@ -91,6 +118,14 @@ export class Pen {
   /** a flat polygon in 3D, filled with `fill` and outlined with `edge` */
   face(pts: V3[], fill: number, edge = SH.edge, lw = 0.55) {
     this.path(pts);
+    if (this.ink) {
+      if (fill > 0) { this.c.fillStyle = this.inkFill(fill); this.c.fill(); }
+      // small borderless pieces are slices of one curved surface (a head, a barrel): seal their seams
+      // in their own colour so the surface reads as one, instead of a mesh of outlines
+      if (edge <= 0 && fill > 0 && this.area(pts) < 5) { this.stroke(this.inkFill(fill), 1); return; }
+      if (fill > 0 || edge > 0) this.stroke(fill >= 0.3 ? this.ink.accent : this.ink.edge, 1);
+      return;
+    }
     if (this.tone) {
       if (fill > 0) { this.c.fillStyle = this.g(this.toneOf(fill)); this.c.fill(); }
       else if (edge > 0) { this.c.strokeStyle = this.g(this.lineTone); this.c.lineWidth = lw; this.c.lineJoin = "round"; this.c.stroke(); }
@@ -100,16 +135,29 @@ export class Pen {
     if (edge > 0) { this.c.strokeStyle = this.g(edge); this.c.lineWidth = lw; this.c.lineJoin = "round"; this.c.stroke(); }
   }
   /** a hole or a cut-out: paints black */
-  clear(pts: V3[]) { this.path(pts); this.c.fillStyle = "#000"; this.c.fill(); }
+  clear(pts: V3[]) {
+    this.path(pts);
+    if (this.ink) { this.c.fillStyle = this.ink.hole; this.c.fill(); this.stroke(this.ink.edge, 1); return; }
+    this.c.fillStyle = "#000"; this.c.fill();
+  }
+  /** a dashed guide line: a construction mark in the line style, left out of the dot styles */
+  guide(pts: V3[], accent = false) {
+    if (!this.ink) return;
+    this.path(pts, false);
+    this.stroke(accent ? this.ink.accent : this.ink.detail, 1, [3, 3]);
+  }
   /** a line between points */
   line(pts: V3[], shade = SH.edge, lw = 0.55) {
     this.path(pts, false);
+    if (this.ink) { this.stroke(this.ink.detail, lw > 0.8 ? 1.5 : 1); return; }
     this.c.strokeStyle = this.g(this.tone ? (shade > 0.9 || this.gaps ? this.lineTone : Math.min(1, 0.45 + shade)) : shade); this.c.lineWidth = lw; this.c.lineCap = "round"; this.c.lineJoin = "round"; this.c.stroke();
   }
   /** a solid dot in 3D */
   dot(p: V3, r: number, shade = SH.glow) {
     const [sx, sy] = this.pt(p);
-    this.c.beginPath(); this.c.arc(sx, sy, r, 0, Math.PI * 2); this.c.fillStyle = this.g(shade); this.c.fill();
+    this.c.beginPath(); this.c.arc(sx, sy, r, 0, Math.PI * 2);
+    if (this.ink) { this.c.fillStyle = shade >= 0.9 ? this.ink.accent : this.ink.detail; this.c.fill(); return; }
+    this.c.fillStyle = this.g(shade); this.c.fill();
   }
   /** an axis-aligned box from (x,y,z) with size (w,d,h); only the three visible faces are drawn */
   box(x: number, y: number, z: number, w: number, d: number, h: number, s: BoxStyle = {}) {
@@ -153,6 +201,22 @@ export class Pen {
   }
   /** a shadow on the floor: a soft dim ellipse */
   shadow(cx: number, cy: number, rx: number, ry: number, k = 0.12) {
+    if (this.ink) {
+      if (this.measuring) {
+        // a shadow's footprint in world units, at the floor this shadow sits on
+        const [wx, wy] = [this.m[0] * cx + this.m[1] * cy + this.m[3], this.m[4] * cx + this.m[5] * cy + this.m[7]], r = rx * 0.5;
+        const s = this.stage ?? (this.stage = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity });
+        s.x0 = Math.min(s.x0, wx - r); s.x1 = Math.max(s.x1, wx + r); s.y0 = Math.min(s.y0, wy - r); s.y1 = Math.max(s.y1, wy + r);
+        return;
+      }
+      if (!this.plated) {
+        this.plated = true;
+        const st = this.stage, fz = this.m[11];
+        if (st) { this.push(); this.m = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, fz]; this.plate((st.x0 + st.x1) / 2, (st.y0 + st.y1) / 2, (st.x1 - st.x0) / 2, (st.y1 - st.y0) / 2); this.pop(); }
+        else this.plate(cx, cy, rx * 0.5, rx * 0.5);
+      }
+      return;
+    }
     const [sx, sy] = this.pt([cx, cy, 0]);
     const c = this.c;
     c.save(); c.translate(sx, sy); c.scale(1, ry / rx);
@@ -160,8 +224,54 @@ export class Pen {
     g.addColorStop(0, this.g(k)); g.addColorStop(1, "rgba(0,0,0,0)");
     c.fillStyle = g; c.beginPath(); c.arc(0, 0, rx, 0, Math.PI * 2); c.fill(); c.restore();
   }
-  /** raw 2D access in screen dots, for sparkles and text-free marks */
-  screen(fn: (c: CanvasRenderingContext2D) => void) { this.c.save(); fn(this.c); this.c.restore(); }
+  /** the line style's stage: a rounded slab the piece stands on, with a thinner ghost layer under it
+   *  and a soft shadow. Drawn in place of the first floor shadow */
+  plate(cx: number, cy: number, sx: number, sy: number) {
+    const k = this.ink!, c = this.c, T = 2.6, s = Math.max(sx, sy), rr = Math.min(sx, sy) * 0.26;
+    const rounded = (z: number, grow = 0): V3[] => {
+      const X = sx + grow, Y = sy + grow, R = rr + grow, out: V3[] = [];
+      const corners: [number, number, number][] = [[X - R, Y - R, 0], [-(X - R), Y - R, 0.5], [-(X - R), -(Y - R), 1], [X - R, -(Y - R), 1.5]];
+      for (const [x, y, q] of corners) for (let i = 0; i <= 6; i++) { const a = (q + i / 12) * Math.PI; out.push([cx + x + Math.cos(a) * R, cy + y + Math.sin(a) * R, z]); }
+      return out;
+    };
+    const slab = (z0: number, h: number, grow: number, side: string, top: string, edge: string) => {
+      for (let d = h; d >= 0; d -= 0.5) { this.path(rounded(z0 + h - d, grow)); c.fillStyle = side; c.fill(); }
+      this.path(rounded(z0, grow)); this.stroke(edge, 1);
+      // the two silhouette verticals: the slab's left and right extremes
+      const lo = rounded(z0, grow).map((p) => this.pt(p)), xs = lo.map((p) => p[0]);
+      const il = xs.indexOf(Math.min(...xs)), ir = xs.indexOf(Math.max(...xs));
+      for (const i of [il, ir]) { const b = lo[i]; c.beginPath(); c.moveTo(b[0], b[1]); c.lineTo(b[0], b[1] - h); this.stroke(edge, 1); }
+      this.path(rounded(z0 + h, grow)); c.fillStyle = top; c.fill(); this.stroke(edge, 1);
+    };
+    // the shadow under it all
+    const [hx, hy] = this.pt([cx, cy, -T - 2.2]);
+    c.save(); c.translate(hx, hy); c.scale(1, 0.5);
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, s * 1.9);
+    g.addColorStop(0, k.shadow); g.addColorStop(1, "rgba(0,0,0,0)");
+    c.fillStyle = g; c.beginPath(); c.arc(0, 0, s * 1.9, 0, Math.PI * 2); c.fill(); c.restore();
+    slab(-T - 1.6, 1.2, -0.4, k.right, k.left, k.ghost);
+    slab(-T, T, 0, k.right, k.top, k.edge);
+  }
+  /** raw 2D access in screen dots, for sparkles and text-free marks. In the line style bright marks
+   *  turn accent and dim ones grey, so the same drawing works on a pale stage */
+  screen(fn: (c: CanvasRenderingContext2D) => void) {
+    this.c.save();
+    if (this.ink) {
+      const k = this.ink, c = this.c, u = this.u;
+      const map = (v: unknown) => {
+        if (typeof v !== "string") return v;
+        const m = v.match(/rgba?\((\d+)/), x = v.match(/^#([0-9a-f]{2})/i);
+        const n = m ? +m[1] : x ? parseInt(x[1], 16) : -1;
+        return n < 0 ? v : n > 150 ? k.accent : k.detail;
+      };
+      const proxy = new Proxy(c, {
+        get: (o, p) => { const v = Reflect.get(o, p, o); return typeof v === "function" ? v.bind(o) : v; },
+        set: (o, p, v) => Reflect.set(o, p, p === "strokeStyle" || p === "fillStyle" ? map(v) : p === "lineWidth" ? Math.min(1.5 * u, Math.max(u, (v as number) * 0.6)) : v, o),
+      });
+      fn(proxy);
+    } else fn(this.c);
+    this.c.restore();
+  }
 }
 
 /* ── raster: draw the scene supersampled, then average each dot's cell ── */
@@ -209,6 +319,65 @@ export function renderHi(ill: Illustration, t: number, h: number, px: number, wi
   return c.getImageData(0, 0, W, H);
 }
 
+/* ── line: the scene as clean line art on a pale (or dark) stage ── */
+export interface Ink { top: string; left: string; right: string; hole: string; edge: string; ghost: string; detail: string; accent: string; accentFill: string; shadow: string }
+export type Mode = "dark" | "light";
+const mixHex = (a: string, b: string, k: number) => { const A = hex(a), B = hex(b); return `rgb(${A.map((x, i) => Math.round(x + (B[i] - x) * k)).join(",")})`; };
+export function inkOf(theme: Theme, mode: Mode): Ink {
+  // white has no hue of its own: the line style then takes a calm blue as its accent
+  const acc = theme.name === "White" ? (mode === "light" ? "#4a6cf7" : "#7d95ff") : theme.a;
+  return mode === "light"
+    ? { top: "#ffffff", left: "#f6f7f9", right: "#eceef2", hole: "#f1f3f6", edge: "#a9b0ba", ghost: "#d0d4da", detail: "#bcc2ca", accent: acc, accentFill: mixHex("#ffffff", acc, 0.14), shadow: "rgba(30,40,60,.10)" }
+    : { top: "#232528", left: "#1d1f22", right: "#17181b", hole: "#141517", edge: "#4a4e56", ghost: "#33363c", detail: "#41454c", accent: acc, accentFill: mixHex("#232528", acc, 0.2), shadow: "rgba(0,0,0,.45)" };
+}
+/** the stage under a piece: one slab under every floor shadow it casts. Measured once at rest, so
+ *  the slab never moves while the piece does */
+const stageCache = new Map<string, Pen["stage"]>();
+let measureCv: OffscreenCanvas | HTMLCanvasElement | null = null;
+function stageOf(ill: Illustration, _t: number, _h: number): Pen["stage"] {
+  if (stageCache.has(ill.k)) return stageCache.get(ill.k)!;
+  measureCv ??= typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(4, 4) : document.createElement("canvas");
+  const p = new Pen(measureCv.getContext("2d") as CanvasRenderingContext2D, 0, 0).setInk(inkOf(THEMES[0], "light"), 1, null, true);
+  ill.draw(p, 0, 0);
+  stageCache.set(ill.k, p.stage);
+  return p.stage;
+}
+/** the piece's window in the line style, measured from the line drawing itself (stage included)
+ *  over the whole motion, in grid dots */
+const lineCache = new Map<string, { q0: number; r0: number; w: number; h: number }>();
+export function lineBounds(ill: Illustration, margin = 3) {
+  const hit = lineCache.get(ill.k);
+  if (hit) return hit;
+  const K = 2, W = ill.cols * K * 2, H = ill.rows * K * 2, ox = ill.cols * K / 2, oy = ill.rows * K / 2;
+  const cv = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(W, H) : Object.assign(document.createElement("canvas"), { width: W, height: H });
+  const c = cv.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
+  const z = ill.zoom ?? 1, ink = inkOf(THEMES[0], "light");
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  const per = ill.period ?? 3;
+  for (let i = 0; i < 8; i++) for (const h of ill.kind === "hover" ? [0, 0.5, 1] : [0]) {
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W, H);
+    c.setTransform(K * z, 0, 0, K * z, ox, oy);
+    ill.draw(new Pen(c, ill.cols / 2 / z, ill.rows / 2 / z).setInk(ink, 1 / (K * z), stageOf(ill, (i / 8) * per, h)), (i / 8) * per, h);
+    const d = c.getImageData(0, 0, W, H).data;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (d[(y * W + x) * 4 + 3] < 40) continue;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  const b = x1 < 0 ? bounds(ill) : { q0: Math.floor((x0 - ox) / K) - margin, r0: Math.floor((y0 - oy) / K) - margin, w: Math.ceil((x1 - x0) / K) + margin * 2 + 1, h: Math.ceil((y1 - y0) / K) + margin * 2 + 1 };
+  lineCache.set(ill.k, b);
+  return b;
+}
+/** draw one frame of the line style onto ctx (already scaled so 1 unit = 1 css px) */
+export function paintLine(ctx: CanvasRenderingContext2D, ill: Illustration, t: number, h: number, theme: Theme, px: number, mode: Mode) {
+  const win = lineBounds(ill), z = ill.zoom ?? 1;
+  ctx.save();
+  ctx.transform(px * z, 0, 0, px * z, -win.q0 * px, -win.r0 * px);
+  const ink = inkOf(theme, mode);
+  ill.draw(new Pen(ctx, ill.cols / 2 / z, ill.rows / 2 / z).setInk(ink, 1 / (px * z), stageOf(ill, t, h)), t, h);
+  ctx.restore();
+}
+
 /** grey to theme colour, alpha from brightness. cap: the brightest the smooth layer gets */
 export function colorize(img: ImageData, theme: Theme, cap = 1, gain = 1) {
   const A = hex(theme.a), B = hex(theme.b ?? theme.a);
@@ -228,7 +397,7 @@ export function colorize(img: ImageData, theme: Theme, cap = 1, gain = 1) {
   return img;
 }
 
-export type DotStyle = "stipple" | "halftone" | "soft";
+export type DotStyle = "stipple" | "halftone" | "line";
 
 /** halftone cell size, in grid dots: bigger cells, fewer and bolder dots */
 export const CELL = 2;
@@ -264,24 +433,9 @@ function eachHalftoneDot(ill: Illustration, t: number, h: number, theme: Theme, 
   }
 }
 
-/** soft: smooth light volumes with a top-down gradient, fine grain and soft shadows */
-function softColor(img: ImageData, theme: Theme) {
-  const tint = hex(theme.a).map((x) => 255 + (x - 255) * 0.16);
-  const d = img.data, W = img.width, H = img.height;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const i = (y * W + x) * 4, v = d[i] / 255;
-    if (v < 0.01) { d[i + 3] = 0; continue; }
-    if (v < 0.24) { d[i] = d[i + 1] = d[i + 2] = 0; d[i + 3] = Math.min(255, v * 900); continue; } // shadow: darkens the card
-    const n = (((x * 73856093) ^ (y * 19349663)) >>> 0) % 1000 / 1000 - 0.5; // static grain
-    const L = Math.min(1, 0.5 + ((v - 0.28) / 0.72) * 0.47 + (0.5 - y / H) * 0.08 + n * 0.05);
-    d[i] = tint[0] * L; d[i + 1] = tint[1] * L; d[i + 2] = tint[2] * L;
-    d[i + 3] = 255 * Math.min(1, (v - 0.24) / 0.08);
-  }
-  return img;
-}
-
 /** paint one frame in a style onto ctx (already scaled so 1 unit = 1 css px). px: css px per grid dot */
-export function paintFrame(ctx: CanvasRenderingContext2D, ill: Illustration, t: number, h: number, theme: Theme, px: number, style: DotStyle, dpr = 1) {
+export function paintFrame(ctx: CanvasRenderingContext2D, ill: Illustration, t: number, h: number, theme: Theme, px: number, style: DotStyle, dpr = 1, mode: Mode = "dark") {
+  if (style === "line") return paintLine(ctx, ill, t, h, theme, px, mode);
   const win = bounds(ill);
   if (style === "stipple") {
     const st = new Stipple(ill, theme, px, dpr, false);
@@ -296,11 +450,6 @@ export function paintFrame(ctx: CanvasRenderingContext2D, ill: Illustration, t: 
     eachHalftoneDot(ill, t, h, theme, px, (x, y, r, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); });
     return;
   }
-  const img = softColor(renderHi(ill, t, h, px * dpr, win, true, 0.55), theme);
-  if (!layer) layer = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(img.width, img.height) : document.createElement("canvas");
-  layer.width = img.width; layer.height = img.height;
-  (layer.getContext("2d") as CanvasRenderingContext2D).putImageData(img, 0, 0);
-  ctx.drawImage(layer as CanvasImageSource, 0, 0, win.w * px, win.h * px);
 }
 let layer: HTMLCanvasElement | OffscreenCanvas | null = null;
 
@@ -425,6 +574,7 @@ export class Stipple {
     const img = renderHi(this.ill, t, h, (ac * ss) / win.w, win, true, 0.02, true);
     const d = img.data, iw = img.width, ih = img.height, bn = blueNoise();
     const A = hex(this.theme.a), B = hex(this.theme.b ?? this.theme.a);
+    const ink = A[0] + A[1] + A[2] < 300;
     const size = this.cols * this.rows;
     if (this.on.length < size) { this.on = new Int32Array(size); this.col = new Uint32Array(size); this.jit = new Float32Array(size); }
     if (!this.dens || this.dens.length < ac * ar) { this.dens = new Float32Array(ac * ar); this.vals = new Float32Array(ac * ar); this.was = new Uint8Array(ac * ar); }
@@ -461,7 +611,7 @@ export class Stipple {
       // the dot's own tint: the theme across the art, brighter on lit faces, with a small personal drift
       const k = w * 0.75 + u * 0.25, j = hash(q, r) - 0.5, j2 = hash(q, r, 1) - 0.5;
       const L = (0.6 + 0.4 * Math.min(1, v)) * (1 + j * 0.16);
-      const wh = Math.max(0, v - 0.85) * 0.9 + 0.05; // the brightest dots lean toward white
+      const wh = ink ? 0 : Math.max(0, v - 0.85) * 0.9 + 0.05; // the brightest dots lean toward white (not dark ink on a light page)
       const ch = (i: number) => {
         let c = A[i] + (B[i] - A[i]) * k;
         c += (255 - c) * wh;
@@ -660,8 +810,8 @@ export function paintDots(ctx: CanvasRenderingContext2D, grid: Float32Array, col
 /* ── exports ── */
 
 /** the current frame as an SVG: halftone is pure circles; soft is an embedded image */
-export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pitch = 8, style: DotStyle = "stipple") {
-  const bx = bounds(ill);
+export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pitch = 8, style: DotStyle = "stipple", mode: Mode = "dark") {
+  const bx = style === "line" ? lineBounds(ill) : bounds(ill);
   const W = bx.w * pitch, H = bx.h * pitch;
   const parts: string[] = [];
   if (style === "stipple") {
@@ -671,12 +821,12 @@ export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pit
   } else if (style === "halftone") {
     eachHalftoneDot(ill, t, h, theme, pitch, (x, y, r, col) => parts.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="${col}"/>`));
   } else {
-    const img = softColor(renderHi(ill, t, h, pitch * 2, bx, true, 0.55), theme);
-    const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
-    cv.getContext("2d")!.putImageData(img, 0, 0);
+    const cv = document.createElement("canvas"); cv.width = W * 2; cv.height = H * 2;
+    const c = cv.getContext("2d")!; c.scale(2, 2);
+    paintLine(c, ill, t, h, theme, pitch, mode);
     parts.push(`<image href="${cv.toDataURL("image/png")}" x="0" y="0" width="${W}" height="${H}"/>`);
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="100%" height="100%" fill="${theme.bg}"/>${parts.join("")}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="100%" height="100%" fill="${style === "line" ? (mode === "light" ? "#f7f8fa" : "#0e0f11") : mode === "light" ? "#f7f8fa" : theme.bg}"/>${parts.join("")}</svg>`;
 }
 
 /** the hover curve used for GIFs of hover pieces: rest, play in, hold, play out */
@@ -689,11 +839,11 @@ export function hoverAt(u: number) {
 }
 
 /** the loop (or the hover played in and out) as an animated GIF */
-export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24, style: DotStyle = "stipple"): Promise<Blob> {
+export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24, style: DotStyle = "stipple", mode: Mode = "dark"): Promise<Blob> {
   const { GIFEncoder, quantize, applyPalette } = await import("gifenc");
   const dur = ill.kind === "loop" ? ill.period ?? 3 : 3.2;
   const n = Math.round(dur * fps);
-  const bx = bounds(ill);
+  const bx = style === "line" ? lineBounds(ill) : bounds(ill);
   const W = bx.w * pitch, H = bx.h * pitch;
   const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
   const c = cv.getContext("2d", { willReadFrequently: true })!;
@@ -701,8 +851,8 @@ export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24
   let palette: number[][] | null = null;
   for (let i = 0; i < n; i++) {
     const u = i / n;
-    c.fillStyle = theme.bg; c.fillRect(0, 0, W, H);
-    paintFrame(c, ill, u * dur, ill.kind === "loop" ? 0 : hoverAt(u), theme, pitch, style, 1);
+    c.fillStyle = mode === "light" ? "#f7f8fa" : style === "line" ? "#0e0f11" : theme.bg; c.fillRect(0, 0, W, H);
+    paintFrame(c, ill, u * dur, ill.kind === "loop" ? 0 : hoverAt(u), theme, pitch, style, 1, mode);
     const data = c.getImageData(0, 0, W, H).data;
     palette ??= quantize(data, 64);
     gif.writeFrame(applyPalette(data, palette), W, H, { palette, delay: Math.round(1000 / fps) });

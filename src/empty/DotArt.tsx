@@ -5,11 +5,13 @@
 import { useEffect, useLayoutEffect, useRef, useMemo, useState, useSyncExternalStore } from "react";
 import { theme as siteTheme } from "../site/theme";
 import { play } from "../sound/sound";
-import { bounds, paintFrame, Stipple, THEMES, type DotStyle, type Illustration, type Theme } from "./dots";
+import { bounds, lineBounds, paintFrame, Stipple, THEMES, type DotStyle, type Illustration, type Mode, type Theme } from "./dots";
 
-export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitch = 9, look = "stipple", touch = false }: { ill: Illustration; theme?: Theme; hover?: boolean; fit?: number; maxPitch?: number; look?: DotStyle; touch?: boolean }) {
+export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitch = 9, look = "stipple", touch = false, mode }: { ill: Illustration; theme?: Theme; hover?: boolean; fit?: number; maxPitch?: number; look?: DotStyle; touch?: boolean; mode?: Mode }) {
   // on a light page white dots would vanish: the White colour becomes ink there
-  const light = useSyncExternalStore(siteTheme.subscribe, () => siteTheme.get() === "light", () => false);
+  const siteLight = useSyncExternalStore(siteTheme.subscribe, () => siteTheme.get() === "light", () => false);
+  const light = mode ? mode === "light" : siteLight;
+  const md: Mode = light ? "light" : "dark";
   const theme: Theme = useMemo(() => (light && chosen.name === "White" ? { ...chosen, a: "#262a31", bg: "#f7f8f9" } : chosen), [light, chosen]);
   const box = useRef<HTMLDivElement>(null);
   const cv = useRef<HTMLCanvasElement>(null);
@@ -25,19 +27,19 @@ export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitc
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
-    const b = bounds(ill);
+    const b = look === "line" ? lineBounds(ill) : bounds(ill);
     const ro = new ResizeObserver(() => setPitch(Math.max(2, Math.min(maxPitch, (el.clientWidth * fit) / b.w, (el.clientHeight * fit) / b.h))));
     ro.observe(el);
     const io = new IntersectionObserver(([e]) => setSeen(e.isIntersecting), { rootMargin: "100px" });
     io.observe(el);
     return () => { ro.disconnect(); io.disconnect(); };
-  }, [ill, fit, maxPitch]);
+  }, [ill, fit, maxPitch, look]);
 
   useEffect(() => {
     const c = cv.current;
     if (!c) return;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const win = bounds(ill);
+    const win = look === "line" ? lineBounds(ill) : bounds(ill);
     if (look === "stipple") return runStipple(c, ill, theme, pitch, dpr, seen, ill.kind, h, wantRef, st);
     const W = win.w * pitch, H = win.h * pitch;
     c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
@@ -56,15 +58,15 @@ export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitc
       if (moving || drawn < 0) {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, W, H);
-        paintFrame(ctx, ill, still ? (ill.period ?? 3) * 0.3 : t, still ? Math.round(h.current) : h.current, theme, pitch, look, dpr);
+        paintFrame(ctx, ill, still ? (ill.period ?? 3) * 0.3 : t, still ? Math.round(h.current) : h.current, theme, pitch, look, dpr, md);
         drawn = h.current;
       }
       raf = requestAnimationFrame(frame);
     };
     if (seen) raf = requestAnimationFrame(frame);
-    else { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); paintFrame(ctx, ill, 0, 0, theme, pitch, look, dpr); }
+    else { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); paintFrame(ctx, ill, 0, 0, theme, pitch, look, dpr, md); }
     return () => cancelAnimationFrame(raf);
-  }, [ill, theme, pitch, seen, look]);
+  }, [ill, theme, pitch, seen, look, md]);
 
   return (
     <div ref={box} className="dotArt" onPointerEnter={(e) => e.pointerType !== "touch" && setOver(true)}

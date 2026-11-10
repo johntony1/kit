@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Code, CopyIcon, Seg, useCopy } from "../site/ui";
 import { Later } from "../site/sheet";
 import { DotArt } from "./DotArt";
-import { THEMES, toGIF, toSVG, type DotStyle, type Illustration, type Theme } from "./dots";
+import { THEMES, toGIF, toSVG, type DotStyle, type Illustration, type Mode, type Theme } from "./dots";
 import { ILL_SRC } from "./ills";
 import dotsSrc from "./dots.ts?raw";
 import artSrc from "./DotArt.tsx?raw";
@@ -38,9 +38,11 @@ It is a ${ill.kind === "loop" ? "looping" : "hover"} illustration. A small isome
 (boxes, faces, lines) and rendered in one of three styles: stipple (tiny square dots, one bit each,
 tone from how many are lit through a blue noise map, every dot its own slight tint, and the dots
 part around the pointer, smear along with it and spring back), halftone (one round dot per cell
-sized by the shading) or soft (smooth pale volumes with a gradient, fine grain and soft shadows).
+sized by the shading) or line (clean isometric line art: pale faces with one pixel outlines, the
+piece standing on a rounded slab, dashed guides and one accent colour). Each works on a light or a
+dark page (pass mode="light" or mode="dark").
 ${ill.kind === "loop" ? `It loops every ${ill.period ?? 3} seconds.` : "It rests, and plays while the pointer is over it."}
-Style: stipple by default (pass look="halftone" or look="soft" for the other two).
+Style: stipple by default (pass look="halftone" or look="line" for the other two).
 
 Add the three files below as they are (no dependencies beyond React), then render
 <DotArt ill={${ill.k}} /> inside a positioned box with a size. Keep the dot style, the timings
@@ -75,17 +77,19 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
   const [tab, setTab] = useState<"Preview" | "Code">("Preview");
   const [theme, setTheme] = useState<Theme>(THEMES[0]);
   const [gif, setGif] = useState<"idle" | "busy">("idle");
-  const [look, setLook] = useState<"Stipple" | "Halftone" | "Soft">("Stipple");
+  const [look, setLook] = useState<"Stipple" | "Halftone" | "Line">("Stipple");
+  const [shade, setShade] = useState<"Dark" | "Light">("Dark");
   const style = look.toLowerCase() as DotStyle;
+  const mode = shade.toLowerCase() as Mode;
   const prompt = useCopy();
   const file = fileOf(ill.k);
-  const slug = `${ill.k}-${style}-${theme.name.toLowerCase()}`;
+  const slug = `${ill.k}-${style}-${theme.name.toLowerCase()}-${mode}`;
 
-  const svg = () => save(new Blob([toSVG(ill, (ill.period ?? 3) * 0.5, 0, theme, 8, style)], { type: "image/svg+xml" }), `${slug}.svg`);
+  const svg = () => save(new Blob([toSVG(ill, (ill.period ?? 3) * 0.5, 0, theme, 8, style, mode)], { type: "image/svg+xml" }), `${slug}.svg`);
   const makeGif = async () => {
     if (gif === "busy") return;
     setGif("busy");
-    try { save(await toGIF(ill, theme, 6, 24, style), `${slug}.gif`); } finally { setGif("idle"); }
+    try { save(await toGIF(ill, theme, 6, 24, style, mode), `${slug}.gif`); } finally { setGif("idle"); }
   };
 
   return (
@@ -95,7 +99,8 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
       <div className="bar">
         <div className="esSegs">
           <Seg label="View" value={tab} options={["Preview", "Code"] as const} onChange={setTab} />
-          <Seg label="Style" value={look} options={["Stipple", "Halftone", "Soft"] as const} onChange={setLook} />
+          <Seg label="Style" value={look} options={["Stipple", "Halftone", "Line"] as const} onChange={setLook} />
+          <Seg label="Mode" value={shade} options={["Dark", "Light"] as const} onChange={setShade} />
         </div>
         <div className="barRight">
           <div className="esSwatches" role="radiogroup" aria-label="Dot colour">
@@ -111,16 +116,16 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
       </div>
       {tab === "Preview" ? (
         <>
-          <div className="panel esBig">
-            <DotArt ill={ill} theme={theme} maxPitch={8} fit={0.92} look={style} touch />
+          <div className={`panel esBig ${mode} ${style}`}>
+            <DotArt ill={ill} theme={theme} maxPitch={8} fit={0.92} look={style} mode={mode} touch />
             {style === "stipple" ? (
               <span className="esHint"><span className="onHover">Move through the dots, press to dig in</span><span className="onTouch">Press and drag through the dots</span></span>
             ) : ill.kind === "hover" && <span className="esHint">Hover to play</span>}
           </div>
           <Later>
-            <div className="panel esContext">
+            <div className={`panel esContext ${mode} ${style}`}>
               <div className="esEmpty">
-                <div className="esEmptyArt"><DotArt ill={ill} theme={theme} fit={1} look={style} /></div>
+                <div className="esEmptyArt"><DotArt ill={ill} theme={theme} fit={1} look={style} mode={mode} /></div>
                 <h3>{ill.title}</h3>
                 <p>{ill.body}</p>
                 <button type="button" className="btn primary">Get started</button>

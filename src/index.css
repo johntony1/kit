@@ -655,6 +655,13 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .esHint .onTouch { display: none; }
 @media (hover: none) { .esHint .onHover { display: none; } .esHint .onTouch { display: inline; } }
 .panel.esContext { margin-top: 12px; display: grid; place-items: center; padding: 48px 16px; background: #0b0b0b; }
+/* the preview's own light and dark: a pale or a near black stage with a faint dot grid */
+.panel.esBig, .panel.esContext { transition: background-color 240ms cubic-bezier(.2,0,0,1); }
+.panel.esBig.light, .panel.esContext.light { background: radial-gradient(circle at 1px 1px, oklch(0.22 0.008 264 / .09) 1px, transparent 1.4px) 0 0 / 18px 18px, #f7f8fa; box-shadow: inset 0 0 0 1px oklch(0.22 0.008 264 / .08); }
+.panel.esBig.dark.line, .panel.esContext.dark.line { background: radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 1.4px) 0 0 / 18px 18px, #0e0f11; }
+.panel.esContext.light .esEmpty h3 { color: oklch(0.22 0.008 264); }
+.panel.esContext.light .esEmpty p { color: oklch(0.5 0.01 264); }
+.panel.esBig.light .esHint { color: oklch(0.55 0.01 264); }
 .esEmpty { display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 340px; }
 .esEmptyArt { position: relative; width: 240px; height: 210px; }
 .esEmpty h3 { margin: 18px 0 6px; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
