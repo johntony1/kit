@@ -20,6 +20,7 @@ import type { StudioLib } from "./site/Studio";
 import { CardPreview, ES_COUNT, Home, KINDS, type BentoLib, type Kind } from "./site/Bento";
 import { ThemeToggle } from "./site/VintageSwitch";
 import { ILLS, illOf, useIll } from "./empty/ills";
+import { catOf } from "./empty/cats";
 import { compOf, COMPS } from "./site/components";
 import { TRANS_KEYS, TRANS_META, TransInstall, TransPlayground, TransPreview, transPrompt } from "./site/TransitionPage";
 import type { TransitionKind } from "./transitions/transitions";
@@ -368,16 +369,29 @@ function SearchButton({ go }: { go: (r: Route) => void }) {
     ...TYPE_KEYS.map((k) => ({ r: k as Route, name: TYPE_EFFECTS[k].name, group: "Type" })),
     ...TRANS_KEYS.map((k) => ({ r: k as Route, name: TRANS_META[k].name, group: "Transitions" })),
     ...COMPS.map((c) => ({ r: `cmp-${c.k}` as Route, name: c.name, group: "Components" })),
-    ...ILLS.map((i) => ({ r: `es-${i.k}` as Route, name: `${i.name}, ${i.title}`, group: "Empty states" })),
-  ], []);
-  const list = all.filter((x) => x.name.toLowerCase().includes(q.trim().toLowerCase()));
+    ...ILLS.map((i) => ({ r: `es-${i.k}` as Route, name: i.name, sub: i.title, group: "Empty states", more: catOf(i.k) })),
+  ] as { r: Route; name: string; sub?: string; group: string; more?: string }[], []);
+  // every word typed has to appear somewhere (name, headline, kind or category); names that start
+  // with the query come first
+  const list = useMemo(() => {
+    const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return all;
+    const hits = all.filter((x) => { const hay = `${x.name} ${x.sub ?? ""} ${x.group} ${x.more ?? ""}`.toLowerCase(); return words.every((w) => hay.includes(w)); });
+    const head = q.trim().toLowerCase();
+    return hits.sort((a, b) => Number(!a.name.toLowerCase().startsWith(head)) - Number(!b.name.toLowerCase().startsWith(head)));
+  }, [all, q]);
+  const listRef = useRef<HTMLDivElement>(null);
+  // the highlighted row stays in view as the arrow keys move it
+  useEffect(() => { listRef.current?.querySelector<HTMLElement>(".palItem.on")?.scrollIntoView({ block: "nearest" }); }, [hi]);
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setOpen((o) => !o); }
       if (e.key === "Escape") setOpen(false);
     };
+    const show = () => setOpen(true);
     addEventListener("keydown", on);
-    return () => removeEventListener("keydown", on);
+    addEventListener("kit:search", show);
+    return () => { removeEventListener("keydown", on); removeEventListener("kit:search", show); };
   }, []);
   useEffect(() => { if (open) { setQ(""); setHi(0); } }, [open]);
   const pick = (r: Route) => { setOpen(false); go(r); };
@@ -394,14 +408,14 @@ function SearchButton({ go }: { go: (r: Route) => void }) {
             <input autoFocus className="palIn" placeholder="Search the library" value={q}
               onChange={(e) => { setQ(e.target.value); setHi(0); }}
               onKeyDown={(e) => {
-                if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => Math.min(list.length - 1, h + 1)); }
+                if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => Math.min(Math.min(list.length, 80) - 1, h + 1)); }
                 if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => Math.max(0, h - 1)); }
                 if (e.key === "Enter" && list[hi]) pick(list[hi].r);
               }} />
-            <div className="palList" role="listbox">
-              {list.map((x, i) => (
-                <button key={x.r} type="button" role="option" aria-selected={i === hi} className={`palItem ${i === hi ? "on" : ""}`} onMouseEnter={() => setHi(i)} onClick={() => pick(x.r)}>
-                  <span>{x.name}</span><em>{x.group}</em>
+            <div className="palList" role="listbox" ref={listRef}>
+              {list.slice(0, 80).map((x, i) => (
+                <button key={x.r} type="button" role="option" aria-selected={i === hi} className={`palItem ${i === hi ? "on" : ""}`} onMouseMove={() => setHi(i)} onClick={() => pick(x.r)}>
+                  <span className="palName">{x.name}{x.sub && <small>{x.sub}</small>}</span><em>{x.more ?? x.group}</em>
                 </button>
               ))}
               {!list.length && <p className="palEmpty">Nothing called that yet.</p>}

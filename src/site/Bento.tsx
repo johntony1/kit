@@ -192,6 +192,10 @@ function Dock({ show, filter, onPick }: { show: boolean; filter: Filter; onPick:
           </button>
         ))}
         <span className="bnDockRule" aria-hidden="true" />
+        {/* opens the same search palette as the top bar's button (and ⌘K) */}
+        <button type="button" className="bnDockBtn bnDockSearch" aria-label="Search the library" aria-haspopup="dialog" title="Search  ⌘K" onClick={() => dispatchEvent(new Event("kit:search"))}>
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><circle cx="7" cy="7" r="4.75" /><path d="m10.5 10.5 3 3" strokeLinecap="round" /></svg>
+        </button>
         <span className="bnDockSound"><ThemeToggle /></span>
       </div>
     </nav>

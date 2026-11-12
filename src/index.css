@@ -1044,3 +1044,20 @@ body::after { top: var(--gut); left: var(--gut); right: var(--gut); bottom: -40p
 .site::before { background: radial-gradient(circle at 11px 11px, var(--dot) 1px, transparent 1.6px) 0 0 / 22px 22px, var(--ground); }
 /* the clear band under the top edge follows the panel's rounded corners */
 .bnFade { border-radius: var(--frame-r) var(--frame-r) 0 0; }
+
+/* ── Search: a button in the dock, and the palette in both themes ── */
+.bnDockSearch { width: 40px; padding: 0; justify-content: center; }
+.bnDockSearch::after { content: ""; position: absolute; inset: -2px; }
+.palItem { height: auto; min-height: 40px; padding: 7px 10px; gap: 12px; }
+.palName { display: flex; flex-direction: column; gap: 2px; min-width: 0; color: inherit; }
+.palName small { font-size: 12px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.palItem em { flex: none; }
+.pal { animation: palIn 0.18s cubic-bezier(0.23, 1, 0.32, 1); transform-origin: 50% 0; }
+:root[data-theme="light"] .palScrim { background: oklch(0.22 0.008 264 / 0.18); }
+:root[data-theme="light"] .pal { background: oklch(0.994 0.001 264); box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 18px 44px -12px oklch(0.22 0.008 264 / 0.22), 0 4px 10px -4px oklch(0.22 0.008 264 / 0.08); }
+:root[data-theme="light"] .palIn { color: oklch(0.22 0.008 264); border-bottom-color: oklch(0.22 0.008 264 / 0.08); }
+:root[data-theme="light"] .palIn::placeholder { color: oklch(0.6 0.008 264); }
+:root[data-theme="light"] .palItem { color: oklch(0.38 0.008 264); }
+:root[data-theme="light"] .palItem.on { background: oklch(0.958 0.003 264); color: oklch(0.22 0.008 264); }
+:root[data-theme="light"] .palItem em, :root[data-theme="light"] .palName small { color: oklch(0.55 0.008 264); }
+:root[data-theme="light"] .palEmpty { color: oklch(0.53 0.008 264); }
