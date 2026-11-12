@@ -3,7 +3,7 @@
 
 import meta from "../components-src/meta.json";
 
-const SRC = import.meta.glob("../components-src/*/*.txt", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+const SRC = import.meta.glob<string>("../components-src/*/*.txt", { query: "?raw", import: "default" });
 
 /** the app a block was taken from: its repo, its live site, its dependencies */
 interface Source { url: string; repo: string; bg: string; deps: string[] }
@@ -86,16 +86,16 @@ export const COMPS: Comp[] = BLOCKS.filter((b) => HAVE.has(b[0])).map(([k, name,
 
 export const compOf = (k: string) => COMPS.find((c) => c.k === k);
 
-/** the vendored source files of a component, largest first */
-export function sourcesOf(k: string): [string, string][] {
-  return Object.entries(SRC)
-    .filter(([p]) => p.split("/").slice(-2)[0] === (compOf(k)?.from ?? k))
-    .map(([p, text]) => [p.split("/").pop()!.replace(/\.txt$/, "").replace(/__/g, "/"), text] as [string, string])
-    .sort((a, b) => b[1].length - a[1].length);
+/** the vendored source files of a component, largest first (fetched when its Code tab or prompt needs them) */
+export async function loadSources(k: string): Promise<[string, string][]> {
+  const from = compOf(k)?.from ?? k;
+  const mine = Object.entries(SRC).filter(([p]) => p.split("/").slice(-2)[0] === from);
+  const texts = await Promise.all(mine.map(([, load]) => load()));
+  return mine.map(([p], i) => [p.split("/").pop()!.replace(/\.txt$/, "").replace(/__/g, "/"), texts[i]] as [string, string]).sort((x, y) => y[1].length - x[1].length);
 }
 
-export function compPrompt(c: Comp, own?: string) {
-  const [main] = own ? [[`${c.k}.tsx (dark version)`, own] as [string, string]] : sourcesOf(c.k);
+export function compPrompt(c: Comp, own?: string, sources: [string, string][] = [], tokens = "") {
+  const [main] = own ? [[`${c.k}.tsx`, own] as [string, string]] : sources;
   return `# Add the "${c.name}" component
 
 ${c.desc}
@@ -104,5 +104,9 @@ It is open source: ${c.repo} (live: ${c.url}).
 Rebuild it in this project's stack and style, keeping the motion exactly: the same timings,
 springs and easing as the source below. It uses: ${c.deps.join(", ") || "React only"}.
 
-${main ? `## ${main[0]}\n\`\`\`tsx\n${main[1]}\n\`\`\`\n` : ""}`;
+${main ? `## ${main[0]}\n\`\`\`tsx\n${main[1]}\n\`\`\`\n` : ""}${tokens && main?.[1].includes("var(--k-") ? `\n## tokens.css\nThe component paints with these variables, so it has a light and a dark look. Add them once
+(light applies under \`<html data-theme="light">\`), or map them to this project's own tokens.\n\`\`\`css\n${tokens}\`\`\`\n` : ""}`;
 }
+
+/** the shared colour variables every component paints with (fetched with a component's source) */
+export const loadTokens = () => import("../components/tokens.css?raw").then((m) => m.default);

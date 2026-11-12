@@ -9,20 +9,37 @@ import { play } from "../sound/sound";
 
 /* ── tokens ─────────────────────────────────────────────── */
 const T = {
-  surface: "#242624",
-  raised: "linear-gradient(180deg,#2b2d2b,#242624)",
-  raisedShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
-  text: "#e3e8e3",
-  text2: "#c2cbc4",
-  muted: "#8b968f",
-  faint: "#5d6862",
+  surface: "var(--gl-shell)",
+  raised: "var(--k-raised)",
+  raisedShadow: "var(--k-lift)",
+  text: "var(--k-text)",
+  text2: "var(--k-text2)",
+  muted: "var(--k-muted)",
   green: "#34b562",
   primary: "linear-gradient(180deg,#3cc06b,#22994c)",
-  primaryShadow: "inset 0 1px 0 rgba(255,255,255,.25), 0 0 0 1px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.4)",
-  badge: "rgba(255,255,255,.05)",
-  well: "rgba(0,0,0,.22)",
-  wellShadow: "inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.05)",
+  primaryShadow: "var(--gl-primary-sh)",
+  badge: "var(--gl-badge)",
 };
+
+/* ── theme ──────────────────────────────────────────────────
+ * The close button's hover fill is tweened by framer-motion, so it is picked here as plain
+ * rgba. Everything else is painted with the shared --k tokens and the --gl variables below. */
+const DARK = { ghost: "rgba(255,255,255,0)", ghostHover: "rgba(255,255,255,0.08)" };
+const LIGHT: typeof DARK = { ghost: "rgba(24,26,31,0)", ghostHover: "rgba(24,26,31,0.07)" };
+const readTheme = () => (typeof document !== "undefined" && document.documentElement.dataset.theme === "light" ? "light" : "dark");
+function useTheme() {
+  const [theme, setTheme] = useState<"light" | "dark">(readTheme);
+  useEffect(() => {
+    const mo = new MutationObserver(() => setTheme(readTheme()));
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    setTheme(readTheme());
+    return () => mo.disconnect();
+  }, []);
+  return theme;
+}
+const CSS = `.guest-focus:focus-visible{outline:2px solid #34b562;outline-offset:2px}
+.guest-root{--gl-shell:#242624;--gl-shell-sh:inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(0,0,0,.5), 0 12px 32px -12px rgba(0,0,0,.6);--gl-badge:rgba(255,255,255,.05);--gl-badge-ring:rgba(255,255,255,.03);--gl-primary-sh:inset 0 1px 0 rgba(255,255,255,.25), 0 0 0 1px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.4);--gl-more:#3a3d3a}
+:root[data-theme="light"] .guest-root{--gl-shell:oklch(0.972 0.003 264);--gl-shell-sh:inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 12px 32px -14px oklch(0.22 0.008 264 / 0.18);--gl-badge:oklch(0.22 0.008 264 / 0.05);--gl-badge-ring:oklch(0.22 0.008 264 / 0.04);--gl-primary-sh:inset 0 1px 0 rgba(255,255,255,.3), 0 0 0 1px oklch(0.5 0.14 150 / 0.75), 0 1px 2px oklch(0.45 0.13 150 / 0.3);--gl-more:oklch(0.9 0.005 264)}`;
 
 /* ── springs (verbatim) ─────────────────────────────────── */
 const SPRING_ENTRY = { type: "spring" as const, visualDuration: 0.45, bounce: 0.14 };
@@ -80,16 +97,16 @@ function useFit(size: "card" | "big") {
 
 /* ── icons ──────────────────────────────────────────────── */
 const CloseIcon = () => (
-  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke={T.muted} strokeWidth="1.5" strokeLinecap="round" /></svg>
+  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" style={{ stroke: T.muted }} strokeWidth="1.5" strokeLinecap="round" /></svg>
 );
 const Chev = ({ dir }: { dir: "left" | "right" | "down" }) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ transform: dir === "left" ? "rotate(90deg)" : dir === "right" ? "rotate(-90deg)" : undefined }}>
-    <path d="M5 6.5l3 3 3-3" stroke={T.muted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M5 6.5l3 3 3-3" style={{ stroke: T.muted }} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const Badge = ({ children }: { children: React.ReactNode }) => (
-  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 6px", borderRadius: 8, flexShrink: 0, background: T.badge, boxShadow: "inset 0 0 0 1px rgba(255,255,255,.03)" }}>
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 6px", borderRadius: 8, flexShrink: 0, background: T.badge, boxShadow: "inset 0 0 0 1px var(--gl-badge-ring)" }}>
     <span style={{ fontWeight: 500, fontSize: 13, lineHeight: "20px", letterSpacing: "-0.078px", color: T.muted, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{children}</span>
   </div>
 );
@@ -114,20 +131,24 @@ function AvatarStack({ onClick, triggerRef }: { onClick: () => void; triggerRef:
       {PEOPLE.map((p, i) => (
         <div key={i} style={{ width: 20, height: 20, borderRadius: 999, border: `2px solid ${T.surface}`, background: p.bg, marginLeft: i === 0 ? 0 : -4, zIndex: PEOPLE.length - i, display: "grid", placeItems: "center", fontSize: 8, fontWeight: 700, color: "#1c1d1c", flexShrink: 0 }}>{p.i}</div>
       ))}
-      <div style={{ width: 20, height: 20, borderRadius: 999, border: `2px solid ${T.surface}`, background: "#3a3d3a", marginLeft: -4, display: "grid", placeItems: "center", flexShrink: 0 }}>
+      <div style={{ width: 20, height: 20, borderRadius: 999, border: `2px solid ${T.surface}`, background: "var(--gl-more)", marginLeft: -4, display: "grid", placeItems: "center", flexShrink: 0 }}>
         <span aria-hidden="true" style={{ fontSize: 8, fontWeight: 500, lineHeight: "12px", color: T.text2, fontVariantNumeric: "tabular-nums" }}>+9</span>
       </div>
     </motion.button>
   );
 }
 
-const CloseButton = ({ onClose, refEl, label }: { onClose: () => void; refEl: React.RefObject<HTMLButtonElement | null>; label: string }) => (
-  <motion.button ref={refEl} type="button" onClick={onClose} aria-label={label} className="guest-focus"
-    style={{ width: 20, height: 20, display: "grid", placeItems: "center", borderRadius: 4, border: 0, padding: 0, background: "rgba(255,255,255,0)", cursor: "pointer" }}
-    whileHover={{ backgroundColor: "rgba(255,255,255,0.08)" }} whileTap={{ scale: 0.88 }} transition={SPRING_PRESS}>
-    <CloseIcon />
-  </motion.button>
-);
+function CloseButton({ onClose, refEl, label }: { onClose: () => void; refEl: React.RefObject<HTMLButtonElement | null>; label: string }) {
+  const P = useTheme() === "light" ? LIGHT : DARK;
+  return (
+    <motion.button ref={refEl} type="button" onClick={onClose} aria-label={label} className="guest-focus"
+      style={{ width: 20, height: 20, display: "grid", placeItems: "center", borderRadius: 4, border: 0, padding: 0, cursor: "pointer" }}
+      initial={false} animate={{ backgroundColor: P.ghost }}
+      whileHover={{ backgroundColor: P.ghostHover }} whileTap={{ scale: 0.88 }} transition={SPRING_PRESS}>
+      <CloseIcon />
+    </motion.button>
+  );
+}
 
 /* ── Guests view ────────────────────────────────────────── */
 function GuestsExpanded({ onClose, closeRef }: { onClose: () => void; closeRef: React.RefObject<HTMLButtonElement | null> }) {
@@ -188,11 +209,11 @@ export default function GuestList({ size = "card" }: { size?: "card" | "big" }) 
 
   return (
     <MotionConfig reducedMotion="user"><LayoutGroup id={groupId}>
-      <style>{`.guest-focus:focus-visible{outline:2px solid ${T.green};outline-offset:2px}`}</style>
+      <style>{CSS}</style>
       <div ref={rootRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        <div ref={innerRef} data-own-click style={{ pointerEvents: "auto", width: 358, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center", color: T.text }}>
+        <div ref={innerRef} data-own-click className="guest-root" style={{ pointerEvents: "auto", width: 358, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center", color: T.text }}>
           <motion.div layout
-            style={{ display: "flex", flexDirection: "column", overflow: "hidden", borderRadius: 24, width: "100%", background: T.surface, boxShadow: "inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(0,0,0,.5), 0 12px 32px -12px rgba(0,0,0,.6)", gap: 12, paddingTop: 12, paddingLeft: 4, paddingRight: 4, paddingBottom: 4 }}
+            style={{ display: "flex", flexDirection: "column", overflow: "hidden", borderRadius: 24, width: "100%", background: T.surface, boxShadow: "var(--gl-shell-sh)", gap: 12, paddingTop: 12, paddingLeft: 4, paddingRight: 4, paddingBottom: 4 }}
             transition={SPRING_LAYOUT} initial={{ opacity: 0, y: reduced ? 0 : 16 }} animate={{ opacity: 1, y: 0 }}>
             <AnimatePresence mode="popLayout" initial={false}>
               {!open ? (

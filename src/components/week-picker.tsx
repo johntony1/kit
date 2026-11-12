@@ -10,20 +10,40 @@ import { play } from "../sound/sound";
 
 /* ── tokens ─────────────────────────────────────────────── */
 const T = {
-  surface: "#242624",
-  raised: "linear-gradient(180deg,#2b2d2b,#242624)",
-  raisedShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
-  text: "#e3e8e3",
-  text2: "#c2cbc4",
-  muted: "#8b968f",
-  faint: "#5d6862",
+  surface: "var(--wk-shell)",
+  raised: "var(--k-raised)",
+  raisedShadow: "var(--k-lift)",
+  text: "var(--k-text)",
+  text2: "var(--k-text2)",
+  muted: "var(--k-muted)",
+  faint: "var(--wk-dim)",
   green: "#34b562",
   primary: "linear-gradient(180deg,#3cc06b,#22994c)",
-  primaryShadow: "inset 0 1px 0 rgba(255,255,255,.25), 0 0 0 1px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.4)",
-  badge: "rgba(255,255,255,.05)",
-  well: "rgba(0,0,0,.22)",
-  wellShadow: "inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.05)",
+  primaryShadow: "var(--wk-primary-sh)",
+  badge: "var(--wk-badge)",
+  well: "var(--wk-well)",
+  wellShadow: "var(--wk-well-sh)",
 };
+
+/* ── theme ──────────────────────────────────────────────────
+ * The two hover fills are tweened by framer-motion, so they are picked here as plain rgba.
+ * Everything else is painted with the shared --k tokens and the --wk variables below. */
+const DARK = { ghost: "rgba(255,255,255,0)", ghostHover: "rgba(255,255,255,0.08)", nav: "rgba(255,255,255,0.04)", navHover: "rgba(255,255,255,0.09)" };
+const LIGHT: typeof DARK = { ghost: "rgba(24,26,31,0)", ghostHover: "rgba(24,26,31,0.07)", nav: "rgba(255,255,255,1)", navHover: "rgba(244,245,247,1)" };
+const readTheme = () => (typeof document !== "undefined" && document.documentElement.dataset.theme === "light" ? "light" : "dark");
+function usePalette() {
+  const [theme, setTheme] = useState<"light" | "dark">(readTheme);
+  useEffect(() => {
+    const mo = new MutationObserver(() => setTheme(readTheme()));
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    setTheme(readTheme());
+    return () => mo.disconnect();
+  }, []);
+  return theme === "light" ? LIGHT : DARK;
+}
+const CSS = `.week-focus:focus-visible{outline:2px solid #34b562;outline-offset:2px}
+.week-root{--wk-dim:#5d6862;--wk-shell:#242624;--wk-shell-sh:inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(0,0,0,.5), 0 12px 32px -12px rgba(0,0,0,.6);--wk-primary-sh:inset 0 1px 0 rgba(255,255,255,.25), 0 0 0 1px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.4);--wk-badge:rgba(255,255,255,.05);--wk-badge-ring:rgba(255,255,255,.03);--wk-well:rgba(0,0,0,.22);--wk-well-sh:inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.05);--wk-icon-fill:rgba(255,255,255,.06);--wk-hover:rgba(255,255,255,0.05);--wk-nav-sh:inset 0 0 0 1px rgba(255,255,255,.08), 0 1px 2px rgba(0,0,0,.3);--wk-seg:linear-gradient(180deg,#363936,#2b2d2b)}
+:root[data-theme="light"] .week-root{--wk-dim:oklch(0.53 0.011 264);--wk-shell:oklch(0.972 0.003 264);--wk-shell-sh:inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 12px 32px -14px oklch(0.22 0.008 264 / 0.18);--wk-primary-sh:inset 0 1px 0 rgba(255,255,255,.3), 0 0 0 1px oklch(0.5 0.14 150 / 0.75), 0 1px 2px oklch(0.45 0.13 150 / 0.3);--wk-badge:oklch(0.22 0.008 264 / 0.05);--wk-badge-ring:oklch(0.22 0.008 264 / 0.04);--wk-well:oklch(0.95 0.004 264);--wk-well-sh:inset 0 1px 2px oklch(0.22 0.008 264 / 0.07), 0 0 0 1px oklch(0.22 0.008 264 / 0.05);--wk-icon-fill:oklch(0.22 0.008 264 / 0.05);--wk-hover:oklch(0.22 0.008 264 / 0.05);--wk-nav-sh:inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 1px 2px oklch(0.22 0.008 264 / 0.07);--wk-seg:linear-gradient(180deg,oklch(1 0 0),oklch(0.985 0.002 264))}`;
 
 /* ── springs (verbatim) ─────────────────────────────────── */
 const SPRING_ENTRY = { type: "spring" as const, visualDuration: 0.45, bounce: 0.14 };
@@ -100,23 +120,23 @@ function useFit(size: "card" | "big") {
 /* ── icons ──────────────────────────────────────────────── */
 const CalendarIcon = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-    <rect x="2.75" y="3.75" width="14.5" height="13.5" rx="3.25" fill="rgba(255,255,255,.06)" stroke={T.muted} strokeWidth="1.5" />
-    <path d="M2.75 8h14.5" stroke={T.muted} strokeWidth="1.5" />
-    <path d="M6.5 2.25v3M13.5 2.25v3" stroke={T.muted} strokeWidth="1.5" strokeLinecap="round" />
+    <rect x="2.75" y="3.75" width="14.5" height="13.5" rx="3.25" style={{ fill: "var(--wk-icon-fill)", stroke: T.muted }} strokeWidth="1.5" />
+    <path d="M2.75 8h14.5" style={{ stroke: T.muted }} strokeWidth="1.5" />
+    <path d="M6.5 2.25v3M13.5 2.25v3" style={{ stroke: T.muted }} strokeWidth="1.5" strokeLinecap="round" />
     <circle cx="10" cy="12.5" r="1.25" fill={T.green} />
   </svg>
 );
 const CloseIcon = () => (
-  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke={T.muted} strokeWidth="1.5" strokeLinecap="round" /></svg>
+  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" style={{ stroke: T.muted }} strokeWidth="1.5" strokeLinecap="round" /></svg>
 );
 const Chev = ({ dir }: { dir: "left" | "right" | "down" }) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ transform: dir === "left" ? "rotate(90deg)" : dir === "right" ? "rotate(-90deg)" : undefined }}>
-    <path d="M5 6.5l3 3 3-3" stroke={T.muted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M5 6.5l3 3 3-3" style={{ stroke: T.muted }} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const Badge = ({ children }: { children: React.ReactNode }) => (
-  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 6px", borderRadius: 8, flexShrink: 0, background: T.badge, boxShadow: "inset 0 0 0 1px rgba(255,255,255,.03)" }}>
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 6px", borderRadius: 8, flexShrink: 0, background: T.badge, boxShadow: "inset 0 0 0 1px var(--wk-badge-ring)" }}>
     <span style={{ fontWeight: 500, fontSize: 13, lineHeight: "20px", letterSpacing: "-0.078px", color: T.muted, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{children}</span>
   </div>
 );
@@ -133,13 +153,17 @@ function TaskRow({ label, time, delayS }: { label: string; time: string; delayS:
   );
 }
 
-const CloseButton = ({ onClose, refEl, label }: { onClose: () => void; refEl: React.RefObject<HTMLButtonElement | null>; label: string }) => (
-  <motion.button ref={refEl} type="button" onClick={onClose} aria-label={label} className="week-focus"
-    style={{ width: 20, height: 20, display: "grid", placeItems: "center", borderRadius: 4, border: 0, padding: 0, background: "rgba(255,255,255,0)", cursor: "pointer" }}
-    whileHover={{ backgroundColor: "rgba(255,255,255,0.08)" }} whileTap={{ scale: 0.88 }} transition={SPRING_PRESS}>
-    <CloseIcon />
-  </motion.button>
-);
+function CloseButton({ onClose, refEl, label }: { onClose: () => void; refEl: React.RefObject<HTMLButtonElement | null>; label: string }) {
+  const P = usePalette();
+  return (
+    <motion.button ref={refEl} type="button" onClick={onClose} aria-label={label} className="week-focus"
+      style={{ width: 20, height: 20, display: "grid", placeItems: "center", borderRadius: 4, border: 0, padding: 0, cursor: "pointer" }}
+      initial={false} animate={{ backgroundColor: P.ghost }}
+      whileHover={{ backgroundColor: P.ghostHover }} whileTap={{ scale: 0.88 }} transition={SPRING_PRESS}>
+      <CloseIcon />
+    </motion.button>
+  );
+}
 
 /* ── Calendar view ──────────────────────────────────────── */
 /* ── Calendar view ──────────────────────────────────────── */
@@ -154,17 +178,19 @@ function DayCell({ day, date, selected, onSelect }: { day: string; date: string;
       {selected && (
         <motion.div layoutId="week-day-selected" style={{ position: "absolute", inset: 0, borderRadius: 8, background: T.primary, boxShadow: T.primaryShadow }} transition={reduced ? { duration: 0.15 } : SPRING} />
       )}
-      {!selected && <div style={{ position: "absolute", inset: 0, borderRadius: 8, background: "rgba(255,255,255,0.05)", opacity: hov ? 1 : 0, transition: "opacity 120ms ease", pointerEvents: "none" }} />}
+      {!selected && <div style={{ position: "absolute", inset: 0, borderRadius: 8, background: "var(--wk-hover)", opacity: hov ? 1 : 0, transition: "opacity 120ms ease", pointerEvents: "none" }} />}
       <span style={{ position: "relative", fontSize: 12, lineHeight: "16px", color: selected ? "rgba(255,255,255,.85)" : T.muted, transition: "color 150ms ease" }}>{day}</span>
       <span style={{ position: "relative", fontWeight: 500, fontSize: 16, lineHeight: "24px", letterSpacing: "-0.176px", color: selected ? "#fff" : T.text, fontVariantNumeric: "tabular-nums", transition: "color 150ms ease" }}>{date}</span>
     </motion.button>
   );
 }
 function NavArrow({ dir, label, onClick }: { dir: "left" | "right"; label: string; onClick: () => void }) {
+  const P = usePalette();
   return (
     <motion.button type="button" onClick={onClick} aria-label={label} className="week-focus"
-      style={{ display: "grid", placeItems: "center", padding: 2, borderRadius: 6, border: 0, cursor: "pointer", background: "rgba(255,255,255,0.04)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.08), 0 1px 2px rgba(0,0,0,.3)" }}
-      whileHover={{ backgroundColor: "rgba(255,255,255,0.09)" }} whileTap={{ scale: 0.9 }} transition={SPRING_PRESS}>
+      style={{ display: "grid", placeItems: "center", padding: 2, borderRadius: 6, border: 0, cursor: "pointer", boxShadow: "var(--wk-nav-sh)" }}
+      initial={false} animate={{ backgroundColor: P.nav }}
+      whileHover={{ backgroundColor: P.navHover }} whileTap={{ scale: 0.9 }} transition={SPRING_PRESS}>
       <Chev dir={dir} />
     </motion.button>
   );
@@ -244,7 +270,7 @@ function CalendarExpanded({ onClose, closeRef }: { onClose: () => void; closeRef
               style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 999, border: 0, background: "none", cursor: "pointer" }}
               whileTap={{ scale: 0.96 }} transition={SPRING_PRESS}>
               <AnimatePresence initial={false}>
-                {on && <motion.div layoutId="week-seg-pill" style={{ position: "absolute", inset: 0, borderRadius: 999, background: "linear-gradient(180deg,#363936,#2b2d2b)", boxShadow: T.raisedShadow }} transition={reduced ? { duration: 0.15 } : SPRING} />}
+                {on && <motion.div layoutId="week-seg-pill" style={{ position: "absolute", inset: 0, borderRadius: 999, background: "var(--wk-seg)", boxShadow: T.raisedShadow }} transition={reduced ? { duration: 0.15 } : SPRING} />}
               </AnimatePresence>
               <span style={{ position: "relative", fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", color: on ? T.text : T.faint, transition: "color 180ms ease", userSelect: "none" }}>{tab}</span>
             </motion.button>
@@ -275,11 +301,11 @@ export default function WeekPicker({ size = "card" }: { size?: "card" | "big" })
 
   return (
     <MotionConfig reducedMotion="user"><LayoutGroup id={groupId}>
-      <style>{`.week-focus:focus-visible{outline:2px solid ${T.green};outline-offset:2px}`}</style>
+      <style>{CSS}</style>
       <div ref={rootRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        <div ref={innerRef} data-own-click style={{ pointerEvents: "auto", width: 358, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center", color: T.text }}>
+        <div ref={innerRef} data-own-click className="week-root" style={{ pointerEvents: "auto", width: 358, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center", color: T.text }}>
           <motion.div layout
-            style={{ display: "flex", flexDirection: "column", overflow: "hidden", borderRadius: 24, width: "100%", background: T.surface, boxShadow: "inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(0,0,0,.5), 0 12px 32px -12px rgba(0,0,0,.6)", gap: open ? 4 : 12, paddingTop: open ? 4 : 12, paddingLeft: 4, paddingRight: 4, paddingBottom: 4 }}
+            style={{ display: "flex", flexDirection: "column", overflow: "hidden", borderRadius: 24, width: "100%", background: T.surface, boxShadow: "var(--wk-shell-sh)", gap: open ? 4 : 12, paddingTop: open ? 4 : 12, paddingLeft: 4, paddingRight: 4, paddingBottom: 4 }}
             transition={SPRING_LAYOUT} initial={{ opacity: 0, y: reduced ? 0 : 16 }} animate={{ opacity: 1, y: 0 }}>
             <AnimatePresence mode="popLayout" initial={false}>
               {!open ? (

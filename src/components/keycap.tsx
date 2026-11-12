@@ -4,7 +4,7 @@
 // rounded corners and the dish catch the light the way a moulded cap does.
 // Press it and it sinks. Drag it and it slides along the slot like a slider thumb and stays where
 // you leave it (0 to 1); a plain click sends it to the far end.
-// The slot behind it lights up white as it goes, the slot ahead stays a dark groove.
+// The slot behind it fills as it goes (lit white in dark, ink in light), the slot ahead stays an empty groove.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion, useSpring, useTransform } from "framer-motion";
 import { play } from "../sound/sound";
@@ -209,7 +209,11 @@ export function Keycap({ value, onChange, width }: { value: number; onChange: (v
       onKeyUp={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); release(true); } }}
       onBlur={() => { if (!drag.current) release(false); }}
       style={{ padding: 0, border: 0, background: "none", cursor: down ? "grabbing" : "grab", display: "block", borderRadius: 18, touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTapHighlightColor: "transparent" }}>
-      <style>{`.kc-btn:focus-visible{outline:2px solid rgba(255,255,255,.55);outline-offset:4px}`}</style>
+      <style>{`.kc-btn{--kc-focus:rgba(255,255,255,.55);--kc-lip:rgba(255,255,255,.09);--kc-cut:rgba(0,0,0,.55);--kc-bed:#0c0d0c;--kc-floor:#1a1c1a;--kc-far:rgba(0,0,0,.7);
+--kc-bloom:rgba(225,234,255,.42);--kc-lit:#dfe6f0;--kc-core:#ffffff;--kc-cast:#000}
+:root[data-theme="light"] .kc-btn{--kc-focus:oklch(0.22 0.008 264 / .55);--kc-lip:oklch(1 0 0);--kc-cut:oklch(0.22 0.008 264 / .12);--kc-bed:oklch(0.905 0.004 264);--kc-floor:oklch(0.94 0.003 264);--kc-far:oklch(0.22 0.008 264 / .16);
+--kc-bloom:oklch(0.22 0.008 264 / .1);--kc-lit:oklch(0.3 0.009 264);--kc-core:oklch(0.22 0.008 264);--kc-cast:oklch(0.3 0.011 264 / .38)}
+.kc-btn:focus-visible{outline:2px solid var(--kc-focus);outline-offset:4px}`}</style>
       <svg viewBox={`${BOX.x} ${BOX.y} ${BOX.w} ${BOX.h}`} width={width} height={(width * BOX.h) / BOX.w} aria-hidden="true" style={{ display: "block", overflow: "visible" }}>
         <defs>
           <filter id="kc-blur-l" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9" /></filter>
@@ -219,24 +223,24 @@ export function Keycap({ value, onChange, width }: { value: number; onChange: (v
           <clipPath id="kc-dish"><path d={DISH_CLIP} /></clipPath>
         </defs>
 
-        {/* the slot: a groove cut into the charcoal surface. A soft dark bed, the far wall in
+        {/* the slot: a groove cut into the surface. A soft sunk bed, the far wall in
             shadow, a thin lip of light on the near edge where the surface turns down into it */}
-        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} stroke="rgba(255,255,255,.09)" strokeWidth={7.6} strokeLinecap="round" transform="translate(0.5 1.3)" />
-        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} stroke="rgba(0,0,0,.55)" strokeWidth={7.6} strokeLinecap="round" transform="translate(0 -0.4)" />
-        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} stroke="#0c0d0c" strokeWidth={6.2} strokeLinecap="round" />
-        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} stroke="#1a1c1a" strokeWidth={3} strokeLinecap="round" transform="translate(0.2 1)" />
-        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} stroke="#000" strokeOpacity={0.7} strokeWidth={1.6} strokeLinecap="round" transform="translate(-0.2 -1.3)" />
-        {/* the lit slot behind the cap: a soft bloom in the groove and a clean white core */}
+        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} style={{ stroke: "var(--kc-lip)" }} strokeWidth={7.6} strokeLinecap="round" transform="translate(0.5 1.3)" />
+        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} style={{ stroke: "var(--kc-cut)" }} strokeWidth={7.6} strokeLinecap="round" transform="translate(0 -0.4)" />
+        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} style={{ stroke: "var(--kc-bed)" }} strokeWidth={6.2} strokeLinecap="round" />
+        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} style={{ stroke: "var(--kc-floor)" }} strokeWidth={3} strokeLinecap="round" transform="translate(0.2 1)" />
+        <line x1={P0[0]} y1={P0[1]} x2={P1[0]} y2={P1[1]} style={{ stroke: "var(--kc-far)" }} strokeWidth={1.6} strokeLinecap="round" transform="translate(-0.2 -1.3)" />
+        {/* the lit slot behind the cap: a soft bloom in the groove and a clean core */}
         <motion.g style={{ opacity: litO }}>
-          <motion.line x1={P0[0]} y1={P0[1]} x2={litX2} y2={litY2} stroke="rgba(225,234,255,.42)" strokeWidth={8} strokeLinecap="round" filter="url(#kc-glow)" />
-          <motion.line x1={P0[0]} y1={P0[1]} x2={litX2} y2={litY2} stroke="#dfe6f0" strokeWidth={4} strokeLinecap="round" />
-          <motion.line x1={P0[0]} y1={P0[1]} x2={litX2} y2={litY2} stroke="#ffffff" strokeWidth={2} strokeLinecap="round" transform="translate(0 -0.4)" />
+          <motion.line x1={P0[0]} y1={P0[1]} x2={litX2} y2={litY2} style={{ stroke: "var(--kc-bloom)" }} strokeWidth={8} strokeLinecap="round" filter="url(#kc-glow)" />
+          <motion.line x1={P0[0]} y1={P0[1]} x2={litX2} y2={litY2} style={{ stroke: "var(--kc-lit)" }} strokeWidth={4} strokeLinecap="round" />
+          <motion.line x1={P0[0]} y1={P0[1]} x2={litX2} y2={litY2} style={{ stroke: "var(--kc-core)" }} strokeWidth={2} strokeLinecap="round" transform="translate(0 -0.4)" />
         </motion.g>
 
         {/* contact shadow: a wide soft one and a tight one at the foot */}
         <motion.g style={{ x: sx, y: sy, opacity: shadowO }}>
-          <motion.path d={FOOT} fill="#000" filter="url(#kc-blur-l)" transform="translate(4 9)" style={{ scale: shadowS }} />
-          <path d={FOOT} fill="#000" opacity={0.8} filter="url(#kc-blur-s)" transform="translate(1 2.5)" />
+          <motion.path d={FOOT} filter="url(#kc-blur-l)" transform="translate(4 9)" style={{ scale: shadowS, fill: "var(--kc-cast)" }} />
+          <path d={FOOT} style={{ fill: "var(--kc-cast)" }} opacity={0.8} filter="url(#kc-blur-s)" transform="translate(1 2.5)" />
         </motion.g>
 
         {/* the cap */}

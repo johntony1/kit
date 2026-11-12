@@ -18,13 +18,13 @@ const SPRING_CARD = { type: "spring" as const, visualDuration: 0.4, bounce: 0.16
 const SPRING_DROP = { type: "spring" as const, visualDuration: 0.28, bounce: 0 };
 const EASE_CONTEXTUAL = [0.2, 0, 0, 1] as const;
 
-const TOKEN_COLOR = "#34b562";
+const TOKEN_COLOR = "var(--sl-token)";
 const MAX_LINES_H = 72;
 
-const T = { text: "#e3e8e3", sub: "#c2cbc4", muted: "#8b968f", faint: "#5d6862" };
-const RAISED = "linear-gradient(180deg,#2b2d2b,#242624)";
-const RAISED_SHADOW = "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)";
-const FOCUS_SHADOW = "inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(0,0,0,.55), 0 0 0 4px rgba(255,255,255,.035), 0 1px 2px rgba(0,0,0,.45), 0 10px 24px -8px rgba(0,0,0,.55)";
+const T = { text: "var(--k-text)", sub: "var(--k-text2)", muted: "var(--k-muted)", faint: "var(--sl-hint)" };
+const RAISED = "var(--k-raised)";
+const RAISED_SHADOW = "var(--k-lift)";
+const FOCUS_SHADOW = "var(--sl-field-sh)";
 
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -121,6 +121,12 @@ function ImageIcon({ size }: { size: number }) {
 const TEXT_STYLE = { fontSize: 15, lineHeight: "24px", letterSpacing: "-0.09px", fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0" } as const;
 
 const CSS = `
+.slash-root { --sl-hint: #5d6862; --sl-token: #34b562; --sl-tint: rgba(255,255,255,.06); --sl-edge: rgba(255,255,255,.06); --sl-kbd-edge: rgba(255,255,255,.08);
+  --sl-menu-drop: 0 14px 32px -8px rgba(0,0,0,.6);
+  --sl-field-sh: inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(0,0,0,.55), 0 0 0 4px rgba(255,255,255,.035), 0 1px 2px rgba(0,0,0,.45), 0 10px 24px -8px rgba(0,0,0,.55); }
+:root[data-theme="light"] .slash-root { --sl-hint: var(--k-muted); --sl-token: oklch(0.52 0.15 150); --sl-tint: oklch(0.22 0.008 264 / 0.055); --sl-edge: oklch(0.22 0.008 264 / 0.07); --sl-kbd-edge: oklch(0.22 0.008 264 / 0.1);
+  --sl-menu-drop: 0 14px 32px -8px oklch(0.22 0.008 264 / 0.2);
+  --sl-field-sh: inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 0 0 4px oklch(0.22 0.008 264 / 0.035), 0 1px 2px oklch(0.22 0.008 264 / 0.06), 0 10px 24px -8px oklch(0.22 0.008 264 / 0.16); }
 .slash-btn { appearance: none; border: 0; margin: 0; padding: 0; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .slash-btn:focus-visible { outline: 2px solid rgba(52,181,98,.7); outline-offset: 2px; }
 .slash-ta { scrollbar-width: none; }
@@ -129,7 +135,7 @@ const CSS = `
 .slash-resize { transition: height 300ms cubic-bezier(0.22, 1, 0.36, 1); will-change: height; }
 .slash-row { transition: background-color 150ms ease-out; }
 .slash-caret { display: inline-block; width: 1.5px; height: 18px; margin-right: 3px; vertical-align: -3px; background: ${TOKEN_COLOR}; border-radius: 1px; animation: slash-blink 1.06s steps(1) infinite; }
-.slash-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 20px; padding: 0 5px; margin: 0 3px; border-radius: 5px; font-size: 13px; line-height: 20px; color: ${T.sub}; background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); vertical-align: 1px; }
+.slash-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 20px; padding: 0 5px; margin: 0 3px; border-radius: 5px; font-size: 13px; line-height: 20px; color: ${T.sub}; background: var(--sl-tint); box-shadow: inset 0 0 0 1px var(--sl-kbd-edge); vertical-align: 1px; }
 @keyframes slash-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .slash-resize, .slash-row { transition: none !important; } .slash-caret { animation: none; } }`;
 
@@ -247,7 +253,7 @@ export default function SlashMenu({ size = "card" }: { size?: "card" | "big" }) 
   };
 
   return (
-    <div ref={rootRef} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+    <div ref={rootRef} className="slash-root" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
       <style>{CSS}</style>
       <div style={{ transform: `translateY(${-lift}px) scale(${scale})` }}>
         <div ref={containerRef} data-own-click style={{ position: "relative", width, pointerEvents: "auto", color: T.text }}>
@@ -263,7 +269,7 @@ export default function SlashMenu({ size = "card" }: { size?: "card" | "big" }) 
                 transition={SPRING_DROP}
                 style={{
                   position: "absolute", left: dropdownLeft, top: (containerRef.current?.offsetHeight ?? CARD_H) + DROP_GAP, transformOrigin: "top left", zIndex: 20,
-                  width: 260, maxWidth: "100%", background: RAISED, borderRadius: 12, padding: 5, boxShadow: `${RAISED_SHADOW}, 0 14px 32px -8px rgba(0,0,0,.6)`,
+                  width: 260, maxWidth: "100%", background: RAISED, borderRadius: 12, padding: 5, boxShadow: `${RAISED_SHADOW}, var(--sl-menu-drop)`,
                 }}
               >
                 <ul style={{ display: "flex", flexDirection: "column", gap: 1, margin: 0, padding: 0 }}>
@@ -352,11 +358,11 @@ function CommandRow({ command, active, index, reduceMotion, onHover, onSelect }:
     >
       <button type="button" role="option" aria-selected={active} className="slash-btn slash-row"
         onMouseEnter={onHover} onMouseDown={(ev) => ev.preventDefault()} onClick={onSelect}
-        style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "5px 8px", borderRadius: 8, textAlign: "left", background: active ? "rgba(255,255,255,.06)" : "transparent" }}>
+        style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "5px 8px", borderRadius: 8, textAlign: "left", background: active ? "var(--sl-tint)" : "transparent" }}>
         {command.icon === "name" ? (
           <span aria-hidden="true" style={{ ...chip, fontSize: 9, fontWeight: 600, color: "#fff", backgroundImage: AVATAR }}>AR</span>
         ) : (
-          <span aria-hidden="true" style={{ ...chip, background: "rgba(255,255,255,.06)", color: T.sub, boxShadow: "inset 0 0 0 1px rgba(255,255,255,.06)" }}>
+          <span aria-hidden="true" style={{ ...chip, background: "var(--sl-tint)", color: T.sub, boxShadow: "inset 0 0 0 1px var(--sl-edge)" }}>
             {command.icon === "date" ? <CalendarIcon size={11} /> : <ImageIcon size={11} />}
           </span>
         )}

@@ -8,16 +8,44 @@ import { play } from "../sound/sound";
 
 /* ── tokens ─────────────────────────────────────────────── */
 const T = {
-  surface: "#242624",
-  raised: "linear-gradient(180deg,#2b2d2b,#242624)",
-  raisedShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
-  text: "#e3e8e3",
-  text2: "#c2cbc4",
-  muted: "#8b968f",
-  faint: "#5d6862",
+  surface: "var(--k-surface)",
+  raised: "var(--k-raised)",
+  raisedShadow: "var(--k-lift)",
+  text: "var(--k-text)",
+  text2: "var(--k-text2)",
+  muted: "var(--k-muted)",
+  faint: "var(--sc-dim)",
   green: "#34b562",
   primary: "linear-gradient(180deg,#3cc06b,#22994c)",
 };
+
+/* ── theme ──────────────────────────────────────────────────
+ * Colours that framer-motion tweens are picked here, as plain rgba so they interpolate.
+ * Everything still is painted with the shared --k tokens and the --sc variables below. */
+const DARK = {
+  rowOff: "rgba(255,255,255,0.045)", rowOn: "rgba(255,255,255,0)",
+  rowOffRing: "inset 0 0 0 1px rgba(255,255,255,0.03)", rowOnRing: "inset 0 0 0 1px rgba(255,255,255,0.08)",
+  chip: "rgba(255,255,255,0.05)", chipInk: "#8b968f", hover: "rgba(255,255,255,0.09)",
+};
+const LIGHT: typeof DARK = {
+  rowOff: "rgba(24,26,31,0.04)", rowOn: "rgba(24,26,31,0)",
+  rowOffRing: "inset 0 0 0 1px rgba(24,26,31,0.03)", rowOnRing: "inset 0 0 0 1px rgba(24,26,31,0.1)",
+  chip: "rgba(24,26,31,0.05)", chipInk: "#686c72", hover: "rgba(24,26,31,0.1)",
+};
+const readTheme = () => (typeof document !== "undefined" && document.documentElement.dataset.theme === "light" ? "light" : "dark");
+function usePalette() {
+  const [theme, setTheme] = useState<"light" | "dark">(readTheme);
+  useEffect(() => {
+    const mo = new MutationObserver(() => setTheme(readTheme()));
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    setTheme(readTheme());
+    return () => mo.disconnect();
+  }, []);
+  return theme === "light" ? LIGHT : DARK;
+}
+const CSS = `.scheduler-focus:focus-visible{outline:2px solid #34b562;outline-offset:2px}
+.scheduler-root{--sc-dim:#5d6862;--sc-shell:#242624;--sc-shell-sh:inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(0,0,0,.5), 0 12px 32px -12px rgba(0,0,0,.6);--sc-pill:rgba(255,255,255,.05);--sc-pill-ring:rgba(255,255,255,.04);--sc-band:rgba(255,255,255,.06);--sc-picker:#242624;--sc-track:linear-gradient(180deg,#363936,#414441);--sc-track-sh:inset 0 1px 2px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08), 0 1px 0 rgba(255,255,255,.04);--sc-thumb-ring:rgba(0,0,0,.32);--sc-thumb-drop:0 1px 1.5px rgba(0,0,0,.35), 0 3px 6px -2px rgba(0,0,0,.45);--sc-on-ring:rgba(0,0,0,.35)}
+:root[data-theme="light"] .scheduler-root{--sc-dim:oklch(0.53 0.011 264);--sc-shell:oklch(0.972 0.003 264);--sc-shell-sh:inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 12px 32px -14px oklch(0.22 0.008 264 / 0.18);--sc-pill:rgba(24,26,31,.05);--sc-pill-ring:rgba(24,26,31,.04);--sc-band:oklch(0.22 0.008 264 / 0.06);--sc-picker:oklch(0.985 0.002 264);--sc-track:linear-gradient(180deg,oklch(0.85 0.006 264),oklch(0.885 0.005 264));--sc-track-sh:inset 0 1px 2px oklch(0.22 0.008 264 / 0.16), inset 0 0 0 1px oklch(0.22 0.008 264 / 0.06), 0 1px 0 oklch(1 0 0 / 0.8);--sc-thumb-ring:oklch(0.22 0.008 264 / 0.22);--sc-thumb-drop:0 1px 1.5px oklch(0.22 0.008 264 / 0.16), 0 3px 6px -2px oklch(0.22 0.008 264 / 0.2);--sc-on-ring:oklch(0.45 0.13 150 / 0.7)}`;
 
 /* ── springs (verbatim from the source) ─────────────────── */
 const cardSpring = { type: "spring" as const, stiffness: 380, damping: 28, mass: 0.9 };
@@ -59,8 +87,10 @@ function useFit(size: "card" | "big") {
       if (r.W !== W || r.H !== H) { r.W = W; r.H = H; r.h = h; setBox({ w: W, h: H }); }
       if (h < r.h) r.h = h;
       const big = size === "big";
-      const clear = big ? 120 : H < 260 ? 84 : 116;
-      setScale(Math.min(big ? 1.6 : 1, (W - 32) / w, (H - clear) / r.h, (H - 16) / h));
+      // on the sheet the widget rests at about half the stage's height: the rest is room for the
+      // days to open into (each one adds a row of times, and a picker under it)
+      const clear = big ? Math.max(200, H * 0.46) : H < 260 ? 84 : 116;
+      setScale(Math.min(big ? 1.2 : 1, (W - 32) / w, (H - clear) / r.h, (H - 16) / h));
     };
     const ro = new ResizeObserver(update);
     ro.observe(root); ro.observe(inner); update();
@@ -72,12 +102,12 @@ function useFit(size: "card" | "big") {
 /* ── icons ──────────────────────────────────────────────── */
 const PencilFill = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M16.06 3.94a2.5 2.5 0 0 1 3.54 0l.46.46a2.5 2.5 0 0 1 0 3.54L9.4 18.6a2 2 0 0 1-.95.53l-4.1 1.03a.8.8 0 0 1-.97-.97l1.03-4.1a2 2 0 0 1 .53-.95L16.06 3.94Z" fill={T.faint} />
+    <path d="M16.06 3.94a2.5 2.5 0 0 1 3.54 0l.46.46a2.5 2.5 0 0 1 0 3.54L9.4 18.6a2 2 0 0 1-.95.53l-4.1 1.03a.8.8 0 0 1-.97-.97l1.03-4.1a2 2 0 0 1 .53-.95L16.06 3.94Z" style={{ fill: T.faint }} />
   </svg>
 );
 const CheckLine = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M5 12.5l4.5 4.5L19 7.5" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M5 12.5l4.5 4.5L19 7.5" style={{ stroke: T.muted }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 const Chevron = ({ up }: { up?: boolean }) => (
@@ -129,7 +159,7 @@ function ClockIcon() {
 /* ── Switch ───────────────────────────────────────────────
  * A rounded rectangle, not a pill: the track is 23:16, the thumb is a near-square with its own
  * hairline border and a soft drop shadow, as tall as the track so it sits on the edge.
- * Off: a dark inset well. On: a green gradient with a darker green rim and a top highlight.
+ * Off: an inset well. On: a green gradient with a darker green rim and a top highlight.
  * Press and the thumb stretches toward where it is going; release and it springs across.
  * The hit area is padded to at least 24px tall around the 16px (or larger) body. */
 const SW_SPRING = { type: "spring", stiffness: 700, damping: 42, mass: 0.7 } as const;
@@ -145,12 +175,12 @@ function Switch({ checked, onChange, label, h = 16, focus }: { checked: boolean;
       onClick={() => onChange(!checked)} onPointerDown={() => setPress(true)} onPointerUp={up} onPointerLeave={up} onPointerCancel={up}
       style={{ position: "relative", width: w, height: h, padding: 0, border: 0, background: "transparent", cursor: "pointer", flexShrink: 0, borderRadius: r, WebkitTapHighlightColor: "transparent" }}>
       <span aria-hidden style={{ position: "absolute", inset: `${-Math.max(4, (24 - h) / 2)}px -6px` }} />
-      <span aria-hidden style={{ position: "absolute", inset: 0, borderRadius: r, background: "linear-gradient(180deg,#363936,#414441)", boxShadow: "inset 0 1px 2px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08), 0 1px 0 rgba(255,255,255,.04)" }} />
+      <span aria-hidden style={{ position: "absolute", inset: 0, borderRadius: r, background: "var(--sc-track)", boxShadow: "var(--sc-track-sh)" }} />
       <motion.span aria-hidden initial={false} animate={{ opacity: checked ? 1 : 0 }} transition={{ duration: reduced ? 0 : 0.16, ease: "easeOut" }}
         style={{ position: "absolute", inset: 0, borderRadius: r, background: "linear-gradient(180deg,#3ccb73,#1c9747)", boxShadow: "inset 0 0 0 1px #12753a, inset 0 1px 0 rgba(255,255,255,.3), 0 0 0 .5px rgba(0,0,0,.45)" }} />
       <motion.span aria-hidden initial={false} animate={{ x: checked ? travel - stretch : 0, width: tw + stretch }} transition={reduced ? { duration: 0 } : SW_SPRING}
         style={{ position: "absolute", top: 0, left: 0, height: h, borderRadius: rt, background: "linear-gradient(180deg,#ffffff,#eaedea)",
-          boxShadow: `inset 0 0 0 1px ${checked ? "rgba(18,117,58,.85)" : "rgba(0,0,0,.32)"}, inset 0 1.5px 0 #fff, 0 1px 1.5px rgba(0,0,0,.35), 0 3px 6px -2px rgba(0,0,0,.45)`,
+          boxShadow: `inset 0 0 0 1px ${checked ? "rgba(18,117,58,.85)" : "var(--sc-thumb-ring)"}, inset 0 1.5px 0 #fff, var(--sc-thumb-drop)`,
           transition: "box-shadow 160ms ease" }} />
     </button>
   );
@@ -166,7 +196,7 @@ function Drum({ values, index, onChange, delay = 0 }: { values: string[]; index:
       <motion.button type="button" aria-label="Previous" className="scheduler-focus" onClick={() => { play("detent"); onChange((index - 1 + values.length) % values.length); }}
         whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.85 }} transition={{ type: "spring", stiffness: 500, damping: 20 }} style={arrow}><Chevron up /></motion.button>
       <div style={{ position: "relative", width: 52, height: DRUM_H }}>
-        <div style={{ position: "absolute", top: ITEM_H, left: 0, right: 0, height: ITEM_H, background: "rgba(255,255,255,.06)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.04)", borderRadius: 8 }} />
+        <div style={{ position: "absolute", top: ITEM_H, left: 0, right: 0, height: ITEM_H, background: "var(--sc-band)", boxShadow: "inset 0 0 0 1px var(--sc-pill-ring)", borderRadius: 8 }} />
         <div style={{ position: "absolute", inset: 0, overflow: "hidden", maskImage: "linear-gradient(to bottom, transparent 0%, black 28%, black 72%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 28%, black 72%, transparent 100%)" }}>
           <motion.div animate={{ y: ITEM_H * (1 - index) }} transition={DRUM_SPRING} style={{ position: "absolute", left: 0, right: 0 }}>
             {values.map((v, i) => {
@@ -189,9 +219,10 @@ function Drum({ values, index, onChange, delay = 0 }: { values: string[]; index:
 
 function TimePicker({ value, onChange }: { value: TimeValue; onChange: (v: TimeValue) => void }) {
   const set = (p: Partial<TimeValue>) => onChange({ ...value, ...p });
+  const P = usePalette();
   return (
     <motion.div initial={{ scaleY: 0, opacity: 0 }} animate={{ scaleY: 1, opacity: 1 }} exit={{ scaleY: 0, opacity: 0 }} transition={CARD_SPRING}
-      style={{ transformOrigin: "top center", background: T.surface, boxShadow: "inset 0 0 0 1px rgba(255,255,255,.07)", borderRadius: 12, padding: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+      style={{ transformOrigin: "top center", background: "var(--sc-picker)", boxShadow: "inset 0 0 0 1px var(--k-line)", borderRadius: 12, padding: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
       <Drum values={HOURS} index={value.hour} onChange={(h) => set({ hour: h })} delay={0.05} />
       <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1, duration: 0.2 }}
         style={{ fontSize: 18, fontWeight: 600, color: T.faint, paddingBottom: 2, userSelect: "none", lineHeight: 1 }}>:</motion.span>
@@ -202,9 +233,9 @@ function TimePicker({ value, onChange }: { value: TimeValue; onChange: (v: TimeV
           const on = value.period === p;
           return (
             <motion.button type="button" key={p} className="scheduler-focus" onClick={() => { if (!on) play("tick"); set({ period: p }); }}
-              animate={{ backgroundColor: on ? "#2fae5c" : "rgba(255,255,255,0.05)", color: on ? "#ffffff" : T.muted }}
+              animate={{ backgroundColor: on ? "#2fae5c" : P.chip, color: on ? "#ffffff" : P.chipInk }}
               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.94 }} transition={{ type: "spring", stiffness: 400, damping: 22 }}
-              style={{ border: "none", cursor: "pointer", borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 500, letterSpacing: "-0.03em", minWidth: 44, boxShadow: on ? "inset 0 1px 0 rgba(255,255,255,.22), 0 0 0 1px rgba(0,0,0,.35)" : "inset 0 0 0 1px rgba(255,255,255,.04)" }}>
+              style={{ border: "none", cursor: "pointer", borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 500, letterSpacing: "-0.03em", minWidth: 44, boxShadow: on ? "inset 0 1px 0 rgba(255,255,255,.22), 0 0 0 1px var(--sc-on-ring)" : "inset 0 0 0 1px var(--sc-pill-ring)" }}>
               {p}
             </motion.button>
           );
@@ -215,7 +246,7 @@ function TimePicker({ value, onChange }: { value: TimeValue; onChange: (v: TimeV
 }
 
 /* ── DayRow ─────────────────────────────────────────────── */
-const PILL = { background: "rgba(255,255,255,.05)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.04)", borderRadius: 12, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", minWidth: 0, border: "none", cursor: "pointer" } as const;
+const PILL = { background: "var(--sc-pill)", boxShadow: "inset 0 0 0 1px var(--sc-pill-ring)", borderRadius: 12, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", minWidth: 0, border: "none", cursor: "pointer" } as const;
 const TXT = { fontSize: 14, fontWeight: 500, letterSpacing: "-0.084px", lineHeight: "20px", color: T.text, fontVariantNumeric: "tabular-nums" } as const;
 
 function DayRow({ label, checked, onChange, index }: { label: string; checked: boolean; onChange: (v: boolean) => void; index: number }) {
@@ -227,11 +258,12 @@ function DayRow({ label, checked, onChange, index }: { label: string; checked: b
   const ring = (on: boolean) => (on ? `inset 0 0 0 1.5px ${T.green}` : "inset 0 0 0 0px rgba(52,181,98,0)");
   const activeValue = activeTime === "start" ? start : end;
   const setActive = activeTime === "start" ? setStart : setEnd;
+  const P = usePalette();
 
   return (
     <motion.div custom={index} variants={rowVariants} initial="hidden" animate="visible" layout transition={{ layout: EXPAND_SPRING }} style={{ borderRadius: 12 }}>
       <motion.div layout
-        animate={{ backgroundColor: checked ? "rgba(255,255,255,0)" : "rgba(255,255,255,0.045)", boxShadow: checked ? "inset 0 0 0 1px rgba(255,255,255,0.08)" : "inset 0 0 0 1px rgba(255,255,255,0.03)", paddingTop: 8, paddingBottom: 8, paddingLeft: checked ? 8 : 0, paddingRight: checked ? 8 : 0 }}
+        animate={{ backgroundColor: checked ? P.rowOn : P.rowOff, boxShadow: checked ? P.rowOnRing : P.rowOffRing, paddingTop: 8, paddingBottom: 8, paddingLeft: checked ? 8 : 0, paddingRight: checked ? 8 : 0 }}
         transition={EXPAND_SPRING} style={{ borderRadius: 12 }}>
         <motion.div layout animate={{ paddingLeft: checked ? 4 : 12, paddingRight: checked ? 4 : 12 }} transition={EXPAND_SPRING}
           style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -270,8 +302,8 @@ function DayRow({ label, checked, onChange, index }: { label: string; checked: b
                           <span style={TXT}>{fmt(end)}</span><span style={{ ...TXT, color: T.faint }}>{end.period}</span>
                         </motion.button>
                         <motion.button type="button" aria-label="Confirm" className="scheduler-focus" onClick={() => { play("check"); setEditing(false); setActiveTime(null); }}
-                          initial={{ scale: 0, y: 3 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0, transition: FAST_SPRING }} transition={{ ...BOUNCE_SPRING, delay: 0.09 }}
-                          whileHover={{ scale: 1.08, backgroundColor: "rgba(255,255,255,0.09)" }} whileTap={{ scale: 0.92 }}
+                          initial={{ scale: 0, y: 3 }} animate={{ scale: 1, y: 0, backgroundColor: P.chip }} exit={{ scale: 0, transition: FAST_SPRING }} transition={{ ...BOUNCE_SPRING, delay: 0.09 }}
+                          whileHover={{ scale: 1.08, backgroundColor: P.hover }} whileTap={{ scale: 0.92 }}
                           style={{ ...PILL, flexShrink: 0, padding: "8px 12px" }}>
                           <CheckLine />
                         </motion.button>
@@ -314,11 +346,11 @@ export default function Scheduler({ size = "card" }: { size?: "card" | "big" }) 
 
   return (
     <MotionConfig reducedMotion="user">
-      <style>{`.scheduler-focus:focus-visible{outline:2px solid ${T.green};outline-offset:2px}`}</style>
+      <style>{CSS}</style>
       <div ref={rootRef} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
-        <div ref={innerRef} data-own-click style={{ pointerEvents: "auto", width: 350, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center", color: T.text }}>
+        <div ref={innerRef} data-own-click className="scheduler-root" style={{ pointerEvents: "auto", width: 350, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center", color: T.text }}>
           <motion.div initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={cardSpring}
-            style={big ? { background: T.surface, borderRadius: 20, padding: "12px 4px 4px", display: "flex", flexDirection: "column", gap: 12, boxShadow: "inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(0,0,0,.5), 0 12px 32px -12px rgba(0,0,0,.6)" } : undefined}>
+            style={big ? { background: "var(--sc-shell)", borderRadius: 20, padding: "12px 4px 4px", display: "flex", flexDirection: "column", gap: 12, boxShadow: "var(--sc-shell-sh)" } : undefined}>
             {big && (
               <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.22, ease: EASE }}
                 style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 12px" }}>

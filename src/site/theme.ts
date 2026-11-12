@@ -4,10 +4,12 @@ export type Theme = "light" | "dark";
 const KEY = "effects-theme";
 const subs = new Set<() => void>();
 
-/** the site is dark only for now (light mode lives on as a component); a stored choice is ignored */
-export const SITE_LIGHT_ENABLED = false;
+/** the site has both themes; it opens dark until the switch says otherwise */
+export const SITE_LIGHT_ENABLED = true;
 export function readTheme(): Theme {
   if (!SITE_LIGHT_ENABLED) return "dark";
+  // ?theme=light or ?theme=dark forces a theme for this visit (handy for screenshots)
+  try { const q = new URLSearchParams(location.search).get("theme"); if (q === "light" || q === "dark") return q; } catch { /* no window */ }
   try { const v = localStorage.getItem(KEY); if (v === "light" || v === "dark") return v; } catch { /* private mode */ }
   return "dark";
 }

@@ -418,6 +418,12 @@ export function colorize(img: ImageData, theme: Theme, cap = 1, gain = 1) {
 }
 
 export type DotStyle = "stipple" | "halftone" | "line";
+/** the dot itself. shape: square, round (a dot) or rounded (a soft square); stipple is square and
+ *  halftone round unless told otherwise. res: how fine the matrix is (1 is the piece as drawn,
+ *  2 is twice as many dots across, 0.5 half as many, each twice the size) */
+export type DotShape = "square" | "round" | "rounded";
+export interface DotOpts { shape?: DotShape; res?: number }
+const resOf = (o: DotOpts) => Math.min(3, Math.max(0.25, o.res ?? 1));
 
 /** halftone cell size, in grid dots: bigger cells, fewer and bolder dots */
 export const CELL = 2;
@@ -437,8 +443,8 @@ export function toneGrid(ill: Illustration, t: number, h: number, cell = CELL) {
 }
 
 /** halftone: each cell is one round dot whose size follows the tone. No outlines; details are gaps */
-function eachHalftoneDot(ill: Illustration, t: number, h: number, theme: Theme, px: number, fn: (x: number, y: number, r: number, col: string) => void) {
-  const { g, gw, gh, cellPx } = toneGrid(ill, t, h);
+function eachHalftoneDot(ill: Illustration, t: number, h: number, theme: Theme, px: number, fn: (x: number, y: number, r: number, col: string) => void, res = 1) {
+  const { g, gw, gh, cellPx } = toneGrid(ill, t, h, CELL / res);
   const cp = cellPx(px);
   const A = hex(theme.a), B = hex(theme.b ?? theme.a);
   for (let r = 0; r < gh; r++) for (let q = 0; q < gw; q++) {
@@ -454,12 +460,12 @@ function eachHalftoneDot(ill: Illustration, t: number, h: number, theme: Theme, 
 }
 
 /** paint one frame in a style onto ctx (already scaled so 1 unit = 1 css px). px: css px per grid dot */
-export function paintFrame(ctx: CanvasRenderingContext2D, ill: Illustration, t: number, h: number, theme: Theme, px: number, style: DotStyle, dpr = 1, mode: Mode = "dark", stage = false): void {
-  if (stage !== STAGE.on) return withStage(ill, stage, () => paintFrame(ctx, ill, t, h, theme, px, style, dpr, mode, stage));
+export function paintFrame(ctx: CanvasRenderingContext2D, ill: Illustration, t: number, h: number, theme: Theme, px: number, style: DotStyle, dpr = 1, mode: Mode = "dark", stage = false, opts: DotOpts = {}): void {
+  if (stage !== STAGE.on) return withStage(ill, stage, () => paintFrame(ctx, ill, t, h, theme, px, style, dpr, mode, stage, opts));
   if (style === "line") return paintLine(ctx, ill, t, h, theme, px, mode);
   const win = bounds(ill);
   if (style === "stipple") {
-    const st = new Stipple(ill, theme, px, dpr, false, stage);
+    const st = new Stipple(ill, theme, px, dpr, false, stage, opts);
     st.setTone(t, h);
     if (!layer) layer = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(st.W, st.H) : document.createElement("canvas");
     layer.width = st.W; layer.height = st.H;
@@ -468,11 +474,38 @@ export function paintFrame(ctx: CanvasRenderingContext2D, ill: Illustration, t: 
     return;
   }
   if (style === "halftone") {
-    eachHalftoneDot(ill, t, h, theme, px, (x, y, r, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); });
+    const shape = opts.shape ?? "round";
+    eachHalftoneDot(ill, t, h, theme, px, (x, y, r, col) => {
+      ctx.fillStyle = col;
+      if (shape === "square") { ctx.fillRect(x - r, y - r, r * 2, r * 2); return; }
+      ctx.beginPath();
+      if (shape === "rounded") ctx.roundRect(x - r, y - r, r * 2, r * 2, r * ROUNDED);
+      else ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }, resOf(opts));
     return;
   }
 }
 let layer: HTMLCanvasElement | OffscreenCanvas | null = null;
+/** a rounded dot's corner radius, as a share of half its side */
+const ROUNDED = 0.56;
+/** how much of each pixel of an s by s dot the shape covers (0 to 255), or null for a plain square */
+function dotMask(s: number, shape: DotShape): Uint8Array | null {
+  if (shape === "square" || s < 3) return null;
+  const m = new Uint8Array(s * s), N = 4, h = s / 2, rad = shape === "round" ? h : h * ROUNDED;
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let hit = 0;
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      // distance from the centre, folded into one corner
+      const dx = Math.abs(x + (i + 0.5) / N - h), dy = Math.abs(y + (j + 0.5) / N - h);
+      if (shape === "round") { if (dx * dx + dy * dy <= rad * rad) hit++; continue; }
+      const cx = dx - (h - rad), cy = dy - (h - rad);
+      if (cx <= 0 || cy <= 0 || cx * cx + cy * cy <= rad * rad) hit++;
+    }
+    m[y * s + x] = Math.round((hit / (N * N)) * 255);
+  }
+  return m;
+}
 
 /* ── stipple: tiny square dots, one bit each. Tone is how many cells are lit, not how big a dot is.
  * Every cell has a fixed threshold from a blue noise map, so sparse tones scatter evenly with no
@@ -566,14 +599,19 @@ export class Stipple {
   private px = 0; private py = 0; private inside = false; private pressed = false; private kick = false; private mx = 0; private my = 0; private R: number;
   /** true while the dots are away from home or the pointer is on them */
   active = false;
+  /** the dot's shape, and its coverage mask (null for a plain square) */
+  readonly shape: DotShape; private mask: Uint8Array | null;
 
-  constructor(private ill: Illustration, private theme: Theme, pitch: number, dpr: number, roomy = true, private stage = false) {
+  constructor(private ill: Illustration, private theme: Theme, pitch: number, dpr: number, roomy = true, private stage = false, opts: DotOpts = {}) {
     const win = windowOf(ill, "stipple", stage);
     const aw = win.w * pitch * dpr, ah = win.h * pitch * dpr;
     this.padX = roomy ? Math.round(aw * STIPPLE.pad) : 0; this.padY = roomy ? Math.round(ah * STIPPLE.pad) : 0;
     this.W = Math.max(1, Math.round(aw) + this.padX * 2); this.H = Math.max(1, Math.round(ah) + this.padY * 2);
-    this.cell = Math.max(3, Math.round(pitch * dpr * STIPPLE.cell));
-    this.dot = this.cell <= 4 ? this.cell - 1 : Math.round(this.cell * 0.72);
+    this.cell = Math.max(3, Math.round((pitch * dpr * STIPPLE.cell) / resOf(opts)));
+    this.shape = opts.shape ?? "square";
+    // a round dot fills less of its square, so it gets a little more of the cell
+    this.dot = this.cell <= 4 ? this.cell - 1 : Math.round(this.cell * (this.shape === "square" ? 0.72 : 0.8));
+    this.mask = dotMask(this.dot, this.shape);
     this.cols = Math.floor(this.W / this.cell); this.rows = Math.floor(this.H / this.cell);
     this.ox = Math.floor((this.W - this.cols * this.cell) / 2); this.oy = Math.floor((this.H - this.rows * this.cell) / 2);
     // the art's own cells inside the padded grid
@@ -732,12 +770,18 @@ export class Stipple {
   /** paint into a canvas the size of W by H (device pixels; transforms are ignored) */
   draw(ctx: CanvasRenderingContext2D) {
     if (!this.img) { this.img = new ImageData(this.W, this.H); this.buf = new Uint32Array(this.img.data.buffer); }
-    const buf = this.buf!, W = this.W, H = this.H, s = this.dot, col = this.col;
+    const buf = this.buf!, W = this.W, H = this.H, s = this.dot, col = this.col, mask = this.mask;
     buf.fill(0);
     this.place((x, y, k) => {
       if (x < 0 || y < 0 || x + s > W || y + s > H) return;
       const c = col[k];
-      for (let yy = 0; yy < s; yy++) { const row = (y + yy) * W + x; for (let xx = 0; xx < s; xx++) buf[row + xx] = c; }
+      if (!mask) { for (let yy = 0; yy < s; yy++) { const row = (y + yy) * W + x; for (let xx = 0; xx < s; xx++) buf[row + xx] = c; } return; }
+      // shaped dots: each pixel takes the dot's colour at the shape's coverage; where two dots meet, the fuller one wins
+      const rgb = c & 0xffffff;
+      for (let yy = 0; yy < s; yy++) {
+        const row = (y + yy) * W + x, mr = yy * s;
+        for (let xx = 0; xx < s; xx++) { const a = mask[mr + xx]; if (a > buf[row + xx] >>> 24) buf[row + xx] = ((a << 24) | rgb) >>> 0; }
+      }
     });
     ctx.putImageData(this.img, 0, 0);
   }
@@ -834,17 +878,20 @@ export function paintDots(ctx: CanvasRenderingContext2D, grid: Float32Array, col
 /* ── exports ── */
 
 /** the current frame as an SVG: halftone is pure circles; soft is an embedded image */
-export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pitch = 8, style: DotStyle = "stipple", mode: Mode = "dark", stage = false): string {
-  if (stage !== STAGE.on) return withStage(ill, stage, () => toSVG(ill, t, h, theme, pitch, style, mode, stage));
+export function toSVG(ill: Illustration, t: number, h: number, theme: Theme, pitch = 8, style: DotStyle = "stipple", mode: Mode = "dark", stage = false, opts: DotOpts = {}): string {
+  if (stage !== STAGE.on) return withStage(ill, stage, () => toSVG(ill, t, h, theme, pitch, style, mode, stage, opts));
   const bx = style === "line" ? lineBounds(ill) : bounds(ill);
   const W = bx.w * pitch, H = bx.h * pitch;
   const parts: string[] = [];
   if (style === "stipple") {
-    const st = new Stipple(ill, theme, pitch, 1, false, stage);
+    const st = new Stipple(ill, theme, pitch, 1, false, stage, opts);
     st.setTone(t, h);
-    st.each((x, y, s, col) => parts.push(`<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="${col}"/>`));
+    st.each((x, y, s, col) => parts.push(st.shape === "round" ? `<circle cx="${x + s / 2}" cy="${y + s / 2}" r="${s / 2}" fill="${col}"/>`
+      : `<rect x="${x}" y="${y}" width="${s}" height="${s}"${st.shape === "rounded" ? ` rx="${((s / 2) * ROUNDED).toFixed(2)}"` : ""} fill="${col}"/>`));
   } else if (style === "halftone") {
-    eachHalftoneDot(ill, t, h, theme, pitch, (x, y, r, col) => parts.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="${col}"/>`));
+    const shape = opts.shape ?? "round";
+    eachHalftoneDot(ill, t, h, theme, pitch, (x, y, r, col) => parts.push(shape === "round" ? `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="${col}"/>`
+      : `<rect x="${(x - r).toFixed(1)}" y="${(y - r).toFixed(1)}" width="${(r * 2).toFixed(2)}" height="${(r * 2).toFixed(2)}"${shape === "rounded" ? ` rx="${(r * ROUNDED).toFixed(2)}"` : ""} fill="${col}"/>`), resOf(opts));
   } else {
     const cv = document.createElement("canvas"); cv.width = W * 2; cv.height = H * 2;
     const c = cv.getContext("2d")!; c.scale(2, 2);
@@ -864,7 +911,7 @@ export function hoverAt(u: number) {
 }
 
 /** the loop (or the hover played in and out) as an animated GIF */
-export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24, style: DotStyle = "stipple", mode: Mode = "dark", stage = false): Promise<Blob> {
+export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24, style: DotStyle = "stipple", mode: Mode = "dark", stage = false, opts: DotOpts = {}): Promise<Blob> {
   const { GIFEncoder, quantize, applyPalette } = await import("gifenc");
   const dur = ill.kind === "loop" ? ill.period ?? 3 : 3.2;
   const n = Math.round(dur * fps);
@@ -877,7 +924,7 @@ export async function toGIF(ill: Illustration, theme: Theme, pitch = 6, fps = 24
   for (let i = 0; i < n; i++) {
     const u = i / n;
     c.fillStyle = mode === "light" ? "#f7f8fa" : style === "line" ? "#0e0f11" : theme.bg; c.fillRect(0, 0, W, H);
-    paintFrame(c, ill, u * dur, ill.kind === "loop" ? 0 : hoverAt(u), theme, pitch, style, 1, mode, stage);
+    paintFrame(c, ill, u * dur, ill.kind === "loop" ? 0 : hoverAt(u), theme, pitch, style, 1, mode, stage, opts);
     const data = c.getImageData(0, 0, W, H).data;
     palette ??= quantize(data, 64);
     gif.writeFrame(applyPalette(data, palette), W, H, { palette, delay: Math.round(1000 / fps) });

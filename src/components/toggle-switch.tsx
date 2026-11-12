@@ -1,5 +1,5 @@
 // Toggle switch: an old panel toggle, standing upright.
-// A small plate in our dark tones with a chrome rim and four screws; a hex nut holds a polished
+// A small plate (charcoal in dark, pale grey in light) with a chrome rim and four screws; a hex nut holds a polished
 // lever. Flip it and the lever travels straight up (on) or down (off), passing toward you through
 // the middle (it shortens as it points at the viewer, the ball grows), overshoots a touch and
 // settles. A small green lamp shows when sound is on.
@@ -43,14 +43,15 @@ export function VintageSwitch({ on, onToggle, label, scale = 1 }: { on: boolean;
   return (
     <motion.button type="button" style={{ display: "inline-grid", placeItems: "center", padding: 0, border: 0, background: "none", cursor: "pointer", borderRadius: 10 * scale, filter: `drop-shadow(0 ${scale}px ${scale}px var(--ts-sh1)) drop-shadow(0 ${4 * scale}px ${8 * scale}px var(--ts-sh2))` }} className="ts-switch" aria-pressed={on} aria-label={label} onClick={onToggle}
       whileTap={{ scale: 0.97 }} transition={{ type: "spring", duration: 0.25, bounce: 0 }}>
-      <style>{`.ts-switch{--ts-sh1:rgba(0,0,0,.5);--ts-sh2:rgba(0,0,0,.35)}:root[data-theme="light"] .ts-switch{--ts-sh1:oklch(0.22 0.008 264 / .28);--ts-sh2:oklch(0.22 0.008 264 / .16)}`}</style>
+      <style>{`.ts-switch{--ts-sh1:rgba(0,0,0,.5);--ts-sh2:rgba(0,0,0,.35);--ts-plate0:#323532;--ts-plate1:#1f211f;--ts-plate-ring:rgba(0,0,0,.65);--ts-plate-hi:rgba(255,255,255,.07);--ts-lens:#0e110e;--ts-lens-ring:rgba(0,0,0,.7);--ts-lamp:#7dffae;--ts-cast:rgba(0,0,0,.45);--ts-bush:#2a2d2a;--ts-bush-ring:rgba(255,255,255,.35)}
+:root[data-theme="light"] .ts-switch{--ts-sh1:oklch(0.22 0.008 264 / .2);--ts-sh2:oklch(0.22 0.008 264 / .1);--ts-plate0:oklch(0.99 0.002 264);--ts-plate1:oklch(0.925 0.004 264);--ts-plate-ring:oklch(0.22 0.008 264 / .32);--ts-plate-hi:oklch(1 0 0 / .95);--ts-lens:oklch(0.7 0.008 264);--ts-lens-ring:oklch(0.22 0.008 264 / .4);--ts-lamp:oklch(0.78 0.2 150);--ts-cast:oklch(0.22 0.008 264 / .26);--ts-bush:oklch(0.8 0.005 264);--ts-bush-ring:oklch(1 0 0 / .8)}`}</style>
       <svg viewBox={`0 0 ${W} ${H}`} width={W * scale} height={H * scale} aria-hidden="true">
         <defs>
           <linearGradient id={`${id}-rim`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor="#f4f6f4" /><stop offset=".35" stopColor="#8e938f" /><stop offset=".55" stopColor="#4a4e4b" /><stop offset="1" stopColor="#c9cdca" />
           </linearGradient>
           <linearGradient id={`${id}-plate`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#323532" /><stop offset="1" stopColor="#1f211f" />
+            <stop offset="0" style={{ stopColor: "var(--ts-plate0)" }} /><stop offset="1" style={{ stopColor: "var(--ts-plate1)" }} />
           </linearGradient>
           <linearGradient id={`${id}-chrome`} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="#ffffff" /><stop offset=".45" stopColor="#a9aeaa" /><stop offset=".7" stopColor="#5a5f5b" /><stop offset="1" stopColor="#d8dcd9" />
@@ -66,24 +67,24 @@ export function VintageSwitch({ on, onToggle, label, scale = 1 }: { on: boolean;
 
         {/* chrome rim and the plate inside it */}
         <rect x=".6" y=".6" width={W - 1.2} height={H - 1.2} rx="7.5" fill={`url(#${id}-rim)`} />
-        <rect x="2" y="2" width={W - 4} height={H - 4} rx="6.2" fill={`url(#${id}-plate)`} stroke="rgba(0,0,0,.65)" strokeWidth=".5" />
-        <rect x="2.6" y="2.5" width={W - 5.2} height={H - 5.5} rx="5.8" fill="none" stroke="rgba(255,255,255,.07)" strokeWidth=".6" />
+        <rect x="2" y="2" width={W - 4} height={H - 4} rx="6.2" fill={`url(#${id}-plate)`} style={{ stroke: "var(--ts-plate-ring)" }} strokeWidth=".5" />
+        <rect x="2.6" y="2.5" width={W - 5.2} height={H - 5.5} rx="5.8" fill="none" style={{ stroke: "var(--ts-plate-hi)" }} strokeWidth=".6" />
 
         <Screw x={6.2} y={6.2} id={id} /><Screw x={W - 6.2} y={6.2} id={id} /><Screw x={6.2} y={H - 6.2} id={id} /><Screw x={W - 6.2} y={H - 6.2} id={id} />
 
-        {/* lamp: dark glass when off, green with a glow when on */}
-        <circle cx={CX} cy={5.4} r={1.55} fill="#0e110e" stroke="rgba(0,0,0,.7)" strokeWidth=".35" />
+        {/* lamp: smoked glass when off, green with a glow when on */}
+        <circle cx={CX} cy={5.4} r={1.55} style={{ fill: "var(--ts-lens)", stroke: "var(--ts-lens-ring)" }} strokeWidth=".35" />
         <motion.circle cx={CX} cy={5.4} r={3.6} fill={`url(#${id}-glow)`} style={{ opacity: lamp }} />
-        <motion.circle cx={CX} cy={5.4} r={1.2} fill="#7dffae" style={{ opacity: lamp }} />
+        <motion.circle cx={CX} cy={5.4} r={1.2} style={{ opacity: lamp, fill: "var(--ts-lamp)" }} />
 
         {/* hex nut, its washer ring and the bushing the lever comes out of */}
-        <polygon points={hex(CX, CY + 0.6, 6.6)} fill="rgba(0,0,0,.45)" filter={`url(#${id}-soft)`} />
+        <polygon points={hex(CX, CY + 0.6, 6.6)} style={{ fill: "var(--ts-cast)" }} filter={`url(#${id}-soft)`} />
         <polygon points={hex(CX, CY, 6.4)} fill={`url(#${id}-chrome)`} stroke="rgba(0,0,0,.55)" strokeWidth=".4" />
-        <circle cx={CX} cy={CY} r={4.2} fill="#2a2d2a" stroke="rgba(255,255,255,.35)" strokeWidth=".4" />
+        <circle cx={CX} cy={CY} r={4.2} style={{ fill: "var(--ts-bush)", stroke: "var(--ts-bush-ring)" }} strokeWidth=".4" />
         <circle cx={CX} cy={CY} r={2.8} fill={`url(#${id}-chrome)`} stroke="rgba(0,0,0,.5)" strokeWidth=".35" />
 
         {/* the lever: its shadow, the rod, a highlight along the rod, the ball */}
-        <motion.line x1={CX + 1.4} y1={CY + 2} x2={shX} y2={shY} stroke="rgba(0,0,0,.45)" strokeWidth="3.2" strokeLinecap="round" filter={`url(#${id}-soft)`} />
+        <motion.line x1={CX + 1.4} y1={CY + 2} x2={shX} y2={shY} style={{ stroke: "var(--ts-cast)" }} strokeWidth="3.2" strokeLinecap="round" filter={`url(#${id}-soft)`} />
         <motion.line x1={CX} y1={CY} x2={x2} y2={y2} stroke="#7f8480" strokeWidth="3.4" strokeLinecap="round" />
         <motion.line x1={CX - 0.75} y1={CY} x2={hx2} y2={hy2} stroke="#f2f4f2" strokeOpacity=".85" strokeWidth="1" strokeLinecap="round" />
         <circle cx={CX} cy={CY} r={1.9} fill={`url(#${id}-ball)`} />

@@ -9,15 +9,20 @@ import { gsap } from "gsap";
 import { play } from "../sound/sound";
 
 /* ── tokens ─────────────────────────────────────────────── */
+/* Shared tokens (index.css) plus this widget's own variables (CSS below), for a dark and a light look. */
 const T = {
-  raised: "linear-gradient(180deg,#2b2d2b,#242624)",
-  raisedShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
-  text: "#e3e8e3",
-  text2: "#c2cbc4",
-  muted: "#8b968f",
-  faint: "#5d6862",
+  raised: "var(--k-raised)",
+  raisedShadow: "var(--k-lift)",
+  text: "var(--k-text)",
+  text2: "var(--k-text2)",
+  muted: "var(--k-muted)",
+  faint: "var(--k-faint)",
   green: "#34b562",
 };
+const CSS = `
+.swipe-focus:focus-visible{outline:2px solid ${T.green};outline-offset:2px}
+.swipe-delete { --sd-row: #272927; --sd-hint: #5d6862; --sd-btn: rgba(255,255,255,.05); --sd-btn-line: rgba(255,255,255,.06); }
+:root[data-theme="light"] .swipe-delete { --sd-row: oklch(0.988 0.001 264); --sd-hint: var(--k-muted); --sd-btn: oklch(0.22 0.008 264 / 0.04); --sd-btn-line: oklch(0.22 0.008 264 / 0.08); }`;
 
 /* ── timing + motion (verbatim) ─────────────────────────── */
 const SPRING_LAYOUT = { type: "spring" as const, stiffness: 240, damping: 22 };
@@ -84,7 +89,7 @@ function useFit(size: "card" | "big", full: boolean) {
 }
 
 const XIcon = ({ c = T.muted, s = 10 }: { c?: string; s?: number }) => (
-  <svg width={s} height={s} viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 2l6 6M8 2L2 8" stroke={c} strokeWidth="1.6" strokeLinecap="round" /></svg>
+  <svg width={s} height={s} viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 2l6 6M8 2L2 8" style={{ stroke: c }} strokeWidth="1.6" strokeLinecap="round" /></svg>
 );
 
 /* ── member row: swipe left to reveal delete ────────────── */
@@ -110,7 +115,7 @@ function MemberRow({ member, delay, onDelete }: { member: Member; delay: number;
           <XIcon c="#fff" s={12} />
         </button>
       </motion.div>
-      <motion.div style={{ x, display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", position: "relative", background: "#272927", padding: "2px 4px", cursor: "grab", touchAction: "pan-y" }}
+      <motion.div style={{ x, display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", position: "relative", background: "var(--sd-row)", padding: "2px 4px", cursor: "grab", touchAction: "pan-y" }}
         drag="x" dragConstraints={{ left: -SWIPE_DELETE_WIDTH, right: 0 }} dragElastic={0.06} dragMomentum={false}
         onDragEnd={() => snap(x.get() < -(SWIPE_DELETE_WIDTH / 2) ? -SWIPE_DELETE_WIDTH : 0)}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -144,13 +149,13 @@ export default function SwipeDelete({ size = "card" }: { size?: "card" | "big" }
 
   return (
     <MotionConfig reducedMotion="user">
-      <style>{`.swipe-focus:focus-visible{outline:2px solid ${T.green};outline-offset:2px}`}</style>
-      <div ref={rootRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+      <style>{CSS}</style>
+      <div ref={rootRef} className="swipe-delete" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
         <div ref={innerRef} data-own-click style={{ pointerEvents: "auto", width: 340, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center", color: T.text }}>
           <motion.div layout transition={SPRING_LAYOUT} style={{ borderRadius: 20, background: T.raised, boxShadow: T.raisedShadow, padding: 12, display: "flex", flexDirection: "column", gap: 8, overflow: "hidden" }}>
             <motion.div layout="position" transition={SPRING_LAYOUT} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
               <span style={{ fontWeight: 500, fontSize: 14, lineHeight: 1.43, color: T.text2 }}>Members with access</span>
-              <span style={{ fontSize: 12, lineHeight: "18px", color: T.faint, whiteSpace: "nowrap" }}>Swipe left to remove</span>
+              <span style={{ fontSize: 12, lineHeight: "18px", color: "var(--sd-hint)", whiteSpace: "nowrap" }}>Swipe left to remove</span>
             </motion.div>
             <AnimatePresence mode="popLayout" initial={false}>
               {shown.map((m, i) => (
@@ -160,7 +165,7 @@ export default function SwipeDelete({ size = "card" }: { size?: "card" | "big" }
                 <motion.button key="restore" type="button" layout className="swipe-focus" onClick={restore}
                   initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.94, transition: { duration: 0.12, ease: "easeIn" } }}
                   whileTap={{ scale: 0.95 }} transition={MEMBER_SPRING}
-                  style={{ height: 36, borderRadius: 10, border: 0, cursor: "pointer", background: "rgba(255,255,255,.05)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.06)", color: T.text2, fontWeight: 500, fontSize: 14 }}>
+                  style={{ height: 36, borderRadius: 10, border: 0, cursor: "pointer", background: "var(--sd-btn)", boxShadow: "inset 0 0 0 1px var(--sd-btn-line)", color: T.text2, fontWeight: 500, fontSize: 14 }}>
                   Bring everyone back
                 </motion.button>
               )}

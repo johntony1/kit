@@ -107,36 +107,43 @@ function Chevron() {
 
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
 const CSS = `
-.menu-root { --menu-dur: 320ms; --menu-ease: ${EASE}; }
+.menu-root { --menu-dur: 320ms; --menu-ease: ${EASE};
+  --mn-open-drop: 0 12px 28px -10px rgba(0,0,0,.55); --mn-hover: rgba(255,255,255,.04); --mn-tree: rgba(255,255,255,.1);
+  --mn-close-bg: linear-gradient(180deg,#323532,#2b2d2b);
+  --mn-close-sh: inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.45); }
+:root[data-theme="light"] .menu-root {
+  --mn-open-drop: 0 12px 28px -10px oklch(0.22 0.008 264 / 0.2); --mn-hover: oklch(0.22 0.008 264 / 0.05); --mn-tree: oklch(0.22 0.008 264 / 0.13);
+  --mn-close-bg: var(--k-raised);
+  --mn-close-sh: inset 0 1px 0 var(--k-hi), 0 0 0 1px var(--k-ring), 0 2px 6px var(--k-shadow); }
 .menu-scaler { transition: transform var(--menu-dur) var(--menu-ease); transform-origin: center; }
 .menu-wrapper { position: relative; display: inline-block; }
 .menu-card {
   position: relative; width: 244px; height: 46px; border: 0; outline: 0; cursor: pointer;
-  background: linear-gradient(180deg,#2b2d2b,#242624); border-radius: 999px; padding: 10px;
-  box-sizing: border-box; text-align: left; overflow: hidden; color: #c2cbc4;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4);
+  background: var(--k-raised); border-radius: 999px; padding: 10px;
+  box-sizing: border-box; text-align: left; overflow: hidden; color: var(--k-text2);
+  box-shadow: var(--k-lift);
   transition: width var(--menu-dur) var(--menu-ease), height var(--menu-dur) var(--menu-ease),
     border-radius var(--menu-dur) var(--menu-ease), padding var(--menu-dur) var(--menu-ease),
     box-shadow var(--menu-dur) var(--menu-ease), transform 150ms ${EASE};
   will-change: width, height;
 }
 .menu-card:active { transform: scale(0.98); }
-.menu-card:focus-visible { box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 0 0 3px rgba(52,181,98,.55); }
+.menu-card:focus-visible { box-shadow: inset 0 1px 0 var(--k-hi), 0 0 0 1px var(--k-ring), 0 0 0 3px rgba(52,181,98,.55); }
 .menu-card.is-open {
   height: calc(183px + var(--open-count, 0) * 152px); border-radius: 20px; padding: 12px; cursor: default;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 12px 28px -10px rgba(0,0,0,.55);
+  box-shadow: inset 0 1px 0 var(--k-hi), 0 0 0 1px var(--k-ring), 0 1px 2px var(--k-shadow), var(--mn-open-drop);
 }
 .menu-card.is-open:active { transform: none; }
 .menu-layer { position: absolute; inset: 0; display: flex; box-sizing: border-box; }
 .menu-layer--collapsed { align-items: center; justify-content: center; gap: 4px; padding: 10px; opacity: 1; filter: blur(0);
-  transition: opacity 140ms ease-out, filter 140ms ease-out; color: #8b968f; }
+  transition: opacity 140ms ease-out, filter 140ms ease-out; color: var(--k-muted); }
 .menu-card.is-open .menu-layer--collapsed { opacity: 0; filter: blur(2px); pointer-events: none; transition: opacity 100ms ease-out, filter 100ms ease-out; }
 .menu-layer--expanded { flex-direction: column; gap: 10px; padding: 12px; list-style: none; margin: 0; pointer-events: none; }
 .menu-card.is-open .menu-layer--expanded { pointer-events: auto; }
 .menu-layer--expanded > li { list-style: none; width: 100%; }
 .menu-row {
   display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 32px; padding: 4px;
-  box-sizing: border-box; overflow: hidden; flex-shrink: 0; color: #8b968f;
+  box-sizing: border-box; overflow: hidden; flex-shrink: 0; color: var(--k-muted);
   opacity: 0; transform: translateY(8px); filter: blur(2px);
   transition: opacity 120ms ease-out, transform 120ms ease-out, filter 120ms ease-out, background-color 150ms ease-out; transition-delay: 0ms;
 }
@@ -149,16 +156,16 @@ const CSS = `
 .menu-card.is-open .menu-row[data-row='resources'] { transition-delay: 260ms, 260ms, 260ms, 0ms; }
 .menu-card.is-open .menu-row[data-row='settings']  { transition-delay: 320ms, 320ms, 320ms, 0ms; }
 .menu-row { cursor: pointer; }
-.menu-row:hover { background-color: rgba(255,255,255,.04); }
+.menu-row:hover { background-color: var(--mn-hover); }
 .menu-row:focus-visible { outline: 2px solid rgba(52,181,98,.6); outline-offset: -2px; }
 .menu-row__group { display: flex; align-items: center; gap: 6px; }
 .menu-row__label, .menu-collapsed__label, .menu-sub__label { font-size: 14px; line-height: 20px; font-weight: 500; letter-spacing: -0.084px; white-space: nowrap; }
-.menu-row__label, .menu-sub__label { color: #e3e8e3; }
-.menu-collapsed__label { color: #c2cbc4; padding: 0 4px; }
+.menu-row__label, .menu-sub__label { color: var(--k-text); }
+.menu-collapsed__label { color: var(--k-text2); padding: 0 4px; }
 .menu-icon { position: relative; display: block; width: 20px; height: 20px; overflow: hidden; flex-shrink: 0; }
 .menu-icon > span { position: absolute; }
 .menu-icon svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-.menu-chevron { display: inline-flex; align-items: center; justify-content: center; color: #5d6862; transition: transform var(--menu-dur) var(--menu-ease); }
+.menu-chevron { display: inline-flex; align-items: center; justify-content: center; color: var(--k-faint); transition: transform var(--menu-dur) var(--menu-ease); }
 .menu-section[data-state='open'] > .menu-row .menu-chevron { transform: rotate(180deg); }
 .menu-section { display: flex; flex-direction: column; width: 100%; }
 .menu-sub {
@@ -166,14 +173,14 @@ const CSS = `
   overflow: hidden; box-sizing: border-box; position: relative;
   transition: height var(--menu-dur) var(--menu-ease), margin-top var(--menu-dur) var(--menu-ease);
 }
-.menu-sub::before { content: ''; position: absolute; left: 14px; top: 0; bottom: 14px; width: 1px; background: rgba(255,255,255,.1); border-radius: 1px; pointer-events: none; }
+.menu-sub::before { content: ''; position: absolute; left: 14px; top: 0; bottom: 14px; width: 1px; background: var(--mn-tree); border-radius: 1px; pointer-events: none; }
 .menu-section[data-state='open'] .menu-sub { height: 142px; margin-top: 10px; }
 .menu-sub__row {
   display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 16px; flex-shrink: 0; height: 28px; box-sizing: border-box; position: relative;
-  color: #8b968f; opacity: 0; transform: translateY(6px); filter: blur(2px);
+  color: var(--k-muted); opacity: 0; transform: translateY(6px); filter: blur(2px);
   transition: opacity 120ms ease-out, transform 120ms ease-out, filter 120ms ease-out; transition-delay: 0ms;
 }
-.menu-sub__row::before { content: ''; position: absolute; right: 100%; top: 50%; width: 12px; height: 1px; background: rgba(255,255,255,.1); border-radius: 1px; pointer-events: none; }
+.menu-sub__row::before { content: ''; position: absolute; right: 100%; top: 50%; width: 12px; height: 1px; background: var(--mn-tree); border-radius: 1px; pointer-events: none; }
 .menu-section[data-state='open'] .menu-sub__row { opacity: 1; transform: translateY(0); filter: blur(0); transition: opacity 320ms ${EASE}, transform 320ms ${EASE}, filter 320ms ${EASE}; }
 .menu-section[data-state='open'] .menu-sub__row:nth-child(1) { transition-delay: 120ms; }
 .menu-section[data-state='open'] .menu-sub__row:nth-child(2) { transition-delay: 170ms; }
@@ -181,13 +188,13 @@ const CSS = `
 .menu-section[data-state='open'] .menu-sub__row:nth-child(4) { transition-delay: 270ms; }
 .menu-close {
   position: absolute; top: -10px; right: -10px; width: 28px; height: 28px; border-radius: 999px; border: 0; padding: 0;
-  background: linear-gradient(180deg,#323532,#2b2d2b); cursor: pointer; display: grid; place-items: center; color: #8b968f; z-index: 2;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(0,0,0,.6), 0 2px 6px rgba(0,0,0,.45);
+  background: var(--mn-close-bg); cursor: pointer; display: grid; place-items: center; color: var(--k-muted); z-index: 2;
+  box-shadow: var(--mn-close-sh);
   opacity: 0; transform: scale(0.6); pointer-events: none;
   transition: opacity 200ms ease-out, transform 220ms cubic-bezier(0.34, 1.36, 0.64, 1), box-shadow 150ms ease-out, color 150ms ease-out;
 }
 .menu-wrapper.is-open .menu-close { opacity: 1; transform: scale(1); pointer-events: auto; transition-delay: 180ms; }
-.menu-close:hover { color: #e3e8e3; }
+.menu-close:hover { color: var(--k-text); }
 .menu-close:active { transform: scale(0.92); transition-duration: 80ms; }
 .menu-close:focus-visible { outline: 2px solid rgba(52,181,98,.6); outline-offset: 2px; }
 .menu-close svg { width: 14px; height: 14px; display: block; }

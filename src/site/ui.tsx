@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 /* ── Small pieces ── */
 export function useCopy() {
@@ -12,11 +12,32 @@ export function useCopy() {
   };
 }
 
+/** the copy glyph and its tick trade places: one shrinks and blurs out as the other comes in */
+const ICON_OUT = { opacity: 0, scale: 0.25, filter: "blur(4px)" };
+const ICON_IN = { opacity: 1, scale: 1, filter: "blur(0px)" };
 export function CopyIcon({ done }: { done: boolean }) {
-  return done ? (
-    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="#46a758" strokeWidth="1.8" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7" strokeLinecap="round" strokeLinejoin="round" /></svg>
-  ) : (
-    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="2" /><path d="M10.5 3.5v-.5a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 3v5A1.5 1.5 0 0 0 4 9.5h.5" /></svg>
+  const reduced = useReducedMotion();
+  const swap = reduced ? { duration: 0 } : ({ type: "spring", duration: 0.3, bounce: 0 } as const);
+  return (
+    <span className="copyIco" aria-hidden="true">
+      <AnimatePresence initial={false}>
+        {done ? (
+          <motion.svg key="done" initial={ICON_OUT} animate={ICON_IN} exit={ICON_OUT} transition={swap} viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="#46a758" strokeWidth="1.8"><path d="m3.5 8.5 3 3 6-7" strokeLinecap="round" strokeLinejoin="round" /></motion.svg>
+        ) : (
+          <motion.svg key="copy" initial={ICON_OUT} animate={ICON_IN} exit={ICON_OUT} transition={swap} viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="5.5" y="5.5" width="8" height="8" rx="2" /><path d="M10.5 3.5v-.5a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 3v5A1.5 1.5 0 0 0 4 9.5h.5" /></motion.svg>
+        )}
+      </AnimatePresence>
+    </span>
+  );
+}
+
+/** a label that changes without changing its button's width: every wording takes the same cell,
+ *  so the widest sets the size and only the current one shows */
+export function Stable({ value, options }: { value: string; options: readonly string[] }) {
+  return (
+    <span className="stable">
+      {options.map((o) => <span key={o} aria-hidden={o !== value} style={o === value ? undefined : { visibility: "hidden" }}>{o}</span>)}
+    </span>
   );
 }
 
@@ -45,7 +66,23 @@ export function Chips<T extends string>({ label, value, options, onChange }: { l
 
 export function Slider({ label, value, min, max, step, onChange, unit = "" }: { label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void; unit?: string }) {
   const track = useRef<HTMLDivElement>(null);
+  const name = useRef<HTMLSpanElement>(null);
   const [drag, setDrag] = useState(false);
+  // the name rests at the left; when the handle comes down onto it, it steps to the handle's right
+  const [nameLeft, setNameLeft] = useState(14);
+  useLayoutEffect(() => {
+    const t = track.current, n = name.current;
+    if (!t || !n) return;
+    const place = () => {
+      const k = Math.min(1, Math.max(0, (value - min) / (max - min)));
+      const handle = 6 + (t.clientWidth - 22) * k; // the handle's left edge
+      setNameLeft(handle < 14 + n.offsetWidth + 8 ? Math.round(handle + 22) : 14);
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(t);
+    return () => ro.disconnect();
+  }, [value, min, max, label]);
   const pct = Math.min(1, Math.max(0, (value - min) / (max - min)));
   const digits = step < 0.01 ? 3 : step < 1 ? 2 : 0;
   const snap = (v: number) => Number(Math.min(max, Math.max(min, Math.round((v - min) / step) * step + min)).toFixed(6));
@@ -74,7 +111,7 @@ export function Slider({ label, value, min, max, step, onChange, unit = "" }: { 
       aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} aria-valuetext={`${value.toFixed(digits)}${unit}`}
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={key}>
       <span className="sldFill" style={{ width: `calc(22px + (100% - 22px) * ${pct})` }}><b /></span>
-      <span className="sldName" style={{ left: pct < 0.07 ? 28 : 14 }}>{label}</span>
+      <span ref={name} className="sldName" style={{ left: nameLeft }}>{label}</span>
       <span className="sldDots" aria-hidden="true">{Array.from({ length: 8 }, (_, i) => <i key={i} />)}</span>
       <em>{value.toFixed(digits)}{unit}</em>
     </div>
@@ -121,7 +158,7 @@ export function Switch({ checked, onChange, label, h = 16, focus }: { checked: b
       onClick={() => onChange(!checked)} onPointerDown={() => setPress(true)} onPointerUp={up} onPointerLeave={up} onPointerCancel={up}
       style={{ position: "relative", width: w, height: h, padding: 0, border: 0, background: "transparent", cursor: "pointer", flexShrink: 0, borderRadius: r, WebkitTapHighlightColor: "transparent" }}>
       <span aria-hidden style={{ position: "absolute", inset: `${-Math.max(4, (24 - h) / 2)}px -6px` }} />
-      <span aria-hidden style={{ position: "absolute", inset: 0, borderRadius: r, background: "linear-gradient(180deg,#363936,#414441)", boxShadow: "inset 0 1px 2px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08), 0 1px 0 rgba(255,255,255,.04)" }} />
+      <span aria-hidden style={{ position: "absolute", inset: 0, borderRadius: r, background: "var(--sw-track, linear-gradient(180deg,#363936,#414441))", boxShadow: "var(--sw-ring, inset 0 1px 2px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08), 0 1px 0 rgba(255,255,255,.04))" }} />
       <motion.span aria-hidden initial={false} animate={{ opacity: checked ? 1 : 0 }} transition={{ duration: reduced ? 0 : 0.16, ease: "easeOut" }}
         style={{ position: "absolute", inset: 0, borderRadius: r, background: "linear-gradient(180deg,#3ccb73,#1c9747)", boxShadow: "inset 0 0 0 1px #12753a, inset 0 1px 0 rgba(255,255,255,.3), 0 0 0 .5px rgba(0,0,0,.45)" }} />
       <motion.span aria-hidden initial={false} animate={{ x: checked ? travel - stretch : 0, width: tw + stretch }} transition={reduced ? { duration: 0 } : SW_SPRING}

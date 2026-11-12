@@ -9,13 +9,20 @@ import { play } from "../sound/sound";
 
 /* ── tokens ─────────────────────────────────────────────── */
 const T = {
-  surface: "#242624",
-  raised: "linear-gradient(180deg,#2b2d2b,#242624)",
-  raisedShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
-  text2: "#c2cbc4",
-  muted: "#8b968f",
+  surface: "var(--k-surface)",
+  raised: "var(--k-raised)",
+  raisedShadow: "var(--k-lift)",
+  text2: "var(--k-text2)",
+  muted: "var(--k-muted)",
   green: "#34b562",
+  greenText: "var(--cl-green)",
 };
+/* this row's own colours: dark, then light */
+const CSS = `
+.copylink { --cl-green: #34b562; --cl-row: inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(0,0,0,.5), 0 12px 32px -12px rgba(0,0,0,.6); }
+:root[data-theme="light"] .copylink { --cl-green: oklch(0.52 0.15 150); --cl-row: 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 1px 2px oklch(0.22 0.008 264 / 0.05), 0 8px 20px -8px oklch(0.22 0.008 264 / 0.12), 0 24px 48px -24px oklch(0.22 0.008 264 / 0.14); }
+.copylink-focus:focus-visible{outline:2px solid ${T.green};outline-offset:2px}
+`;
 
 /* ── timing + motion (verbatim) ─────────────────────────── */
 const COPY_BTN = { pressScale: 0.88, spring: { type: "spring" as const, visualDuration: 0.3, bounce: 0.55 }, resetMs: 2200 };
@@ -82,17 +89,17 @@ export default function CopyLink({ size = "card" }: { size?: "card" | "big" }) {
 
   return (
     <MotionConfig reducedMotion="user">
-      <style>{`.copylink-focus:focus-visible{outline:2px solid ${T.green};outline-offset:2px}`}</style>
+      <style>{CSS}</style>
       <div ref={rootRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        <div ref={innerRef} data-own-click style={{ pointerEvents: "auto", width: 300, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 12px 12px 16px", borderRadius: 20, background: T.surface, boxShadow: "inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(0,0,0,.5), 0 12px 32px -12px rgba(0,0,0,.6)" }}>
+        <div ref={innerRef} data-own-click className="copylink" style={{ pointerEvents: "auto", width: 300, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 12px 12px 16px", borderRadius: 20, background: T.surface, boxShadow: "var(--cl-row)" }}>
             <span style={{ fontWeight: 500, fontSize: 14, lineHeight: "20px", color: T.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>https://orevbajohn.me</span>
             <motion.button ref={copyRef} type="button" className="copylink-focus" onClick={handleCopy} whileTap={{ scale: COPY_BTN.pressScale }} transition={COPY_BTN.spring} aria-label="Copy link"
               style={{ position: "relative", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 6, borderRadius: 8, cursor: "pointer", border: 0, background: T.raised, boxShadow: T.raisedShadow }}>
               <AnimatePresence mode="wait" initial={false}>
                 {copied ? (
                   <motion.span key="copied" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.18, ease: "easeOut" }}
-                    style={{ display: "flex", alignItems: "center", gap: 4, color: T.green, padding: "0 4px", fontWeight: 500, fontSize: 14, lineHeight: "20px", whiteSpace: "nowrap" }}>
+                    style={{ display: "flex", alignItems: "center", gap: 4, color: T.greenText, padding: "0 4px", fontWeight: 500, fontSize: 14, lineHeight: "20px", whiteSpace: "nowrap" }}>
                     <Check /> Copied!
                   </motion.span>
                 ) : (

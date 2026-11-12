@@ -24,13 +24,23 @@ const CARDS = [
   { id: "naira", label: "Naira", symbol: "₦", amount: "50,000", color: "#f5841e" },
 ];
 
-/* ── dark tokens ── */
+/* ── tokens: the shared --k-* ones, plus this sheet's own (dark, then light) ── */
 const C = {
-  text: "#e3e8e3", sec: "#c2cbc4", muted: "#8b968f", faint: "#5d6862",
-  raised: "linear-gradient(180deg,#2b2d2b,#242624)",
-  shadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
+  text: "var(--k-text)", sec: "var(--k-text2)", muted: "var(--k-muted)", faint: "var(--am-sym)",
+  raised: "var(--k-raised)",
+  shadow: "var(--k-lift)",
   green: "linear-gradient(180deg,#3cc06b,#22994c)",
 };
+const CSS = `
+.addmoney { --am-sym: #5d6862; --am-chip: rgba(255,255,255,.06); --am-chip-ring: rgba(255,255,255,.06); --am-grip: rgba(255,255,255,.28);
+  --am-sheet: var(--k-lift);
+  --am-track: inset 0 1px 2px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05);
+  --am-go: inset 0 1px 0 rgba(255,255,255,.28), 0 0 0 1px rgba(0,0,0,.45), 0 2px 6px -2px rgba(0,0,0,.5); }
+:root[data-theme="light"] .addmoney { --am-sym: oklch(0.53 0.011 264); --am-chip: oklch(0.955 0.003 264); --am-chip-ring: oklch(0.22 0.008 264 / 0.06); --am-grip: oklch(0.22 0.008 264 / 0.22);
+  --am-sheet: inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 1px 2px oklch(0.22 0.008 264 / 0.05), 0 8px 20px -8px oklch(0.22 0.008 264 / 0.12), 0 24px 48px -24px oklch(0.22 0.008 264 / 0.14);
+  --am-track: inset 0 1px 2px oklch(0.22 0.008 264 / 0.08), 0 0 0 1px oklch(0.22 0.008 264 / 0.05);
+  --am-go: inset 0 1px 0 rgba(255,255,255,.28), 0 0 0 1px oklch(0.5 0.15 150 / 0.7), 0 2px 6px -2px oklch(0.5 0.15 150 / 0.4); }
+`;
 
 /* the widget is laid out at the source's size and scaled to fit the card */
 const BASE_W = 343;
@@ -130,7 +140,7 @@ function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
   };
 
   return (
-    <div style={{ width: "100%", height: "100%", borderRadius: 20, background: C.raised, boxShadow: C.shadow, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ width: "100%", height: "100%", borderRadius: 20, background: C.raised, boxShadow: "var(--am-sheet)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <motion.div {...cv(SD.top)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 0" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ position: "relative", width: 28, height: 20 }}>
@@ -141,7 +151,7 @@ function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
           <span style={{ fontSize: 13, fontWeight: 500, color: C.sec, letterSpacing: "-0.08px" }}>Add money</span>
         </div>
         <motion.button type="button" onClick={() => { play("close"); onClose(); }} whileTap={{ scale: 0.88 }} transition={{ type: "spring", visualDuration: 0.2, bounce: 0 }} aria-label="Close"
-          style={{ width: 28, height: 28, borderRadius: 999, border: "none", background: "rgba(255,255,255,.06)", boxShadow: "0 0 0 1px rgba(255,255,255,.06)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: C.muted, padding: 0 }}>
+          style={{ width: 28, height: 28, borderRadius: 999, border: "none", background: "var(--am-chip)", boxShadow: "0 0 0 1px var(--am-chip-ring)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: C.muted, padding: 0 }}>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M10 2L2 10M2 2l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
         </motion.button>
       </motion.div>
@@ -163,15 +173,15 @@ function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
           onPointerUp={(e) => { dragging.current = false; setGrab(false); const r = e.currentTarget.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) setHover(false); }}
           onPointerCancel={() => { dragging.current = false; setGrab(false); setHover(false); }}
           style={{
-            background: "#1d1f1d", borderRadius: 16, height: FILL_H + 2 * INSET, position: "relative", userSelect: "none", touchAction: "none",
+            background: "var(--k-well-solid)", borderRadius: 16, height: FILL_H + 2 * INSET, position: "relative", userSelect: "none", touchAction: "none",
             display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px", cursor: grab ? "grabbing" : "grab",
-            boxShadow: "inset 0 1px 2px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.05)",
+            boxShadow: "var(--am-track)",
           }}
         >
           <motion.div style={{ position: "absolute", left: INSET, top: INSET, height: FILL_H, borderRadius: 12, background: C.raised, boxShadow: C.shadow, width: fillW, pointerEvents: "none" }} />
           {/* the thumb: a narrow grip at the fill's right edge, shown while the pointer is on the track */}
           <motion.div aria-hidden animate={{ opacity: hover || grab ? 1 : 0, scaleY: grab ? 1.06 : 1 }} transition={{ duration: 0.15, ease: "easeOut" }}
-            style={{ position: "absolute", top: (FILL_H + 2 * INSET - THUMB_H) / 2 + 6, height: THUMB_H - 12, left: thumbX, width: 4, borderRadius: 4, background: "rgba(255,255,255,.28)", zIndex: 2, pointerEvents: "none" }} />
+            style={{ position: "absolute", top: (FILL_H + 2 * INSET - THUMB_H) / 2 + 6, height: THUMB_H - 12, left: thumbX, width: 4, borderRadius: 4, background: "var(--am-grip)", zIndex: 2, pointerEvents: "none" }} />
           <motion.button type="button" onClick={() => { if (value > MIN) { play("tick"); change(value - 1); } }} whileTap={{ scale: 0.82 }} transition={{ type: "spring", visualDuration: 0.18, bounce: 0 }} aria-label="Decrease amount" style={btn}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M3 8h10" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" /></svg>
           </motion.button>
@@ -187,7 +197,7 @@ function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
           style={{
             width: "100%", height: 40, borderRadius: 999, border: "none", background: C.green, cursor: "pointer", color: "#fff",
             fontSize: 14, fontWeight: 500, letterSpacing: "-0.084px", fontFamily: "inherit",
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,.28), 0 0 0 1px rgba(0,0,0,.45), 0 2px 6px -2px rgba(0,0,0,.5)",
+            boxShadow: "var(--am-go)",
           }}>
           Add ${value.toFixed(2)}
         </motion.button>
@@ -202,8 +212,9 @@ export default function AddMoney({ size = "card" }: { size?: "card" | "big" }) {
   const [run, setRun] = useState(0); // Add or close plays the sheet in again
   return (
     <div ref={ref} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+      <style>{CSS}</style>
       <div style={{ width: BASE_W * s, height: BASE_H * s, position: "relative" }}>
-        <div data-own-click style={{ pointerEvents: "auto", position: "absolute", left: 0, top: 0, width: BASE_W, height: BASE_H, transform: `scale(${s})`, transformOrigin: "0 0", color: C.text }}>
+        <div data-own-click className="addmoney" style={{ pointerEvents: "auto", position: "absolute", left: 0, top: 0, width: BASE_W, height: BASE_H, transform: `scale(${s})`, transformOrigin: "0 0", color: C.text }}>
           <AnimatePresence initial={false} mode="wait">
             <motion.div
               key={run}

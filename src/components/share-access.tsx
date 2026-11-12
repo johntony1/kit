@@ -9,22 +9,36 @@ import { motion, AnimatePresence, MotionConfig, useReducedMotion } from "framer-
 import { play } from "../sound/sound";
 
 /* ── tokens ─────────────────────────────────────────────── */
+/* Shared tokens (index.css) plus this widget's own variables (CSS below), for a dark and a light look. */
 const T = {
-  surface: "#242624",
-  raised: "linear-gradient(180deg,#2b2d2b,#242624)",
-  raisedShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
-  text: "#e3e8e3",
-  text2: "#c2cbc4",
-  muted: "#8b968f",
-  faint: "#5d6862",
+  surface: "var(--k-surface)",
+  raised: "var(--k-raised)",
+  raisedShadow: "var(--k-lift)",
+  text: "var(--k-text)",
+  text2: "var(--k-text2)",
+  muted: "var(--k-muted)",
+  faint: "var(--k-faint)",
   green: "#34b562",
 };
+const CSS = `
+.access-focus:focus-visible{outline:2px solid ${T.green};outline-offset:2px}
+.access-input::placeholder{color:var(--sa-ph)}
+.share-access { --sa-ph: #5d6862; --sa-row: rgba(255,255,255,.04); --sa-row-line: rgba(255,255,255,.04);
+  --sa-well: rgba(0,0,0,.22); --sa-well-sh: inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.06);
+  --sa-sw-off: linear-gradient(180deg,#363936,#414441); --sa-sw-off-sh: inset 0 1px 2px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08), 0 1px 0 rgba(255,255,255,.04);
+  --sa-thumb-ring: rgba(0,0,0,.32); --sa-thumb-drop: 0 1px 1.5px rgba(0,0,0,.35), 0 3px 6px -2px rgba(0,0,0,.45);
+  --sa-on-rim: 0 0 0 .5px rgba(0,0,0,.45); --sa-icon-ring: rgba(0,0,0,.45); }
+:root[data-theme="light"] .share-access { --sa-ph: var(--k-muted); --sa-row: oklch(0.22 0.008 264 / 0.035); --sa-row-line: oklch(0.22 0.008 264 / 0.06);
+  --sa-well: var(--k-well); --sa-well-sh: inset 0 1px 2px var(--k-inset), 0 0 0 1px var(--k-line);
+  --sa-sw-off: linear-gradient(180deg, oklch(0.86 0.005 264), oklch(0.9 0.004 264)); --sa-sw-off-sh: inset 0 1px 2px oklch(0.22 0.008 264 / 0.14), inset 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 1px 0 oklch(1 0 0);
+  --sa-thumb-ring: oklch(0.22 0.008 264 / 0.22); --sa-thumb-drop: 0 1px 1.5px oklch(0.22 0.008 264 / 0.16), 0 3px 6px -2px oklch(0.22 0.008 264 / 0.2);
+  --sa-on-rim: 0 0 0 .5px oklch(0.22 0.008 264 / 0.1); --sa-icon-ring: oklch(0.45 0.17 255 / 0.7); }`;
 
 /* ── timing + motion (verbatim) ─────────────────────────── */
 /* ── Switch ───────────────────────────────────────────────
  * A rounded rectangle, not a pill: the track is 23:16, the thumb is a near-square with its own
  * hairline border and a soft drop shadow, as tall as the track so it sits on the edge.
- * Off: a dark inset well. On: a green gradient with a darker green rim and a top highlight.
+ * Off: an inset well. On: a green gradient with a darker green rim and a top highlight.
  * Press and the thumb stretches toward where it is going; release and it springs across.
  * The hit area is padded to at least 24px tall around the 16px (or larger) body. */
 const SW_SPRING = { type: "spring", stiffness: 700, damping: 42, mass: 0.7 } as const;
@@ -40,12 +54,12 @@ function Switch({ checked, onChange, label, h = 16, focus }: { checked: boolean;
       onClick={() => onChange(!checked)} onPointerDown={() => setPress(true)} onPointerUp={up} onPointerLeave={up} onPointerCancel={up}
       style={{ position: "relative", width: w, height: h, padding: 0, border: 0, background: "transparent", cursor: "pointer", flexShrink: 0, borderRadius: r, WebkitTapHighlightColor: "transparent" }}>
       <span aria-hidden style={{ position: "absolute", inset: `${-Math.max(4, (24 - h) / 2)}px -6px` }} />
-      <span aria-hidden style={{ position: "absolute", inset: 0, borderRadius: r, background: "linear-gradient(180deg,#363936,#414441)", boxShadow: "inset 0 1px 2px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08), 0 1px 0 rgba(255,255,255,.04)" }} />
+      <span aria-hidden style={{ position: "absolute", inset: 0, borderRadius: r, background: "var(--sa-sw-off)", boxShadow: "var(--sa-sw-off-sh)" }} />
       <motion.span aria-hidden initial={false} animate={{ opacity: checked ? 1 : 0 }} transition={{ duration: reduced ? 0 : 0.16, ease: "easeOut" }}
-        style={{ position: "absolute", inset: 0, borderRadius: r, background: "linear-gradient(180deg,#3ccb73,#1c9747)", boxShadow: "inset 0 0 0 1px #12753a, inset 0 1px 0 rgba(255,255,255,.3), 0 0 0 .5px rgba(0,0,0,.45)" }} />
+        style={{ position: "absolute", inset: 0, borderRadius: r, background: "linear-gradient(180deg,#3ccb73,#1c9747)", boxShadow: "inset 0 0 0 1px #12753a, inset 0 1px 0 rgba(255,255,255,.3), var(--sa-on-rim)" }} />
       <motion.span aria-hidden initial={false} animate={{ x: checked ? travel - stretch : 0, width: tw + stretch }} transition={reduced ? { duration: 0 } : SW_SPRING}
         style={{ position: "absolute", top: 0, left: 0, height: h, borderRadius: rt, background: "linear-gradient(180deg,#ffffff,#eaedea)",
-          boxShadow: `inset 0 0 0 1px ${checked ? "rgba(18,117,58,.85)" : "rgba(0,0,0,.32)"}, inset 0 1.5px 0 #fff, 0 1px 1.5px rgba(0,0,0,.35), 0 3px 6px -2px rgba(0,0,0,.45)`,
+          boxShadow: `inset 0 0 0 1px ${checked ? "rgba(18,117,58,.85)" : "var(--sa-thumb-ring)"}, inset 0 1.5px 0 #fff, var(--sa-thumb-drop)`,
           transition: "box-shadow 160ms ease" }} />
     </button>
   );
@@ -103,7 +117,7 @@ const Globe = () => (
   </svg>
 );
 const XIcon = ({ c = T.muted, s = 10 }: { c?: string; s?: number }) => (
-  <svg width={s} height={s} viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 2l6 6M8 2L2 8" stroke={c} strokeWidth="1.6" strokeLinecap="round" /></svg>
+  <svg width={s} height={s} viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 2l6 6M8 2L2 8" style={{ stroke: c }} strokeWidth="1.6" strokeLinecap="round" /></svg>
 );
 
 function EmailChip({ email, onRemove }: { email: string; onRemove: () => void }) {
@@ -159,14 +173,14 @@ export default function ShareAccess({ size = "card" }: { size?: "card" | "big" }
 
   return (
     <MotionConfig reducedMotion="user">
-      <style>{`.access-focus:focus-visible{outline:2px solid ${T.green};outline-offset:2px}.access-input::placeholder{color:${T.faint}}`}</style>
-      <div ref={rootRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+      <style>{CSS}</style>
+      <div ref={rootRef} className="share-access" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
         <div ref={innerRef} data-own-click style={{ pointerEvents: "auto", width: 360, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center", color: T.text }}>
           <div style={{ position: "relative", borderRadius: 20, background: T.raised, boxShadow: T.raisedShadow, display: "flex", flexDirection: "column", paddingTop: 12, paddingBottom: toggled ? 12 : 0, transition: "padding-bottom 0.2s cubic-bezier(0.215, 0.61, 0.355, 1)" }}>
             <div style={{ padding: "0 12px" }}>
-              <div style={{ background: "rgba(255,255,255,.04)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.04)", padding: 12, borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ background: "var(--sa-row)", boxShadow: "inset 0 0 0 1px var(--sa-row-line)", padding: 12, borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
-                  <div style={{ position: "relative", width: 40, height: 40, flexShrink: 0, borderRadius: 8, display: "grid", placeItems: "center", background: "linear-gradient(180deg, rgba(255,255,255,0.154) 6.67%, rgba(255,255,255,0) 103.33%), #0088fe", boxShadow: "inset 0 -2px 4px rgba(255,255,255,.25), inset 0 2px 4px rgba(255,255,255,.16), 0 0 0 1px rgba(0,0,0,.45), 0 4px 8px -4px rgba(0,136,254,.5)" }}>
+                  <div style={{ position: "relative", width: 40, height: 40, flexShrink: 0, borderRadius: 8, display: "grid", placeItems: "center", background: "linear-gradient(180deg, rgba(255,255,255,0.154) 6.67%, rgba(255,255,255,0) 103.33%), #0088fe", boxShadow: "inset 0 -2px 4px rgba(255,255,255,.25), inset 0 2px 4px rgba(255,255,255,.16), 0 0 0 1px var(--sa-icon-ring), 0 4px 8px -4px rgba(0,136,254,.5)" }}>
                     <Globe />
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", lineHeight: "20px", minWidth: 0 }}>
@@ -184,7 +198,7 @@ export default function ShareAccess({ size = "card" }: { size?: "card" | "big" }
                   <div style={{ padding: 12, paddingTop: 14, display: "flex", flexDirection: "column", gap: 6 }}>
                     <span style={{ fontWeight: 500, fontSize: 14, lineHeight: 1.43, color: T.text2 }}>Invite members</span>
                     <div onClick={() => inputRef.current?.focus()}
-                      style={{ minHeight: 36, display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 12, background: "rgba(0,0,0,.22)", boxShadow: "inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.06)", cursor: "text", minWidth: 0 }}>
+                      style={{ minHeight: 36, display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 12, background: "var(--sa-well)", boxShadow: "var(--sa-well-sh)", cursor: "text", minWidth: 0 }}>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", flex: 1, minWidth: 0 }}>
                         <AnimatePresence mode="popLayout" initial={false}>
                           {emails.map((e) => <EmailChip key={e} email={e} onRemove={() => removeEmail(e)} />)}

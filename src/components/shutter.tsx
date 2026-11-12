@@ -136,9 +136,9 @@ function HeroScreen() {
 const WORD = "Moonlytics";
 function WordmarkScreen({ wm }: { wm: React.RefObject<HTMLDivElement | null> }) {
   return (
-    <div style={{ ...fill, background: "radial-gradient(70% 60% at 50% 110%, rgba(42,127,240,.35), transparent 70%), #0a1222" }}>
+    <div className="sh-word" style={fill}>
       <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div ref={wm} aria-label={WORD} style={{ font: `500 50px/1.2 ${font}`, letterSpacing: "-0.06em", color: "#d6e7ff", whiteSpace: "nowrap" }}>
+        <div ref={wm} aria-label={WORD} style={{ font: `500 50px/1.2 ${font}`, letterSpacing: "-0.06em", color: "var(--sh-word-ink)", whiteSpace: "nowrap" }}>
           {WORD.split("").map((c, i) => <span key={i} aria-hidden data-wm-char style={{ display: "inline-block" }}>{c}</span>)}
         </div>
       </div>
@@ -302,7 +302,7 @@ export default function Shutter({ size = "card" }: { size?: "card" | "big" }) {
 
   return (
     <div ref={ref} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
-      <style>{`.sh-dot{background:rgba(255,255,255,.16)}:root[data-theme="light"] .sh-dot{background:oklch(0.22 0.008 264 / .2)}.sh-frame{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 18px 40px rgba(0,0,0,.45)}:root[data-theme="light"] .sh-frame{box-shadow:0 0 0 1px var(--k-ring), 0 2px 4px var(--k-shadow-soft), 0 18px 40px -10px var(--k-shadow)}`}</style>
+      <style>{`.sh-word{--sh-word-ink:#d6e7ff;background:radial-gradient(70% 60% at 50% 110%, rgba(42,127,240,.35), transparent 70%), #0a1222}:root[data-theme="light"] .sh-word{--sh-word-ink:oklch(0.36 0.13 262);background:radial-gradient(70% 60% at 50% 110%, rgba(42,127,240,.3), transparent 70%), oklch(0.985 0.004 264)}.sh-dot{background:rgba(255,255,255,.16)}:root[data-theme="light"] .sh-dot{background:oklch(0.22 0.008 264 / .2)}.sh-frame{box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 18px 40px rgba(0,0,0,.45)}:root[data-theme="light"] .sh-frame{box-shadow:0 0 0 1px var(--k-ring), 0 2px 4px var(--k-shadow-soft), 0 18px 40px -10px var(--k-shadow)}`}</style>
       <div style={{ display: "flex", alignItems: "center", gap: 18 * Math.max(0.8, s), transform: size === "card" ? "translateY(2px)" : undefined }}>
         <div style={{ width: 8 }} />
         <div

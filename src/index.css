@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./components/tokens.css";
 
 /* The Site Prompt picker look: dark, Linear-like, crisp hairlines, one indigo accent. */
 :root {
@@ -712,8 +713,8 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 :root[data-theme="light"] .bnChip.on,
 :root[data-theme="light"] .chip.on { background: var(--panel); color: var(--text); box-shadow: var(--lift); }
 /* cards and the sheet */
-:root[data-theme="light"] .bnCard { background: oklch(0.994 0.001 264); box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.07), 0 1px 2px oklch(0.22 0.008 264 / 0.04); }
-:root[data-theme="light"] .bnCard:hover { box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 1px 2px oklch(0.22 0.008 264 / 0.05), 0 12px 28px -14px oklch(0.22 0.008 264 / 0.16); }
+:root[data-theme="light"] .bnCard { background: var(--k-card); box-shadow: inset 0 0 0 1px oklch(0.22 0.008 264 / 0.035); transition: background-color 150ms ease; }
+@media (hover: hover) { :root[data-theme="light"] .bnCard:hover { background: oklch(0.945 0.004 264); box-shadow: inset 0 0 0 1px oklch(0.22 0.008 264 / 0.05); } }
 :root[data-theme="light"] .bnTag,
 :root[data-theme="light"] .bnName { background: oklch(1 0 0 / 0.86); color: var(--text2); box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 1px 2px oklch(0.22 0.008 264 / 0.05); }
 :root[data-theme="light"] .bnGo { background: var(--text); color: oklch(1 0 0); }
@@ -729,8 +730,8 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 :root[data-theme="light"] .installPanel .code { background: var(--well); box-shadow: inset 0 0 0 1px oklch(0.22 0.008 264 / 0.05); }
 :root[data-theme="light"] .code pre { scrollbar-color: oklch(0.22 0.008 264 / 0.18) transparent; }
 :root[data-theme="light"] .panelHint { background: oklch(1 0 0 / 0.9); box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.08); }
-:root[data-theme="light"] .panel.esBig,
-:root[data-theme="light"] .panel.esContext { background: oklch(0.975 0.002 264); }
+/* a preview set to Dark stays a dark stage on the light site */
+:root[data-theme="light"] .panel.esBig.dark, :root[data-theme="light"] .panel.esContext.dark { background: #0b0b0b; box-shadow: none; }
 :root[data-theme="light"] .bnQr { background: radial-gradient(80% 70% at 50% 45%, oklch(1 0 0), oklch(0.965 0.003 264)); }
 :root[data-theme="light"] .rocker.isLight .rkBody { background: oklch(0.93 0.004 264); box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 2px 0 oklch(0.72 0.17 150), 0 3px 6px -1px oklch(0.62 0.16 150 / 0.35); }
 :root[data-theme="light"] .rocker.isLight .rkTop { background: linear-gradient(180deg, oklch(0.89 0.004 264), oklch(0.925 0.004 264)); color: var(--muted); box-shadow: inset 0 2px 3px oklch(0.22 0.008 264 / 0.16); }
@@ -760,58 +761,7 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 .rocker.isLight .rkBot svg { opacity: 0.6; }
 .rocker:active .rkHalf { transform: scale(0.97); }
 
-/* ── component tokens ─────────────────────────────────────────
- * Every component in src/components paints with these, so each one has a dark and a light look.
- * Dark values are the original dark palette; light values sit on the same OKLCH neutral (264)
- * as the page. Accents (green, the brand colours of cards, flags) are not tokens. */
-:root {
-  --k-card: #191a19;                 /* the tile behind a component */
-  --k-surface: #242624;              /* a widget's main body */
-  --k-raised: linear-gradient(180deg, #2b2d2b, #242624); /* buttons, pills, thumbs that stand up */
-  --k-raised-solid: #2b2d2b;
-  --k-raised-hi: #313331;            /* raised, hovered */
-  --k-well: rgba(0, 0, 0, 0.24);     /* inset tracks, inputs, recessed areas */
-  --k-well-solid: #1d1f1d;
-  --k-sunk: #121312;                 /* the deepest inset (slots, holes) */
-  --k-text: #e3e8e3;
-  --k-text2: #c2cbc4;
-  --k-muted: #8b968f;
-  --k-faint: #5d6862;
-  --k-line: rgba(255, 255, 255, 0.07);     /* hairline dividers and inner borders */
-  --k-line2: rgba(255, 255, 255, 0.12);
-  --k-hi: rgba(255, 255, 255, 0.07);       /* the top inner highlight of a raised thing */
-  --k-ring: rgba(0, 0, 0, 0.55);           /* the outer 1px ring of a raised thing */
-  --k-shadow: rgba(0, 0, 0, 0.45);         /* drop shadows */
-  --k-shadow-soft: rgba(0, 0, 0, 0.3);
-  --k-inset: rgba(0, 0, 0, 0.45);          /* inner shadow of a well */
-  --k-lift: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 10px -4px rgba(0, 0, 0, 0.4);
-  --k-float: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 16px 40px rgba(0, 0, 0, 0.45);  /* popovers, menus */
-  --k-on-accent: #ffffff;
-}
-:root[data-theme="light"] {
-  --k-card: oklch(0.994 0.001 264);
-  --k-surface: oklch(1 0 0);
-  --k-raised: linear-gradient(180deg, oklch(1 0 0), oklch(0.975 0.002 264));
-  --k-raised-solid: oklch(1 0 0);
-  --k-raised-hi: oklch(0.985 0.002 264);
-  --k-well: oklch(0.955 0.003 264);
-  --k-well-solid: oklch(0.955 0.003 264);
-  --k-sunk: oklch(0.92 0.004 264);
-  --k-text: oklch(0.22 0.008 264);
-  --k-text2: oklch(0.38 0.009 264);
-  --k-muted: oklch(0.53 0.011 264);
-  --k-faint: oklch(0.69 0.009 264);
-  --k-line: oklch(0.22 0.008 264 / 0.08);
-  --k-line2: oklch(0.22 0.008 264 / 0.13);
-  --k-hi: oklch(1 0 0 / 0.9);
-  --k-ring: oklch(0.22 0.008 264 / 0.1);
-  --k-shadow: oklch(0.22 0.008 264 / 0.12);
-  --k-shadow-soft: oklch(0.22 0.008 264 / 0.07);
-  --k-inset: oklch(0.22 0.008 264 / 0.08);
-  --k-lift: inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 1px 2px oklch(0.22 0.008 264 / 0.06), 0 2px 6px -2px oklch(0.22 0.008 264 / 0.08);
-  --k-float: 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 16px 40px -8px oklch(0.22 0.008 264 / 0.18);
-  --k-on-accent: #ffffff;
-}
+/* the component tokens (--k-*) live in src/components/tokens.css, so they can be copied with a component */
 /* wireframe pages in light: white, light grey and a cooler grey page, with ink bars */
 :root[data-theme="light"] .miniWin { box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 2px 4px oklch(0.22 0.008 264 / 0.06), 0 18px 36px -14px oklch(0.22 0.008 264 / 0.2); }
 :root[data-theme="light"] .wf0 { background: oklch(1 0 0); }
@@ -825,3 +775,272 @@ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-event
 
 /* how many pieces a filter holds */
 .bnCount { margin-left: 6px; font-variant-numeric: tabular-nums; opacity: .5; }
+
+/* ── home: the dock. The filters again, floating at the bottom once the top row has scrolled away.
+ * A dark, grainy slab with a raised thumb (it stays dark on the light theme, like Operate's cards) ── */
+.bnDock { --dock-in: 240ms; --dock-out: 160ms; --dock-slide: 280ms;
+  position: fixed; left: 0; right: 0; bottom: max(20px, env(safe-area-inset-bottom)); z-index: 40; display: flex; justify-content: center; padding: 0 12px; pointer-events: none;
+  opacity: 0; translate: 0 12px; filter: blur(4px); transition: opacity var(--dock-out) ease-out, translate var(--dock-out) ease-out, filter var(--dock-out) ease-out; }
+.bnDock[data-show="true"] { opacity: 1; translate: 0 0; filter: blur(0); transition: opacity var(--dock-in) cubic-bezier(0.23, 1, 0.32, 1), translate var(--dock-in) cubic-bezier(0.23, 1, 0.32, 1), filter var(--dock-in) cubic-bezier(0.23, 1, 0.32, 1); }
+.bnDockBar { position: relative; isolation: isolate; display: flex; gap: 2px; padding: 6px; border-radius: 26px; pointer-events: auto;
+  background: var(--grain) 0 0 / 180px, linear-gradient(180deg, #2a2c2a, #1e201e); background-blend-mode: overlay, normal;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 0 0 1px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.35), 0 12px 24px -8px rgba(0, 0, 0, 0.5), 0 28px 56px -16px rgba(0, 0, 0, 0.55); }
+.bnDock:not([data-show="true"]) .bnDockBar { pointer-events: none; }
+.bnDockBtn { position: relative; z-index: 1; height: 40px; padding: 0 14px 0 12px; border: 0; border-radius: 20px; display: inline-flex; align-items: center; gap: 8px; background: transparent; color: #8b968f; font-size: 13.5px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: color 150ms ease, scale 150ms ease-out; -webkit-tap-highlight-color: transparent; }
+.bnDockBtn svg { flex: none; transition: color 150ms ease; }
+.bnDockBtn:active { scale: 0.96; }
+.bnDockBtn[aria-current="true"] { color: #e3e8e3; }
+.bnDockBtn[aria-current="true"] svg { color: #3fc06c; }
+.bnDockBtn:focus-visible { outline: 2px solid #34b562; outline-offset: -2px; }
+@media (hover: hover) { .bnDockBtn:hover { color: #e3e8e3; } }
+/* the chosen kind sits in a well pressed into the slab: darker than the dock, lit along its lower lip */
+.bnDockThumb { position: absolute; z-index: 0; left: 0; top: 6px; bottom: 6px; border-radius: 20px; background: linear-gradient(180deg, #0f100f, #151615); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.07); transition: transform var(--dock-slide) cubic-bezier(0.2, 0, 0, 1), width var(--dock-slide) cubic-bezier(0.2, 0, 0, 1); pointer-events: none; }
+.bnDockRule { align-self: center; width: 1px; height: 20px; margin: 0 6px 0 4px; background: rgba(255, 255, 255, 0.09); box-shadow: -1px 0 0 rgba(0, 0, 0, 0.4); }
+.bnDockSound { display: grid; place-items: center; padding-right: 6px; margin: -1px 0; }
+/* small windows: the icons alone, each a 44 px target */
+@media (max-width: 760px) {
+  .bnDockBtn { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 22px; }
+  .bnDockBtn span { display: none; }
+  .bnDockBar { border-radius: 28px; }
+  .bnDockThumb { border-radius: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bnDock, .bnDock[data-show="true"] { translate: none; filter: none; transition: opacity 120ms ease; }
+  .bnDockThumb, .bnDockBtn { transition: none; }
+  .bnDockBtn:active { scale: 1; }
+}
+
+/* ── empty state sheet: the Studio's workbench (bar, canvas, settings down the side) ── */
+.esBar { margin-top: 22px; }
+.esPanel { max-height: calc(min(860px, 100vh - 48px) - 32px); }
+/* 24 px swatches, 16 px apart: each hit area is 40 px and none overlap */
+.esPanel .esSwatches { gap: 16px; margin: 4px 0 4px 4px; flex-wrap: wrap; }
+.esPanel .esSwatch { width: 24px; height: 24px; transition: scale 150ms ease-out, box-shadow 150ms ease; }
+.esPanel .esSwatch::after { inset: -8px; }
+.esPanel .esSwatch:active { transform: none; scale: 0.96; }
+/* chips: 30 px tall, rows 10 px apart, so the hit area can reach 40 px */
+.esPanel .chips { gap: 10px 6px; }
+.esPanel .chip { position: relative; }
+.esPanel .chip::after { content: ""; position: absolute; inset: -5px 0; }
+/* the bar's pills are 34 px tall and 8 px apart: 4 px more each way */
+.esBar .seg, .esBar .studioBarRight > * { position: relative; }
+.esBar .round::after, .esBar .topPill::after { content: ""; position: absolute; inset: -4px; }
+.esBar .btn.primary { overflow: visible; }
+.esBar .btn.primary::before { content: ""; position: absolute; inset: -4px; }
+.esBar .segBtn::after { content: ""; position: absolute; inset: -6px 0; }
+.esDots { transition: opacity 150ms ease; }
+.esDots.off { opacity: 0.38; }
+@media (prefers-reduced-motion: reduce) { .esPanel .esSwatch, .esDots { transition: none; } }
+.esPanel .esSwatch.on { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px rgba(255, 255, 255, 0.7); }
+:root[data-theme="light"] .esPanel .esSwatch.on { box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px oklch(0.22 0.008 264 / 0.7); }
+.studioBody .panel.esBig { height: min(520px, calc(100vh - 300px)); min-height: 380px; }
+.studioBody .panel.esContext { margin-top: 12px; }
+@media (max-width: 900px) { .esPanel { max-height: none; } }
+
+/* the copy glyph and its tick share one cell while they trade places */
+.copyIco { flex: none; display: inline-grid; place-items: center; width: 14px; height: 14px; }
+.copyIco > svg { grid-area: 1 / 1; }
+/* a label whose wordings share one cell: the button keeps the widest one's width */
+.stable { display: inline-grid; justify-items: center; }
+.stable > span { grid-area: 1 / 1; }
+
+/* ── the kinds live in the top bar; inside a kind, its own tabs stick under the window's top edge ── */
+.topLinks { gap: 2px; }
+.topLink { white-space: nowrap; }
+.topRule { align-self: center; width: 1px; height: 18px; margin: 0 8px; background: var(--line2); }
+.bnKinds { display: none; }
+.bnSubs { position: sticky; top: 0; z-index: 30; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -24px 6px; padding: 10px 24px; background: linear-gradient(180deg, var(--chrome) 78%, transparent); }
+.bnSubs::-webkit-scrollbar { display: none; }
+.bnSubs .bnChip { flex: none; height: 34px; padding: 0 14px; font-size: 13.5px; }
+@media (max-width: 1100px) { .topPill.search span, .topPill.search kbd { display: none; } }
+@media (max-width: 900px) { .topLinks { display: none; } .bnKinds { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .bnKinds .bnChip { flex: none; } }
+@media (max-width: 640px) { .bnSubs { margin-inline: -16px; padding-inline: 16px; } }
+
+/* ── a long set of tabs runs down the side: plain names, counts to the right, the chosen one raised ── */
+.bnShell { display: grid; grid-template-columns: 184px minmax(0, 1fr); gap: 20px; align-items: start; margin-top: 8px; }
+.bnSide { position: sticky; top: 72px; display: flex; flex-direction: column; gap: 4px; max-height: calc(100vh - 96px); overflow-y: auto; scrollbar-width: none; padding: 2px; }
+.bnSide::-webkit-scrollbar { display: none; }
+.bnSideItem { position: relative; flex: none; height: 36px; padding: 0 12px; border: 0; border-radius: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; background: transparent; color: var(--muted); font-size: 13.5px; font-weight: 500; text-align: left; cursor: pointer; transition: background-color 150ms ease, color 150ms ease, scale 150ms ease-out; }
+.bnSideItem::after { content: ""; position: absolute; inset: -2px 0; }
+.bnSideItem:active { scale: 0.96; }
+.bnSideItem.on { color: var(--text); background: linear-gradient(180deg, #2b2d2b, #242624); box-shadow: var(--lift); }
+.bnSideItem .bnCount { margin: 0; font-size: 12px; opacity: 1; color: var(--faint); }
+.bnSideItem.on .bnCount { color: var(--muted); }
+@media (hover: hover) { .bnSideItem:not(.on):hover { color: var(--text); background: rgba(255, 255, 255, 0.035); } }
+:root[data-theme="light"] .bnSideItem.on { background: var(--panel); }
+@media (prefers-reduced-motion: reduce) { .bnSideItem { transition: none; } .bnSideItem:active { scale: 1; } }
+/* small windows: the list turns back into a row that sticks under the top edge */
+@media (max-width: 900px) {
+  .bnShell { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .bnSide { top: 0; z-index: 30; flex-direction: row; gap: 6px; max-height: none; overflow-x: auto; overflow-y: hidden; margin: 0 -16px 6px; padding: 10px 16px; background: linear-gradient(180deg, var(--chrome) 78%, transparent); }
+  .bnSideItem { height: 34px; padding: 0 14px; border-radius: 17px; background: rgba(255, 255, 255, 0.045); }
+}
+
+/* room for the side list without squeezing the cards */
+.site { max-width: 1440px; }
+
+/* ── the top of the window stays clear. Cards fade out under a 72px band instead of running into
+ * the edge, and the side list rests just below it. The top bar rides above the band. ── */
+.bnFade { position: fixed; top: 0; left: 0; right: 0; height: 72px; z-index: 35; pointer-events: none; background: linear-gradient(180deg, var(--chrome) 0, var(--chrome) 50%, color-mix(in oklab, var(--chrome) 60%, transparent) 76%, transparent); }
+.top { position: relative; z-index: 36; }
+@media (max-width: 900px) { .bnFade { display: none; } }
+
+/* ── light theme: the controls that were still painted dark ── */
+:root[data-theme="light"] .round { background: var(--panel); box-shadow: var(--lift); color: var(--text2); }
+:root[data-theme="light"] .round:hover { background: oklch(0.985 0.002 264); color: var(--text); }
+:root[data-theme="light"] .iconBtn { background: oklch(0.22 0.008 264 / 0.04); box-shadow: inset 0 0 0 1px var(--line); }
+:root[data-theme="light"] .iconBtn:hover { background: oklch(0.22 0.008 264 / 0.08); }
+:root[data-theme="light"] .sld { background: repeating-linear-gradient(-45deg, oklch(0.22 0.008 264 / 0.03) 0 2px, transparent 2px 6px), var(--well); box-shadow: inset 0 1px 2px oklch(0.22 0.008 264 / 0.08), inset 0 0 0 1px oklch(0.22 0.008 264 / 0.04); }
+:root[data-theme="light"] .sldFill { background: linear-gradient(180deg, oklch(1 0 0), oklch(0.985 0.002 264)); box-shadow: inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.09), 0 1px 2px oklch(0.22 0.008 264 / 0.07); }
+:root[data-theme="light"] .sldFill b { background: oklch(0.38 0.009 264); box-shadow: 0 0 0 3px oklch(1 0 0); }
+:root[data-theme="light"] .sldDots i { background: oklch(0.22 0.008 264 / 0.2); }
+:root[data-theme="light"] .sld:focus-visible { box-shadow: 0 0 0 2px oklch(0.62 0.16 150 / 0.5); }
+:root[data-theme="light"] .esSwatch { box-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.14); }
+:root[data-theme="light"] { --sw-track: linear-gradient(180deg, oklch(0.86 0.005 264), oklch(0.89 0.004 264)); --sw-ring: inset 0 1px 2px oklch(0.22 0.008 264 / 0.14), inset 0 0 0 1px oklch(0.22 0.008 264 / 0.06); }
+/* light: cards and preview stages are soft grey containers, so the white widgets inside stand out */
+:root[data-theme="light"] .cmpBig { background: var(--k-card); box-shadow: inset 0 0 0 1px oklch(0.22 0.008 264 / 0.035); }
+:root[data-theme="light"] .bnTag, :root[data-theme="light"] .bnName { background: oklch(1 0 0); }
+
+/* the card that was open: its preview fades back in as the card lands (the shell is still settling) */
+.bnPreview.bnBack { animation: bnBack 260ms 180ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
+@keyframes bnBack { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .bnPreview.bnBack { animation: none; } }
+
+/* ── top bar: one raised pill slides under the chosen kind (the links themselves stay flat) ── */
+.topLinks { position: relative; isolation: isolate; }
+.topLink { position: relative; z-index: 1; }
+.topLink.on, :root[data-theme="light"] .topLink.on { background: transparent; box-shadow: none; }
+.topThumb { position: absolute; z-index: 0; left: 0; top: 50%; height: 34px; margin-top: -17px; border-radius: 17px; pointer-events: none; opacity: 0;
+  background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: transform 280ms cubic-bezier(0.2, 0, 0, 1), width 280ms cubic-bezier(0.2, 0, 0, 1), opacity 150ms ease; }
+.topThumb[data-show="true"] { opacity: 1; }
+:root[data-theme="light"] .topThumb { background: var(--panel); box-shadow: var(--lift); }
+@media (prefers-reduced-motion: reduce) { .topThumb { transition: opacity 120ms ease; } }
+
+/* ── the page's backdrop: a solid centre with a narrow strip of hairline grid down each side, a
+ * 1px rule where they meet. Fixed, so it never repaints on scroll, and under everything.
+ * --gut is the strip's width: 12px on small windows, growing with the spare room beside the
+ * 1440px column, up to 56px. ── */
+:root { --gut: clamp(12px, calc((100vw - 1440px) / 2 + 12px), 56px); --grid-line: rgba(255, 255, 255, 0.07); --grid-rule: rgba(255, 255, 255, 0.08); }
+:root[data-theme="light"] { --grid-line: oklch(0.22 0.008 264 / 0.07); --grid-rule: oklch(0.22 0.008 264 / 0.1); }
+body::after { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    linear-gradient(var(--grid-rule), var(--grid-rule)) var(--gut) 0 / 1px 100% no-repeat,
+    linear-gradient(var(--grid-rule), var(--grid-rule)) calc(100% - var(--gut)) 0 / 1px 100% no-repeat,
+    linear-gradient(var(--chrome), var(--chrome)) center / calc(100% - var(--gut) * 2) 100% no-repeat,
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px) 0 0 / 22px 22px,
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px) 0 0 / 22px 22px,
+    #0b0c0b; }
+:root[data-theme="light"] body::after { background-color: oklch(0.965 0.003 264); }
+/* the grain softened the dark page into a haze: keep only a trace of it */
+body::before { opacity: 0.02; }
+/* the clear band at the top keeps to the centre, so the grid strips run the full height */
+.bnFade { left: calc(var(--gut) + 1px); right: calc(var(--gut) + 1px); }
+
+/* ── the magic wand (wand.ts). Built after the wand on timothymaarv.me.
+ * A phrase is .mw-words, each word .mw-word painting its slice (--mw-o of --mw-t) of one gradient.
+ * is-beaming: a band of colour sweeps through, left to right, every 1.9s.
+ * is-bursting: a ring of colour spreads both ways from where the wand touched (--mw-x). ── */
+@property --mw-beam { syntax: "<percentage>"; inherits: true; initial-value: 0%; }
+@property --mw-r { syntax: "<percentage>"; inherits: true; initial-value: 0%; }
+.mw-words { --mw-blue: #3b82f6; --mw-violet: #8b5cf6; --mw-pink: #ec4899; --mw-orange: #f97316; -webkit-tap-highlight-color: transparent; }
+.bnSub .mw-words, .bnSub .mw-words span { color: var(--text2); }
+.mw-word { position: relative; }
+.mw-word::after { content: ""; position: absolute; inset: -13px -8px; }
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) { .mw-words { cursor: none; } }
+.mw-words.is-beaming { animation: mw-beam 1.9s cubic-bezier(0.45, 0, 0.25, 1) infinite; }
+.mw-words.is-beaming .mw-word { background-image: linear-gradient(90deg, currentColor calc(var(--mw-beam) - 45%), var(--mw-blue) calc(var(--mw-beam) - 36%), var(--mw-violet) calc(var(--mw-beam) - 24%), var(--mw-pink) calc(var(--mw-beam) - 14%), var(--mw-orange) calc(var(--mw-beam) - 6%), currentColor var(--mw-beam)); }
+.mw-words.is-beaming .mw-word, .mw-words.is-bursting .mw-word { background-size: var(--mw-t, 100%) 100%; background-position: calc(var(--mw-o, 0px) * -1) 0; background-repeat: no-repeat; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+@keyframes mw-beam { 0% { --mw-beam: 0%; } 78%, to { --mw-beam: 145%; } }
+.mw-words.is-bursting { animation: mw-burst 1.1s cubic-bezier(0.22, 0.7, 0.3, 1); }
+.mw-words.is-bursting .mw-word { --mw-l: calc(var(--mw-x) - var(--mw-r)); --mw-rt: calc(var(--mw-x) + var(--mw-r)); --mw-band: min(var(--mw-r), 30%); --mw-tail: min(var(--mw-r), 24%);
+  background-image: linear-gradient(90deg, currentColor var(--mw-l), var(--mw-orange) calc(var(--mw-l) + var(--mw-tail) * 0.17), var(--mw-pink) calc(var(--mw-l) + var(--mw-tail) * 0.4), var(--mw-violet) calc(var(--mw-l) + var(--mw-tail) * 0.68), var(--mw-blue) calc(var(--mw-l) + var(--mw-tail)), currentColor calc(var(--mw-l) + var(--mw-band)), currentColor calc(var(--mw-rt) - var(--mw-band)), var(--mw-blue) calc(var(--mw-rt) - var(--mw-tail)), var(--mw-violet) calc(var(--mw-rt) - var(--mw-tail) * 0.68), var(--mw-pink) calc(var(--mw-rt) - var(--mw-tail) * 0.4), var(--mw-orange) calc(var(--mw-rt) - var(--mw-tail) * 0.17), currentColor var(--mw-rt)); }
+@keyframes mw-burst { 0% { --mw-r: 0%; } to { --mw-r: 130%; } }
+/* the layer: dust canvas and the wand. The wand is a 7px stick, black with ivory caps, a star glinting at its tip */
+.mw-layer { position: fixed; inset: 0; z-index: 99999; overflow: hidden; pointer-events: none; }
+.mw-dust { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mw-wand { --mw-w: 7px; --mw-len: 92px; --mw-grip: 70px; --mw-lift: 1;
+  --mw-shaft: linear-gradient(90deg, #050505 0%, #1c1c1c 35%, #5e5e5e 68%, #2a2a2a 80%, #0a0a0a 100%);
+  --mw-ivory: linear-gradient(90deg, #a39d8d 0%, #e3ded1 35%, #fff 68%, #ece8dc 82%, #b3ac9c 100%);
+  --mw-cast: rgba(0, 0, 0, 0.7); --mw-rim: rgba(255, 255, 255, 0.22);
+  position: absolute; top: 0; left: 0; width: 0; height: 0; will-change: transform; }
+:root[data-theme="light"] .mw-wand { --mw-cast: rgba(0, 0, 0, 0.35); --mw-rim: transparent; }
+.mw-lift { position: absolute; top: 0; left: 0; transform-origin: 0 0; filter: drop-shadow(0 0 0.5px var(--mw-rim)) drop-shadow(calc(var(--mw-lift) * 5px) calc(var(--mw-lift) * 12px) calc(1px + var(--mw-lift) * 4px) var(--mw-cast)); transition: opacity 160ms, transform 200ms; }
+.mw-wand:not(.is-away) .mw-lift { animation: mw-appear 300ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.mw-wand.is-away .mw-lift { opacity: 0; transform: scale(0.6); }
+@keyframes mw-appear { 0% { opacity: 0; transform: scale(0.5) rotate(-24deg); } to { opacity: 1; transform: none; } }
+.mw-stick { position: absolute; left: calc(var(--mw-w) / -2); top: calc(var(--mw-grip) * -1); width: var(--mw-w); height: var(--mw-len); transform-origin: 50% var(--mw-grip); will-change: transform; }
+.mw-stick > span { position: absolute; left: 0; right: 0; }
+.mw-shaft { top: 17px; bottom: 12px; background: var(--mw-shaft); box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.8), inset 0 -1px 1px rgba(0, 0, 0, 0.8); }
+.mw-cap { background: linear-gradient(180deg, rgba(255, 255, 255, 0.6), transparent 35%), var(--mw-ivory); }
+.mw-cap--tip { top: 0; height: 17px; border-radius: 3.5px 3.5px 0 0; }
+.mw-cap--butt { bottom: 0; height: 12px; border-radius: 0 0 3.5px 3.5px; background: linear-gradient(0deg, rgba(0, 0, 0, 0.3), transparent 45%), var(--mw-ivory); }
+.mw-stick > .mw-star { top: 0; left: 50%; right: auto; width: 20px; height: 20px; margin: -10px 0 0 -10px; clip-path: polygon(50% 0, 59% 41%, 100% 50%, 59% 59%, 50% 100%, 41% 59%, 0 50%, 41% 41%); background: conic-gradient(#3b82f6, #8b5cf6, #ec4899, #f97316, #facc15, #3b82f6); animation: mw-glint 1.3s ease-in-out infinite; }
+@keyframes mw-glint { 0%, to { opacity: 0.6; transform: scale(0.45) rotate(0); } 50% { opacity: 1; transform: scale(1.1) rotate(90deg); } }
+
+/* ── breathing room: the content sits in a centred column well clear of the grid strips.
+ * --room is the space between a strip's rule and the content: 16px on a phone, 8% of a laptop
+ * window, up to 150px. ── */
+:root { --room: clamp(16px, 8vw, 150px); --gut: clamp(12px, calc((100vw - 1720px) / 2 + 12px), 56px); }
+.site { max-width: 1720px; padding-inline: calc(var(--gut) + var(--room)); }
+.bnSubs { margin-inline: -16px; padding-inline: 16px; }
+@media (max-width: 900px) { .bnSide { margin-inline: -16px; padding-inline: 16px; } }
+
+/* the confetti card is 400px wide by design: it is centred whatever the tile's width, and shrinks
+ * to fit a narrow tile (atan2 of two lengths gives the plain ratio a scale needs) */
+.bnConfetti { container-type: size; display: block; }
+.bnConfetti .bnScale { position: absolute; left: 50%; top: 50%; translate: -50% -50%; scale: min(0.74, tan(atan2(100cqw - 40px, 400px))); }
+/* light: every preview stage in a sheet is a soft grey container too (settings and code panels stay white) */
+:root[data-theme="light"] .panel.hero, :root[data-theme="light"] .panel.small, :root[data-theme="light"] .panel.wide, :root[data-theme="light"] .panel.playStage, :root[data-theme="light"] .panel.introCard { background: var(--k-card); box-shadow: inset 0 0 0 1px oklch(0.22 0.008 264 / 0.035); }
+
+/* ── the backdrop is dots, not a grid: one dot every 22px across the whole page, a little stronger
+ * in the side strips and quiet behind the content. Two sparser layers of brighter dots breathe in
+ * and out at different speeds, so the field twinkles. Only opacity animates (it costs no repaint). ── */
+:root { --dot: rgba(255, 255, 255, 0.13); --dot-hi: rgba(255, 255, 255, 0.5); }
+:root[data-theme="light"] { --dot: oklch(0.22 0.008 264 / 0.16); --dot-hi: oklch(0.22 0.008 264 / 0.5); }
+body::after, html::before, html::after { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 var(--gut), rgba(0, 0, 0, 0.45) calc(var(--gut) + 1px), rgba(0, 0, 0, 0.45) calc(100% - var(--gut) - 1px), #000 calc(100% - var(--gut)), #000 100%);
+  mask-image: linear-gradient(90deg, #000 0, #000 var(--gut), rgba(0, 0, 0, 0.45) calc(var(--gut) + 1px), rgba(0, 0, 0, 0.45) calc(100% - var(--gut) - 1px), #000 calc(100% - var(--gut)), #000 100%); }
+body::after { background: radial-gradient(circle at 11px 11px, var(--dot) 1px, transparent 1.6px) 0 0 / 22px 22px; }
+:root[data-theme="light"] body::after { background-color: transparent; }
+html::before { background: radial-gradient(circle at 11px 11px, var(--dot-hi) 1px, transparent 1.6px) 0 0 / 66px 88px; opacity: 0.1; animation: dotBreath 5.2s ease-in-out infinite alternate; }
+html::after { background: radial-gradient(circle at 11px 11px, var(--dot-hi) 1px, transparent 1.6px) 44px 44px / 110px 66px; opacity: 0.1; animation: dotBreath 7.4s ease-in-out -3s infinite alternate; }
+@keyframes dotBreath { from { opacity: 0.05; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { html::before, html::after { animation: none; opacity: 0.35; } }
+
+/* a little air above the top bar, so the page is framed evenly */
+.site { padding-top: 20px; }
+
+/* ── the frame: the content sits on a solid panel, inset by --gut at the left, the right AND the top.
+ * Outside the panel is the darker ground with the dots (they twinkle there). The top strip is a
+ * fixed bar above the content, so the page scrolls away under it and the frame never moves. ── */
+:root { --ground: #0b0c0b; }
+:root[data-theme="light"] { --ground: oklch(0.955 0.003 264); }
+html { background: var(--ground); }
+body { background: transparent; }
+body::after, html::before, html::after { -webkit-mask-image: none; mask-image: none; }
+body::after { background:
+    linear-gradient(var(--grid-rule), var(--grid-rule)) var(--gut) var(--gut) / 1px 100% no-repeat,
+    linear-gradient(var(--grid-rule), var(--grid-rule)) calc(100% - var(--gut)) var(--gut) / 1px 100% no-repeat,
+    linear-gradient(var(--chrome), var(--chrome)) center var(--gut) / calc(100% - var(--gut) * 2) 100% no-repeat,
+    radial-gradient(circle at 11px 11px, var(--dot) 1px, transparent 1.6px) 0 0 / 22px 22px; }
+:root[data-theme="light"] body::after { background-color: transparent; }
+.site::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: var(--gut); z-index: 60; pointer-events: none;
+  background: linear-gradient(var(--grid-rule), var(--grid-rule)) var(--gut) 100% / calc(100% - var(--gut) * 2) 1px no-repeat,
+    radial-gradient(circle at 11px 11px, var(--dot) 1px, transparent 1.6px) 0 0 / 22px 22px, var(--ground); }
+.site { padding-top: calc(var(--gut) + 6px); }
+.bnFade { top: calc(var(--gut) + 1px); }
+/* the twinkling dots live only outside the panel (the side strips) */
+html::before, html::after { -webkit-mask-image: linear-gradient(90deg, #000 var(--gut), transparent var(--gut), transparent calc(100% - var(--gut)), #000 calc(100% - var(--gut))); mask-image: linear-gradient(90deg, #000 var(--gut), transparent var(--gut), transparent calc(100% - var(--gut)), #000 calc(100% - var(--gut))); }
+#root { background: transparent; }
+
+/* ── the panel is a real rounded sheet now (28px corners, a hairline ring and a faint top highlight,
+ * like the cards), not a painted rectangle. The dots moved to the page ground behind it. ── */
+:root { --frame-r: clamp(14px, 2.4vw, 28px); }
+html { background: radial-gradient(circle at 11px 11px, var(--dot) 1px, transparent 1.6px) 0 0 / 22px 22px fixed, var(--ground); }
+body::after { top: var(--gut); left: var(--gut); right: var(--gut); bottom: -40px; inset-block-end: -40px; border-radius: var(--frame-r) var(--frame-r) 0 0;
+  background: var(--chrome); box-shadow: 0 0 0 1px var(--grid-rule), inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 -8px 40px -12px rgba(0, 0, 0, 0.5); }
+:root[data-theme="light"] body::after { background: var(--chrome); box-shadow: 0 0 0 1px var(--grid-rule), inset 0 1px 0 oklch(1 0 0), 0 -6px 30px -14px oklch(0.22 0.008 264 / 0.12); }
+.site::before { background: radial-gradient(circle at 11px 11px, var(--dot) 1px, transparent 1.6px) 0 0 / 22px 22px, var(--ground); }
+/* the clear band under the top edge follows the panel's rounded corners */
+.bnFade { border-radius: var(--frame-r) var(--frame-r) 0 0; }

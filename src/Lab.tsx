@@ -1,4 +1,5 @@
 // Dev only: #/lab/<key> renders a native component in dark tiles at the real bento sizes.
+import { Suspense } from "react";
 import { NATIVE } from "./site/native";
 
 const BOXES: [string, number, number, "card" | "big"][] = [["2 col tile", 400, 360, "card"], ["3 col tile", 620, 360, "card"], ["short tile", 620, 196, "card"], ["sheet", 1100, 620, "big"]];
@@ -10,7 +11,7 @@ export default function Lab({ k }: { k: string }) {
     <div style={{ display: "flex", flexWrap: "wrap", gap: 16, padding: 16, background: "var(--bg)", minHeight: "100vh" }}>
       {BOXES.map(([label, w, h, size]) => (
         <div key={label} style={{ width: w, height: h, position: "relative", borderRadius: 28, background: "var(--k-card)", boxShadow: "0 0 0 1px var(--k-line)", overflow: "hidden" }}>
-          <C size={size} />
+          <Suspense fallback={null}><C size={size} /></Suspense>
           <span style={{ position: "absolute", left: 12, top: 8, font: "11px monospace", color: "#5d6862", pointerEvents: "none" }}>{label} {w}×{h}</span>
         </div>
       ))}

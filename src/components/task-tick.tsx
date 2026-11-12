@@ -10,15 +10,35 @@ import { play } from "../sound/sound";
 
 /* ── tokens ─────────────────────────────────────────────── */
 const T = {
-  surface: "#242624",
-  raised: "linear-gradient(180deg,#2b2d2b,#242624)",
-  raisedShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
-  text: "#e3e8e3",
-  muted: "#8b968f",
-  faint: "#5d6862",
+  surface: "var(--tt-shell)",
+  raised: "var(--k-raised)",
+  raisedShadow: "var(--k-lift)",
+  text: "var(--k-text)",
+  muted: "var(--k-muted)",
   green: "#34b562",
-  badge: "rgba(255,255,255,.05)",
+  badge: "var(--tt-badge)",
 };
+
+/* ── theme ──────────────────────────────────────────────────
+ * The label colour is tweened by framer-motion and the glow is drawn in WebGL, so both are
+ * picked here as plain values. Everything else is painted with the --k tokens and the --tt
+ * variables below. */
+const DARK = { label: "#e3e8e3", done: "#5d6862", glow: "#34b562", gain: 0.32 };
+const LIGHT: typeof DARK = { label: "#191b1e", done: "#898c92", glow: "#2fae5c", gain: 0.42 };
+const readTheme = () => (typeof document !== "undefined" && document.documentElement.dataset.theme === "light" ? "light" : "dark");
+function useTheme() {
+  const [theme, setTheme] = useState<"light" | "dark">(readTheme);
+  useEffect(() => {
+    const mo = new MutationObserver(() => setTheme(readTheme()));
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    setTheme(readTheme());
+    return () => mo.disconnect();
+  }, []);
+  return theme;
+}
+const CSS = `.tasktick-focus:focus-visible{outline:2px solid #34b562;outline-offset:2px}
+.tasktick-root{--tt-shell:#242624;--tt-shell-sh:inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(0,0,0,.5), 0 12px 32px -12px rgba(0,0,0,.6);--tt-badge:rgba(255,255,255,.05);--tt-badge-ring:rgba(255,255,255,.03);--tt-strike:#5d6862;--tt-box:rgba(255,255,255,.1);--tt-box-hover:rgba(255,255,255,.17);--tt-box-sh:inset 0 1px 1px rgba(0,0,0,.25);--tt-row-hover:rgba(255,255,255,0.025)}
+:root[data-theme="light"] .tasktick-root{--tt-shell:oklch(0.972 0.003 264);--tt-shell-sh:inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 12px 32px -14px oklch(0.22 0.008 264 / 0.18);--tt-badge:oklch(0.22 0.008 264 / 0.05);--tt-badge-ring:oklch(0.22 0.008 264 / 0.04);--tt-strike:oklch(0.64 0.009 264);--tt-box:oklch(0.22 0.008 264 / 0.07);--tt-box-hover:oklch(0.22 0.008 264 / 0.13);--tt-box-sh:inset 0 0 0 1px oklch(0.22 0.008 264 / 0.16), inset 0 1px 1px oklch(0.22 0.008 264 / 0.08);--tt-row-hover:oklch(0.22 0.008 264 / 0.03)}`;
 
 /* ── springs (verbatim) ─────────────────────────────────── */
 const SPRING_ENTRY = { type: "spring" as const, visualDuration: 0.45, bounce: 0.14 };
@@ -185,7 +205,7 @@ function CheckboxBurst({ burstId }: { burstId: number }) {
     </>
   );
 }
-function Checkbox({ checked, onToggle, burst = true, idle = "rgba(255,255,255,.1)", hover = "rgba(255,255,255,.17)" }: { checked: boolean; onToggle: (e: React.MouseEvent) => void; burst?: boolean; idle?: string; hover?: string }) {
+function Checkbox({ checked, onToggle, burst = true, idle = "var(--tt-box)", hover = "var(--tt-box-hover)" }: { checked: boolean; onToggle: (e: React.MouseEvent) => void; burst?: boolean; idle?: string; hover?: string }) {
   const [hovered, setHovered] = useState(false);
   const [fx, setFx] = useState({ on: false, id: 0 });
   const prev = useRef(false);
@@ -204,7 +224,7 @@ function Checkbox({ checked, onToggle, burst = true, idle = "rgba(255,255,255,.1
       aria-label={checked ? "Mark incomplete" : "Mark complete"} aria-pressed={checked}
       style={{ position: "relative", flexShrink: 0, width: 20, height: 20, border: 0, padding: 0, background: "none", cursor: "pointer", borderRadius: 4 }}
       whileTap={{ scale: 0.95 }} transition={SPRING_PRESS}>
-      <div style={{ position: "absolute", inset: "10%", borderRadius: 4, background: checked ? "transparent" : hovered ? hover : idle, boxShadow: checked ? "none" : "inset 0 1px 1px rgba(0,0,0,.25)", transition: "background 120ms ease" }} />
+      <div style={{ position: "absolute", inset: "10%", borderRadius: 4, background: checked ? "transparent" : hovered ? hover : idle, boxShadow: checked ? "none" : "var(--tt-box-sh)", transition: "background 120ms ease" }} />
       <motion.div style={{ position: "absolute", inset: "10%", borderRadius: 4, background: T.green, boxShadow: "inset 0 1px 0 rgba(255,255,255,.25)" }} initial={false} animate={{ scale: checked ? 1 : 0 }} transition={reduced ? { duration: 0.08 } : SPRING_FILL} />
       <AnimatePresence>
         {fx.on && (
@@ -223,7 +243,7 @@ function Checkbox({ checked, onToggle, burst = true, idle = "rgba(255,255,255,.1
 }
 
 const Badge = ({ children }: { children: React.ReactNode }) => (
-  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 6px", borderRadius: 8, flexShrink: 0, background: T.badge, boxShadow: "inset 0 0 0 1px rgba(255,255,255,.03)" }}>
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2px 6px", borderRadius: 8, flexShrink: 0, background: T.badge, boxShadow: "inset 0 0 0 1px var(--tt-badge-ring)" }}>
     <span style={{ fontWeight: 500, fontSize: 13, lineHeight: "20px", letterSpacing: "-0.078px", color: T.muted, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{children}</span>
   </div>
 );
@@ -232,16 +252,17 @@ function TaskRow({ label, time, delayS, onRipple }: { label: string; time: strin
   const [checked, setChecked] = useState(false);
   const [hovered, setHovered] = useState(false);
   const reduced = useReducedMotion();
+  const P = useTheme() === "light" ? LIGHT : DARK;
   return (
     <motion.div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", borderRadius: 8, padding: "0 2px", minHeight: 28, background: hovered ? "rgba(255,255,255,0.025)" : "transparent", transition: "background 120ms ease" }}
+      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", borderRadius: 8, padding: "0 2px", minHeight: 28, background: hovered ? "var(--tt-row-hover)" : "transparent", transition: "background 120ms ease" }}
       initial={{ opacity: 0, y: reduced ? 0 : 8 }} animate={{ opacity: 1, y: 0 }} transition={reduced ? { duration: 0.15 } : { ...SPRING_ENTRY, delay: delayS }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 0 0", minWidth: 0 }}>
         <Checkbox checked={checked} onToggle={(e) => { play(checked ? "tap" : "check"); setChecked(!checked); onRipple(e); }} />
         <div style={{ position: "relative", flexShrink: 0 }}>
           <motion.span style={{ display: "block", fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", whiteSpace: "nowrap", userSelect: "none" }}
-            animate={{ color: checked ? T.faint : T.text }} transition={reduced ? { duration: 0 } : { duration: 0.18, ease: "easeOut" }}>{label}</motion.span>
-          <motion.div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: T.faint, transformOrigin: "left center", pointerEvents: "none" }}
+            animate={{ color: checked ? P.done : P.label }} transition={reduced ? { duration: 0 } : { duration: 0.18, ease: "easeOut" }}>{label}</motion.span>
+          <motion.div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "var(--tt-strike)", transformOrigin: "left center", pointerEvents: "none" }}
             initial={false} animate={{ scaleX: checked ? 1 : 0 }} transition={reduced ? { duration: 0 } : { type: "spring", visualDuration: 0.22, bounce: 0 }} />
         </div>
       </div>
@@ -257,15 +278,16 @@ export default function TaskTick({ size = "card" }: { size?: "card" | "big" }) {
   const tasks = size === "card" && box.h && box.h < 260 ? TASKS.slice(0, 2) : TASKS;
   const cardRef = useRef<HTMLDivElement>(null);
   const [ripple, setRipple] = useState<RippleTrigger>({ x: 0.5, y: 0.5, key: 0 });
+  const P = useTheme() === "light" ? LIGHT : DARK;
   const fireRipple = (e: React.MouseEvent) => { const uv = computeRippleUV(e, cardRef.current); if (uv) setRipple((p) => ({ ...uv, key: p.key + 1 })); };
 
   return (
     <MotionConfig reducedMotion="user">
-      <style>{`.tasktick-focus:focus-visible{outline:2px solid ${T.green};outline-offset:2px}`}</style>
+      <style>{CSS}</style>
       <div ref={rootRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        <div ref={innerRef} data-own-click style={{ pointerEvents: "auto", width: 358, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center", color: T.text }}>
+        <div ref={innerRef} data-own-click className="tasktick-root" style={{ pointerEvents: "auto", width: 358, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center", color: T.text }}>
           <motion.div
-            style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "hidden", borderRadius: 24, width: "100%", background: T.surface, boxShadow: "inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(0,0,0,.5), 0 12px 32px -12px rgba(0,0,0,.6)", padding: "12px 4px 4px" }}
+            style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "hidden", borderRadius: 24, width: "100%", background: T.surface, boxShadow: "var(--tt-shell-sh)", padding: "12px 4px 4px" }}
             initial={{ opacity: 0, y: reduced ? 0 : 16 }} animate={{ opacity: 1, y: 0 }} transition={SPRING_ENTRY}>
             <motion.div style={{ padding: "0 10px" }}
               initial={{ opacity: 0, y: reduced ? 0 : 6 }} animate={{ opacity: 1, y: 0 }} transition={reduced ? { duration: 0.15 } : { ...SPRING_ENTRY, delay: 0.08 }}>
@@ -275,7 +297,7 @@ export default function TaskTick({ size = "card" }: { size?: "card" | "big" }) {
               style={{ position: "relative", display: "flex", flexDirection: "column", gap: 8, padding: 12, width: "100%", overflow: "hidden", borderRadius: "16px 16px 20px 20px", background: T.raised, boxShadow: T.raisedShadow }}
               initial={{ opacity: 0, y: reduced ? 0 : 10 }} animate={{ opacity: 1, y: 0 }} transition={reduced ? { duration: 0.15 } : { ...SPRING_ENTRY, delay: 0.16 }}>
               {tasks.map((t, i) => <TaskRow key={t.id} label={t.label} time={t.time} delayS={0.26 + i * 0.07} onRipple={fireRipple} />)}
-              <CardRipple trigger={ripple} />
+              <CardRipple trigger={ripple} glowColor={P.glow} gain={P.gain} />
             </motion.div>
           </motion.div>
         </div>

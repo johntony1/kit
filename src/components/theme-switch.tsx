@@ -9,8 +9,11 @@
  *  620ms   the circle has grown past the farthest corner (cubic-bezier(.2,0,0,1)); the copy
  *          becomes the page
  *
+ * The little window starts in the theme of the page around it (and follows it when that changes),
+ * but flipping the rocker only changes the little window, never the page.
+ *
  * One file, React and framer-motion. Render it inside a positioned box. */
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { animate, motion, useMotionValue, useMotionTemplate } from "framer-motion";
 import { play } from "../sound/sound";
 
@@ -18,9 +21,15 @@ type Mode = "dark" | "light";
 
 /* two palettes for the little window. Light is a cool OKLCH neutral (hue 264), Linear style */
 const P = {
-  dark: { page: "#141514", bar: "#1b1c1b", ink: "rgba(255,255,255,.1)", inkStrong: "rgba(255,255,255,.28)", card: "#1d1e1d", cardLine: "rgba(255,255,255,.07)", frame: "0 0 0 1px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06), 0 24px 48px -16px rgba(0,0,0,.7)" },
-  light: { page: "oklch(0.982 0.002 264)", bar: "oklch(1 0 0)", ink: "oklch(0.22 0.008 264 / .1)", inkStrong: "oklch(0.22 0.008 264 / .34)", card: "oklch(1 0 0)", cardLine: "oklch(0.22 0.008 264 / .08)", frame: "0 0 0 1px oklch(0.22 0.008 264 / .12), 0 24px 48px -16px rgba(0,0,0,.55)" },
+  dark: { page: "#141514", bar: "#1b1c1b", ink: "rgba(255,255,255,.1)", inkStrong: "rgba(255,255,255,.28)", card: "#1d1e1d", cardLine: "rgba(255,255,255,.07)", frame: "0 0 0 1px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06), var(--ts-drop-dark)" },
+  light: { page: "oklch(0.982 0.002 264)", bar: "oklch(1 0 0)", ink: "oklch(0.22 0.008 264 / .1)", inkStrong: "oklch(0.22 0.008 264 / .34)", card: "oklch(1 0 0)", cardLine: "oklch(0.22 0.008 264 / .08)", frame: "0 0 0 1px oklch(0.22 0.008 264 / .12), var(--ts-drop-light)" },
 };
+
+/* the window's drop shadow depends on the page it floats over, not on its own theme */
+const CSS = `
+.theme-switch { --ts-drop-dark: 0 24px 48px -16px rgba(0,0,0,.7); --ts-drop-light: 0 24px 48px -16px rgba(0,0,0,.55); }
+:root[data-theme="light"] .theme-switch { --ts-drop-dark: 0 2px 4px oklch(0.22 0.008 264 / .1), 0 20px 40px -16px oklch(0.22 0.008 264 / .38); --ts-drop-light: 0 2px 4px oklch(0.22 0.008 264 / .05), 0 20px 40px -16px oklch(0.22 0.008 264 / .2); }`;
+const siteMode = (): Mode => (typeof document !== "undefined" && document.documentElement.dataset.theme === "light" ? "light" : "dark");
 
 const W = 320, H = 210;
 const SWITCH = { x: W - 30, y: 26 }; // the rocker's centre inside the window
@@ -90,8 +99,16 @@ export function Rocker({ mode, onFlip }: { mode: Mode; onFlip: () => void }) {
 export default function ThemeSwitch({ size = "card" }: { size?: "card" | "big" }) {
   const box = useRef<HTMLDivElement>(null);
   const [s, setS] = useState(1);
-  const [mode, setMode] = useState<Mode>("dark");
+  const [mode, setMode] = useState<Mode>(siteMode);
   const [next, setNext] = useState<Mode | null>(null);
+  const busy = useRef(false);
+
+  // follow the page's theme when it changes (one way: the rocker never sets the page's theme)
+  useEffect(() => {
+    const mo = new MutationObserver(() => { if (!busy.current) setMode(siteMode()); });
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => mo.disconnect();
+  }, []);
   const r = useMotionValue(0);
   const clip = useMotionTemplate`circle(${r}px at ${SWITCH.x}px ${SWITCH.y}px)`;
 
@@ -108,13 +125,15 @@ export default function ThemeSwitch({ size = "card" }: { size?: "card" | "big" }
     const to: Mode = mode === "dark" ? "light" : "dark";
     play(to === "dark" ? "on" : "off");
     setNext(to);
+    busy.current = true;
     r.set(0);
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    animate(r, R, { duration: still ? 0 : 0.62, ease: [0.2, 0, 0, 1], onComplete: () => { setMode(to); setNext(null); } });
+    animate(r, R, { duration: still ? 0 : 0.62, ease: [0.2, 0, 0, 1], onComplete: () => { setMode(to); setNext(null); busy.current = false; } });
   };
 
   return (
-    <div ref={box} data-own-click style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+    <div ref={box} data-own-click className="theme-switch" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
+      <style>{CSS}</style>
       <div style={{ width: W * s, height: H * s, position: "relative" }}>
         <div style={{ position: "absolute", left: 0, top: 0, width: W, height: H, transform: `scale(${s})`, transformOrigin: "0 0", borderRadius: 16, overflow: "hidden", boxShadow: P[mode].frame }}>
           <Page m={mode} />

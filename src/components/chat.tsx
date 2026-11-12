@@ -1,4 +1,4 @@
-// Chat composer: "What mood are you in". Port of Music animation / ChatbotIdle.tsx, dark.
+// Chat composer: "What mood are you in". Port of Music animation / ChatbotIdle.tsx, in light and dark.
 // Drag (or tap) the handle to open Recent songs, hover a sleeve to crack it open, tap one for Now playing.
 import {
   motion,
@@ -45,10 +45,24 @@ function WaveSvg({ style }: { style?: CSSProperties }) {
     <svg viewBox="0 0 236.445 26.6028" preserveAspectRatio="none" aria-hidden="true" style={{ display: "block", ...style }}>
       {WAVE.map((h, i) => {
         const hh = Math.max(0.73, h * k);
-        return <rect key={i} x={i * 1.8289} y={13.3 - hh / 2} width={0.7309} height={hh} rx={0.365} fill="#e3e8e3" />;
+        return <rect key={i} x={i * 1.8289} y={13.3 - hh / 2} width={0.7309} height={hh} rx={0.365} style={{ fill: "var(--k-text)" }} />;
       })}
     </svg>
   );
+}
+
+// The page theme, for the one colour framer-motion animates (the close button's hover wash).
+function useLight() {
+  const [light, setLight] = useState(() => typeof document !== "undefined" && document.documentElement.dataset.theme === "light");
+  useEffect(() => {
+    const root = document.documentElement;
+    const read = () => setLight(root.dataset.theme === "light");
+    read();
+    const mo = new MutationObserver(read);
+    mo.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => mo.disconnect();
+  }, []);
+  return light;
 }
 
 // ── Icons ──────────────────────────────────────────────────
@@ -62,18 +76,18 @@ function ArrowUpIcon() {
 function MusicAiIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M6.2 11.3V4.4l6-1.4v6.9" stroke="#34b562" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="4.9" cy="11.4" r="1.6" fill="#34b562" />
-      <circle cx="10.9" cy="10" r="1.6" fill="#34b562" />
-      <path d="M2.6 2.4l.35.9.9.35-.9.35-.35.9-.35-.9-.9-.35.9-.35z" fill="#34b562" />
+      <path d="M6.2 11.3V4.4l6-1.4v6.9" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" style={{ stroke: "var(--ch-green)" }} />
+      <circle cx="4.9" cy="11.4" r="1.6" style={{ fill: "var(--ch-green)" }} />
+      <circle cx="10.9" cy="10" r="1.6" style={{ fill: "var(--ch-green)" }} />
+      <path d="M2.6 2.4l.35.9.9.35-.9.35-.35.9-.35-.9-.9-.35.9-.35z" style={{ fill: "var(--ch-green)" }} />
     </svg>
   );
 }
 function PauseIconImg() {
   return (
     <svg viewBox="0 0 5.83333 8.75" width={5.83333} height={8.75} fill="none" aria-hidden="true" style={{ display: "block", overflow: "visible", flexShrink: 0 }}>
-      <rect x={0} y={0} width={0.972222} height={8.75} fill="#191a19" />
-      <rect x={4.86111} y={0} width={0.972222} height={8.75} fill="#191a19" />
+      <rect x={0} y={0} width={0.972222} height={8.75} style={{ fill: "var(--ch-on-ink)" }} />
+      <rect x={4.86111} y={0} width={0.972222} height={8.75} style={{ fill: "var(--ch-on-ink)" }} />
     </svg>
   );
 }
@@ -87,13 +101,13 @@ function PlayIconImg() {
 function CloseIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true" focusable="false">
-      <path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" stroke="#8b968f" strokeWidth="1.25" strokeLinecap="round" />
+      <path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" strokeWidth="1.25" strokeLinecap="round" style={{ stroke: "var(--k-muted)" }} />
     </svg>
   );
 }
 function KbdHint({ children }: { children: ReactNode }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", fontSize: 10, fontWeight: 500, color: "#c2cbc4", background: "rgba(255,255,255,.06)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.06)", borderRadius: 4, padding: "1px 5px", lineHeight: "16px", letterSpacing: "-0.04px" }}>
+    <span style={{ display: "inline-flex", alignItems: "center", fontSize: 10, fontWeight: 500, color: "var(--k-text2)", background: "var(--ch-tint)", boxShadow: "inset 0 0 0 1px var(--ch-edge)", borderRadius: 4, padding: "1px 5px", lineHeight: "16px", letterSpacing: "-0.04px" }}>
       {children}
     </span>
   );
@@ -153,8 +167,9 @@ function VinylDisc({ cover, isSpinning, size = 80, reduceMotion = false }: { cov
 function NowPlayingCard({ album, isPlaying, elapsed, onPlayPause, onClose, reduceMotion }: { album: Album; isPlaying: boolean; elapsed: number; onPlayPause: () => void; onClose: () => void; reduceMotion: boolean }) {
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   const stagger = (i: number) => (reduceMotion ? { duration: 0 } : { ...NP_ENTER_SPRING, delay: i * 0.055 });
-  const divider: CSSProperties = { height: 1, background: "rgba(255,255,255,.07)", width: "100%", transformOrigin: "left center" };
-  const hint: CSSProperties = { fontSize: 10, color: "#8b968f" };
+  const divider: CSSProperties = { height: 1, background: "var(--k-line)", width: "100%", transformOrigin: "left center" };
+  const hint: CSSProperties = { fontSize: 10, color: "var(--k-muted)" };
+  const light = useLight();
   return (
     <motion.div
       key="now-playing"
@@ -167,16 +182,16 @@ function NowPlayingCard({ album, isPlaying, elapsed, onPlayPause, onClose, reduc
       <motion.div initial={reduceMotion ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={stagger(0)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 12, paddingRight: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <MusicAiIcon />
-          <span style={{ fontSize: 12, color: "#8b968f", letterSpacing: "-0.06px" }}>Now playing...</span>
+          <span style={{ fontSize: 12, color: "var(--k-muted)", letterSpacing: "-0.06px" }}>Now playing...</span>
         </div>
         <motion.button
           type="button"
           onClick={(e) => { e.stopPropagation(); onClose(); }}
-          whileHover={{ scale: 1.1, background: "rgba(255,255,255,.07)" }}
+          whileHover={{ scale: 1.1, background: light ? "rgba(27,29,36,.07)" : "rgba(255,255,255,.07)" }}
           whileTap={{ scale: 0.9 }}
           transition={BTN_SPRING}
           onPointerDown={(e) => e.stopPropagation()}
-          style={{ width: 20, height: 20, borderRadius: 6, background: "rgba(255,255,255,0)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0 }}
+          style={{ width: 20, height: 20, borderRadius: 6, background: light ? "rgba(27,29,36,0)" : "rgba(255,255,255,0)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0 }}
           aria-label="Close now playing"
         >
           <CloseIcon />
@@ -190,20 +205,20 @@ function NowPlayingCard({ album, isPlaying, elapsed, onPlayPause, onClose, reduc
           initial={reduceMotion ? false : { scale: 0.85, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={stagger(1.5)}
-          style={{ width: 113, height: 45, borderRadius: 10.7, background: "linear-gradient(135deg, #2b2d2b 0%, #22303f 100%)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45)", position: "relative", overflow: "hidden", flexShrink: 0 }}
+          style={{ width: 113, height: 45, borderRadius: 10.7, background: "var(--ch-chip)", boxShadow: "inset 0 1px 0 var(--k-hi), 0 0 0 1px var(--k-ring), 0 1px 2px var(--k-shadow)", position: "relative", overflow: "hidden", flexShrink: 0 }}
         >
           <div style={{ position: "absolute", left: 3.65, top: 3.65 }}>
             <VinylDisc cover={album.cover} isSpinning={isPlaying} size={37} reduceMotion={reduceMotion} />
           </div>
           <div style={{ position: "absolute", left: 46, right: 8, top: 0, bottom: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 1 }}>
-            <p style={{ fontSize: 11, fontWeight: 500, color: "#e3e8e3", letterSpacing: -0.066, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{album.title}</p>
-            <p style={{ fontSize: 10, color: "#8b968f", letterSpacing: -0.06, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{album.artist}</p>
+            <p style={{ fontSize: 11, fontWeight: 500, color: "var(--k-text)", letterSpacing: -0.066, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{album.title}</p>
+            <p style={{ fontSize: 10, color: "var(--k-muted)", letterSpacing: -0.06, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{album.artist}</p>
           </div>
         </motion.div>
         <div style={{ display: "flex", alignItems: "center", gap: 7, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 11, color: "#c2cbc4", fontVariantNumeric: "tabular-nums", flexShrink: 0, letterSpacing: "-0.04px", minWidth: 26 }}>{fmt(elapsed)}</span>
+          <span style={{ fontSize: 11, color: "var(--k-text2)", fontVariantNumeric: "tabular-nums", flexShrink: 0, letterSpacing: "-0.04px", minWidth: 26 }}>{fmt(elapsed)}</span>
           <WaveformProgress elapsed={elapsed} total={PREVIEW_DURATION} reduceMotion={reduceMotion} />
-          <span style={{ fontSize: 11, color: "#5d6862", fontVariantNumeric: "tabular-nums", flexShrink: 0, letterSpacing: "-0.04px", minWidth: 26, textAlign: "right" }}>0:30</span>
+          <span style={{ fontSize: 11, color: "var(--ch-end)", fontVariantNumeric: "tabular-nums", flexShrink: 0, letterSpacing: "-0.04px", minWidth: 26, textAlign: "right" }}>0:30</span>
         </div>
       </motion.div>
 
@@ -225,12 +240,12 @@ function NowPlayingCard({ album, isPlaying, elapsed, onPlayPause, onClose, reduc
           aria-label={isPlaying ? "Pause" : "Play"}
           style={{
             position: "relative", width: 28, height: 28, borderRadius: 8, padding: 0,
-            background: isPlaying ? "#e3e8e3" : "#34b562",
-            boxShadow: isPlaying ? "0 0 0 0.75px rgba(255,255,255,.2), inset 0 1px 2px rgba(255,255,255,.16)" : "0 0 0 0.75px #2a9a52, inset 0 1px 2px rgba(255,255,255,.16)",
+            background: isPlaying ? "var(--ch-on)" : "#34b562",
+            boxShadow: isPlaying ? "var(--ch-on-sh)" : "0 0 0 0.75px #2a9a52, inset 0 1px 2px rgba(255,255,255,.16)",
             border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden",
           }}
         >
-          <div aria-hidden="true" style={{ position: "absolute", inset: 0, borderRadius: 8, pointerEvents: "none", background: isPlaying ? "linear-gradient(180deg, rgba(255,255,255,0.5) 6.67%, rgba(255,255,255,0) 103.33%)" : "linear-gradient(180deg, rgba(255,255,255,0.2) 6.67%, rgba(255,255,255,0) 103.33%)" }} />
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, borderRadius: 8, pointerEvents: "none", background: isPlaying ? "var(--ch-on-gloss)" : "linear-gradient(180deg, rgba(255,255,255,0.2) 6.67%, rgba(255,255,255,0) 103.33%)" }} />
           <AnimatePresence mode="wait" initial={false}>
             {isPlaying ? (
               <motion.span key="pause" initial={{ opacity: 0, scale: 0.55, rotate: -20 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} exit={{ opacity: 0, scale: 0.55, rotate: 20 }} transition={{ duration: 0.13, ease: "easeOut" }} style={{ display: "flex", position: "relative", zIndex: 1 }}>
@@ -267,7 +282,7 @@ function AlbumCard({ album, reduceMotion, onPlay, disabled }: { album: Album; re
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onPlay(album); } }}
     >
       <div style={{ position: "relative", width: 100, height: 100, perspective: reduceMotion ? undefined : "380px", perspectiveOrigin: "50% 100%" }}>
-        <div style={{ position: "absolute", inset: 0, borderRadius: 16, pointerEvents: "none", zIndex: Z.back, background: album.tint, boxShadow: "inset 1px 0px 2px 3px rgba(255,255,255,0.06),inset 0px 1px 2px 0px rgba(255,255,255,0.14), 0 0 0 1px rgba(255,255,255,.05)" }} />
+        <div style={{ position: "absolute", inset: 0, borderRadius: 16, pointerEvents: "none", zIndex: Z.back, background: album.tint, boxShadow: "var(--ch-sleeve-sh)" }} />
         <motion.div
           style={{ position: "absolute", left: "50%", top: "50%", translateX: "-50%", translateY: "-50%", zIndex: Z.disc }}
           animate={reduceMotion ? { y: 0 } : hovered ? { y: -34 } : { y: 0 }}
@@ -276,7 +291,7 @@ function AlbumCard({ album, reduceMotion, onPlay, disabled }: { album: Album; re
           <VinylDisc cover={album.cover} isSpinning={hovered} size={80} reduceMotion={reduceMotion} />
         </motion.div>
         <motion.div
-          style={{ position: "absolute", left: 0, width: 100, borderRadius: 16, overflow: "hidden", zIndex: Z.front, transformOrigin: "bottom center", boxShadow: "0 1px 2px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.12)", background: album.cover }}
+          style={{ position: "absolute", left: 0, width: 100, borderRadius: 16, overflow: "hidden", zIndex: Z.front, transformOrigin: "bottom center", boxShadow: "0 1px 2px var(--ch-drop), inset 0 1px 0 rgba(255,255,255,.12)", background: album.cover }}
           initial={{ top: 4, height: 96, rotateX: 0 }}
           animate={reduceMotion ? { top: 4, height: 96, rotateX: 0 } : hovered ? { top: 11, height: 89, rotateX: -22 } : { top: 4, height: 96, rotateX: 0 }}
           transition={FLIP_SPRING}
@@ -285,8 +300,8 @@ function AlbumCard({ album, reduceMotion, onPlay, disabled }: { album: Album; re
         </motion.div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: 100 }}>
-        <p style={{ margin: 0, fontSize: 12, lineHeight: "18px", fontWeight: 500, color: "#e3e8e3", letterSpacing: "-0.072px", width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{album.title}</p>
-        <p style={{ margin: 0, fontSize: 12, lineHeight: "18px", color: "#8b968f", letterSpacing: "-0.072px" }}>{album.artist}</p>
+        <p style={{ margin: 0, fontSize: 12, lineHeight: "18px", fontWeight: 500, color: "var(--k-text)", letterSpacing: "-0.072px", width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{album.title}</p>
+        <p style={{ margin: 0, fontSize: 12, lineHeight: "18px", color: "var(--k-muted)", letterSpacing: "-0.072px" }}>{album.artist}</p>
       </div>
     </motion.div>
   );
@@ -422,7 +437,17 @@ export default function Chat({ size = "card" }: { size?: "card" | "big" }) {
 
   return (
     <MotionConfig transformPagePoint={(p) => ({ x: p.x / scaleRef.current, y: p.y / scaleRef.current })}>
-      <style>{`.chat-ta::placeholder{color:#8b968f;opacity:1}.chat-ta{caret-color:#34b562}.chat-root *:focus-visible{outline:2px solid rgba(52,181,98,.55);outline-offset:2px}`}</style>
+      <style>{`.chat-ta::placeholder{color:var(--k-muted);opacity:1}.chat-ta{caret-color:#34b562}.chat-root *:focus-visible{outline:2px solid rgba(52,181,98,.55);outline-offset:2px}
+.chat-root{--ch-green:#34b562;--ch-end:#5d6862;--ch-tint:rgba(255,255,255,.06);--ch-edge:rgba(255,255,255,.06);--ch-drop:rgba(0,0,0,.4);
+--ch-shell:linear-gradient(178.1deg,#2b2d2b 0.64%,rgba(43,45,43,0.55) 52.61%,rgba(43,45,43,0) 112.36%);--ch-shell-sh:inset 0 1px 0 rgba(255,255,255,.06);--ch-pill:#ffffff;
+--ch-chip:linear-gradient(135deg, #2b2d2b 0%, #22303f 100%);
+--ch-on:#e3e8e3;--ch-on-ink:#191a19;--ch-on-sh:0 0 0 0.75px rgba(255,255,255,.2), inset 0 1px 2px rgba(255,255,255,.16);--ch-on-gloss:linear-gradient(180deg, rgba(255,255,255,0.5) 6.67%, rgba(255,255,255,0) 103.33%);
+--ch-sleeve-sh:inset 1px 0px 2px 3px rgba(255,255,255,0.06),inset 0px 1px 2px 0px rgba(255,255,255,0.14), 0 0 0 1px rgba(255,255,255,.05)}
+:root[data-theme="light"] .chat-root{--ch-green:oklch(0.6 0.16 150);--ch-end:var(--k-muted);--ch-tint:oklch(0.22 0.008 264 / 0.05);--ch-edge:oklch(0.22 0.008 264 / 0.09);--ch-drop:oklch(0.22 0.008 264 / 0.2);
+--ch-shell:linear-gradient(178.1deg,oklch(0.935 0.004 264) 0.64%,oklch(0.945 0.004 264 / 0.75) 52.61%,oklch(0.955 0.003 264 / 0.4) 112.36%);--ch-shell-sh:inset 0 1px 0 oklch(1 0 0 / 0.7), inset 0 0 0 1px oklch(0.22 0.008 264 / 0.05);--ch-pill:oklch(0.22 0.008 264);
+--ch-chip:linear-gradient(135deg, oklch(1 0 0) 0%, oklch(0.95 0.012 250) 100%);
+--ch-on:oklch(0.22 0.008 264);--ch-on-ink:oklch(1 0 0);--ch-on-sh:0 0 0 0.75px oklch(0.22 0.008 264), inset 0 1px 2px oklch(1 0 0 / 0.16);--ch-on-gloss:linear-gradient(180deg, oklch(1 0 0 / 0.18) 6.67%, oklch(1 0 0 / 0) 103.33%);
+--ch-sleeve-sh:inset 0px 1px 2px 0px oklch(1 0 0 / 0.5), 0 0 0 1px oklch(0.22 0.008 264 / 0.07)}`}</style>
       <div ref={rootRef} className="chat-root" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none", perspective: 900 }}>
         <div style={{ position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center center" }}>
           <motion.div
@@ -439,7 +464,7 @@ export default function Chat({ size = "card" }: { size?: "card" | "big" }) {
             whileDrag={{ cursor: "grabbing" }}
           >
             {/* Outer shell */}
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0 2px 2px", borderRadius: 22, width: "100%", background: "linear-gradient(178.1deg,#2b2d2b 0.64%,rgba(43,45,43,0.55) 52.61%,rgba(43,45,43,0) 112.36%)", boxShadow: "inset 0 1px 0 rgba(255,255,255,.06)" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "0 2px 2px", borderRadius: 22, width: "100%", background: "var(--ch-shell)", boxShadow: "var(--ch-shell-sh)" }}>
               {/* Handle: drag or tap */}
               <motion.div
                 onPan={onHandlePan}
@@ -454,14 +479,14 @@ export default function Chat({ size = "card" }: { size?: "card" | "big" }) {
                 aria-expanded={expanded}
                 tabIndex={0}
               >
-                <motion.div style={{ height: 3, borderRadius: 999, background: "#ffffff", width: pillWidth, opacity: pillOpacity }} />
+                <motion.div style={{ height: 3, borderRadius: 999, background: "var(--ch-pill)", width: pillWidth, opacity: pillOpacity }} />
               </motion.div>
 
               {/* Songs drawer */}
               <motion.div style={{ height: songsHeight, overflow: "hidden", width: "100%", flexShrink: 0 }} aria-hidden={!expanded} {...(!expanded ? { inert: true } : {})}>
                 <motion.div style={{ opacity: songsOpacity, y: songsY, display: "flex", flexDirection: "column", gap: 11, alignItems: "flex-start", width: "100%", paddingBottom: 8 }}>
                   <div style={{ padding: "0 12px", width: "100%" }}>
-                    <p style={{ margin: 0, fontSize: 12, lineHeight: "16px", color: "#8b968f" }}>Recent songs</p>
+                    <p style={{ margin: 0, fontSize: 12, lineHeight: "16px", color: "var(--k-muted)" }}>Recent songs</p>
                   </div>
                   <div style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: "0 12px", width: "100%", overflow: "visible" }} onPointerDown={(e) => e.stopPropagation()}>
                     {ALBUMS.map((album) => (
@@ -473,7 +498,7 @@ export default function Chat({ size = "card" }: { size?: "card" | "big" }) {
 
               {/* Bottom card: composer ↔ now playing */}
               <div style={{ width: "100%" }}>
-                <div style={{ background: "linear-gradient(180deg,#2b2d2b,#242624)", borderRadius: 20, width: "100%", flexShrink: 0, overflow: "hidden", boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)" }}>
+                <div style={{ background: "var(--k-raised)", borderRadius: 20, width: "100%", flexShrink: 0, overflow: "hidden", boxShadow: "var(--k-lift)" }}>
                   <AnimatePresence mode="wait" initial={false}>
                     {playingAlbum ? (
                       <NowPlayingCard key="now-playing" album={playingAlbum} isPlaying={isPlaying} elapsed={elapsed} onPlayPause={handlePlayPause} onClose={handleClose} reduceMotion={reduceMotion} />
@@ -498,7 +523,7 @@ export default function Chat({ size = "card" }: { size?: "card" | "big" }) {
                             onChange={(e) => setMessage(e.target.value)}
                             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
                             onPointerDown={(e) => e.stopPropagation()}
-                            style={{ width: "100%", resize: "none", outline: "none", border: "none", background: "transparent", padding: 0, margin: 0, lineHeight: "16px", font: "inherit", fontSize: 12, color: "#e3e8e3", userSelect: "text" }}
+                            style={{ width: "100%", resize: "none", outline: "none", border: "none", background: "transparent", padding: 0, margin: 0, lineHeight: "16px", font: "inherit", fontSize: 12, color: "var(--k-text)", userSelect: "text" }}
                           />
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", width: "100%" }}>
                             <motion.button
@@ -508,7 +533,7 @@ export default function Chat({ size = "card" }: { size?: "card" | "big" }) {
                               transition={BTN_SPRING}
                               aria-label="Send message"
                               onPointerDown={(e) => e.stopPropagation()}
-                              style={{ position: "relative", overflow: "hidden", borderRadius: 8, padding: 6, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", border: "none", background: "#34b562", boxShadow: "0 0 0 0.75px #2a9a52, inset 0 1px 2px rgba(255,255,255,0.16), 0 1px 2px rgba(0,0,0,.4)", touchAction: "manipulation" }}
+                              style={{ position: "relative", overflow: "hidden", borderRadius: 8, padding: 6, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", border: "none", background: "#34b562", boxShadow: "0 0 0 0.75px #2a9a52, inset 0 1px 2px rgba(255,255,255,0.16), 0 1px 2px var(--ch-drop)", touchAction: "manipulation" }}
                             >
                               <div aria-hidden="true" style={{ position: "absolute", inset: 0, borderRadius: 8, pointerEvents: "none", background: "linear-gradient(180deg,rgba(255,255,255,0.2) 6.67%,rgba(255,255,255,0) 103.33%)" }} />
                               <div style={{ position: "relative", zIndex: 1, width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>

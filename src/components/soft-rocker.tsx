@@ -1,4 +1,5 @@
-/* Soft rocker: a sculpted paddle in a pill-shaped recess, in charcoal soft-touch. One end is a
+/* Soft rocker: a sculpted paddle in a pill-shaped recess, in soft-touch plastic (charcoal in dark,
+ * pale grey in light). One end is a
  * flat, softly lit top that sits low in the recess; the other swells into a rounded heel that rises
  * past the rim, its crown catching the light and its front falling into shade through a curved
  * valley. Flip it and the heel sinks, the paddle passes level, and the heel rises at the other end.
@@ -71,20 +72,28 @@ export function SoftRocker({ on, onToggle, scale = 1 }: { on: boolean; onToggle:
     <button type="button" role="switch" aria-checked={on} aria-label={on ? "On. Switch off" : "Off. Switch on"} className="sr-btn"
       onClick={onToggle} onPointerDown={() => setPress(true)} onPointerUp={() => setPress(false)} onPointerLeave={() => setPress(false)}
       style={{ display: "block", padding: 0, border: 0, background: "none", cursor: "pointer", borderRadius: 999, touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}>
-      <style>{`.sr-btn:focus-visible{outline:2px solid rgba(63,192,108,.7);outline-offset:6px}`}</style>
+      <style>{`.sr-btn:focus-visible{outline:2px solid rgba(63,192,108,.7);outline-offset:6px}
+.sr-btn{--sr-wall0:#0b0c0b;--sr-wall1:#151615;--sr-wall2:#2b2d2b;--sr-body0:#484b48;--sr-body1:#393c39;--sr-body2:#292b29;
+--sr-rim:rgba(255,255,255,.07);--sr-inner:rgba(0,0,0,.55);--sr-gap:#000;--sr-lip:rgba(255,255,255,.09);--sr-edge:rgba(255,255,255,.1);
+--sr-cast:#000;--sr-front1:.28;--sr-front2:.4;--sr-heel-hi:.11;--sr-heel-lo:.4;--sr-crease:.24;--sr-toplight:.08;--sr-crown:.1;
+--sr-dimple:#141514;--sr-dimple-ring:rgba(0,0,0,.6);--sr-dimple-hi:rgba(255,255,255,.08);--sr-lamp:#7dffae}
+:root[data-theme="light"] .sr-btn{--sr-wall0:oklch(0.8 0.006 264);--sr-wall1:oklch(0.87 0.005 264);--sr-wall2:oklch(0.97 0.003 264);--sr-body0:oklch(0.99 0.002 264);--sr-body1:oklch(0.96 0.003 264);--sr-body2:oklch(0.915 0.005 264);
+--sr-rim:oklch(0.22 0.008 264 / .1);--sr-inner:oklch(0.22 0.008 264 / .1);--sr-gap:oklch(0.58 0.01 264);--sr-lip:oklch(1 0 0 / .9);--sr-edge:oklch(0.22 0.008 264 / .2);
+--sr-cast:oklch(0.22 0.008 264 / .3);--sr-front1:.07;--sr-front2:.13;--sr-heel-hi:.9;--sr-heel-lo:.13;--sr-crease:.08;--sr-toplight:.7;--sr-crown:.8;
+--sr-dimple:oklch(0.8 0.006 264);--sr-dimple-ring:oklch(0.22 0.008 264 / .3);--sr-dimple-hi:oklch(1 0 0 / .9);--sr-lamp:oklch(0.76 0.2 150)}`}</style>
       <svg viewBox={`0 0 ${VW} ${VH}`} width={VW * scale} height={VH * scale} aria-hidden="true" style={{ display: "block", overflow: "visible" }}>
         <defs>
           <linearGradient id={`${P}-wall`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#0b0c0b" /><stop offset=".55" stopColor="#151615" /><stop offset="1" stopColor="#2b2d2b" />
+            <stop offset="0" style={{ stopColor: "var(--sr-wall0)" }} /><stop offset=".55" style={{ stopColor: "var(--sr-wall1)" }} /><stop offset="1" style={{ stopColor: "var(--sr-wall2)" }} />
           </linearGradient>
           <linearGradient id={`${P}-body`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#484b48" /><stop offset=".5" stopColor="#393c39" /><stop offset="1" stopColor="#292b29" />
+            <stop offset="0" style={{ stopColor: "var(--sr-body0)" }} /><stop offset=".5" style={{ stopColor: "var(--sr-body1)" }} /><stop offset="1" style={{ stopColor: "var(--sr-body2)" }} />
           </linearGradient>
           <linearGradient id={`${P}-front`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset=".7" stopColor="#000" stopOpacity="0" /><stop offset=".94" stopColor="#000" stopOpacity=".28" /><stop offset="1" stopColor="#000" stopOpacity=".4" />
+            <stop offset=".7" stopColor="#000" stopOpacity="0" /><stop offset=".94" stopColor="#000" style={{ stopOpacity: "var(--sr-front1)" }} /><stop offset="1" stopColor="#000" style={{ stopOpacity: "var(--sr-front2)" }} />
           </linearGradient>
           <linearGradient id={`${P}-heel`} x1="0" y1="0" x2=".55" y2="1">
-            <stop offset="0" stopColor="#fff" stopOpacity=".11" /><stop offset=".4" stopColor="#fff" stopOpacity=".02" /><stop offset="1" stopColor="#000" stopOpacity=".4" />
+            <stop offset="0" stopColor="#fff" style={{ stopOpacity: "var(--sr-heel-hi)" }} /><stop offset=".4" stopColor="#fff" stopOpacity=".02" /><stop offset="1" stopColor="#000" style={{ stopOpacity: "var(--sr-heel-lo)" }} />
           </linearGradient>
           <radialGradient id={`${P}-heelface`} cx=".86" cy=".92" r=".55">
             <stop offset="0" stopColor="#000" stopOpacity=".5" /><stop offset="1" stopColor="#000" stopOpacity="0" />
@@ -102,17 +111,17 @@ export function SoftRocker({ on, onToggle, scale = 1 }: { on: boolean; onToggle:
 
         {/* soft shadow on the tile below the switch, heavier under the heel */}
         <motion.g style={{ opacity: shadowO }}>
-          <motion.ellipse cx={shadowX} cy={OY + BH + 12} rx={130} ry={13} fill="#000" filter={`url(#${P}-b10)`} />
+          <motion.ellipse cx={shadowX} cy={OY + BH + 12} rx={130} ry={13} style={{ fill: "var(--sr-cast)" }} filter={`url(#${P}-b10)`} />
         </motion.g>
 
         {/* the recess: a lit outer edge, a shaded upper wall, a lit lower lip */}
-        <path d={pill(OX - 1, OY - 1, BW + 2, BH + 2)} fill="none" stroke="rgba(255,255,255,.07)" strokeWidth="1" />
+        <path d={pill(OX - 1, OY - 1, BW + 2, BH + 2)} fill="none" style={{ stroke: "var(--sr-rim)" }} strokeWidth="1" />
         <path d={pill(OX, OY, BW, BH)} fill={`url(#${P}-wall)`} />
-        <path d={pill(OX + 3, OY + 3, BW - 6, BH - 6)} fill="none" stroke="rgba(0,0,0,.55)" strokeWidth="3" />
-        {/* the dark gap line around the paddle, thickest along the bottom */}
-        <path d={pill(OX + 13, OY + 11, 337, 121)} fill="#000" />
+        <path d={pill(OX + 3, OY + 3, BW - 6, BH - 6)} fill="none" style={{ stroke: "var(--sr-inner)" }} strokeWidth="3" />
+        {/* the shadowed gap line around the paddle, thickest along the bottom */}
+        <path d={pill(OX + 13, OY + 11, 337, 121)} style={{ fill: "var(--sr-gap)" }} />
         {/* a lit lip on the recess floor just below the gap */}
-        <path d={`M ${OX + 70} ${OY + 136} H ${OX + BW - 70}`} stroke="rgba(255,255,255,.09)" strokeWidth="1.2" strokeLinecap="round" />
+        <path d={`M ${OX + 70} ${OY + 136} H ${OX + BW - 70}`} style={{ stroke: "var(--sr-lip)" }} strokeWidth="1.2" strokeLinecap="round" />
 
         <g transform={left ? `translate(${2 * CX} 0) scale(-1 1)` : undefined}>
           <motion.g animate={{ y: press ? 1.6 : 0 }} transition={{ type: "spring", stiffness: 600, damping: 30 }}>
@@ -120,14 +129,14 @@ export function SoftRocker({ on, onToggle, scale = 1 }: { on: boolean; onToggle:
             <motion.path d={d} fill={`url(#${P}-body)`} />
             <g clipPath={`url(#${P}-clip)`}>
               {/* the flat top: a broad soft light */}
-              <ellipse cx={OX + 96} cy={OY + 44} rx={110} ry={30} fill="#fff" opacity=".08" filter={`url(#${P}-b10)`} />
+              <ellipse cx={OX + 96} cy={OY + 44} rx={110} ry={30} fill="#fff" style={{ opacity: "var(--sr-toplight)" }} filter={`url(#${P}-b10)`} />
               <motion.g style={{ opacity: heelO }}>
                 {/* the flat top darkens a little where the heel shades it, along the crease */}
-                <path d={`M ${OX + 98} ${OY + 132} C ${OX + 144} ${OY + 96} ${OX + 180} ${OY + 30} ${OX + 208} ${OY - 6}`} fill="none" stroke="#000" strokeWidth="34" opacity=".24" filter={`url(#${P}-b10)`} />
+                <path d={`M ${OX + 98} ${OY + 132} C ${OX + 144} ${OY + 96} ${OX + 180} ${OY + 30} ${OX + 208} ${OY - 6}`} fill="none" stroke="#000" strokeWidth="34" style={{ opacity: "var(--sr-crease)" }} filter={`url(#${P}-b10)`} />
                 {/* the heel's front face: lit at the top, falling into shade toward the lower right */}
                 <path d={heelFace()} fill={`url(#${P}-heel)`} filter={`url(#${P}-b9)`} />
                 {/* its crown catches the light near the peak */}
-                <ellipse cx={OX + 250} cy={OY + 12} rx={56} ry={16} fill="#fff" opacity=".1" filter={`url(#${P}-b10)`} />
+                <ellipse cx={OX + 250} cy={OY + 12} rx={56} ry={16} fill="#fff" style={{ opacity: "var(--sr-crown)" }} filter={`url(#${P}-b10)`} />
               </motion.g>
               {/* the rounded front edge rolls away into shadow */}
               <rect x={OX} y={OY - 30} width={BW} height={BH + 34} fill={`url(#${P}-front)`} />
@@ -135,13 +144,13 @@ export function SoftRocker({ on, onToggle, scale = 1 }: { on: boolean; onToggle:
               <rect x={OX} y={OY - 30} width={BW} height={BH + 40} filter={`url(#${P}-grain)`} opacity=".15" />
             </g>
             {/* a thin light along the whole top edge */}
-            <motion.path d={d} fill="none" stroke="rgba(255,255,255,.1)" strokeWidth="1.2" clipPath={`url(#${P}-clip)`} />
+            <motion.path d={d} fill="none" style={{ stroke: "var(--sr-edge)" }} strokeWidth="1.2" clipPath={`url(#${P}-clip)`} />
 
             {/* the dimple, on the flat top just before the slope */}
-            <circle cx={OX + 206} cy={OY + 48} r="3.6" fill="#141514" stroke="rgba(0,0,0,.6)" strokeWidth=".8" />
-            <circle cx={OX + 206} cy={OY + 49} r="3.6" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth=".6" />
+            <circle cx={OX + 206} cy={OY + 48} r="3.6" style={{ fill: "var(--sr-dimple)", stroke: "var(--sr-dimple-ring)" }} strokeWidth=".8" />
+            <circle cx={OX + 206} cy={OY + 49} r="3.6" fill="none" style={{ stroke: "var(--sr-dimple-hi)" }} strokeWidth=".6" />
             <motion.circle style={{ opacity: lamp }} cx={OX + 206} cy={OY + 48} r="11" fill={`url(#${P}-glow)`} />
-            <motion.circle style={{ opacity: lamp }} cx={OX + 206} cy={OY + 48} r="2.6" fill="#7dffae" />
+            <motion.circle style={{ opacity: lamp, fill: "var(--sr-lamp)" }} cx={OX + 206} cy={OY + 48} r="2.6" />
           </motion.g>
         </g>
       </svg>

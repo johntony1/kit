@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, useSyncExternalStore } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, useSyncExternalStore } from "react";
 import rippleTs from "./ripple/ripple.ts?raw";
 import rippleTsx from "./ripple/RippleCanvas.tsx?raw";
 import confettiTs from "./confetti/confetti.ts?raw";
@@ -16,19 +16,36 @@ import { TYPE_EFFECTS, type TypeEffectKey } from "./type/effects";
 import { TYPE_META } from "./type/meta";
 import { typePrompt } from "./type/prompt";
 import { TypeCanvas } from "./type/TypeCanvas";
-import { Studio, type StudioLib } from "./site/Studio";
-import { CardPreview, Home, type BentoLib } from "./site/Bento";
-import { VintageSwitch } from "./site/VintageSwitch";
-import { EmptyStatePage } from "./empty/EmptyStatePage";
-import { ILLS, illOf } from "./empty/ills";
-import { ComponentPage } from "./site/ComponentPage";
+import type { StudioLib } from "./site/Studio";
+import { CardPreview, ES_COUNT, Home, KINDS, type BentoLib, type Kind } from "./site/Bento";
+import { ThemeToggle } from "./site/VintageSwitch";
+import { ILLS, illOf, useIll } from "./empty/ills";
 import { compOf, COMPS } from "./site/components";
 import { TRANS_KEYS, TRANS_META, TransInstall, TransPlayground, TransPreview, transPrompt } from "./site/TransitionPage";
 import type { TransitionKind } from "./transitions/transitions";
 import { Later } from "./site/sheet";
 import { play, sound } from "./sound/sound";
 
-const REPO = "https://github.com/johntony1/qr-code-animatio";
+// the heavy pages arrive when they are first opened (and are fetched quietly once the home page is idle)
+const loadStudio = () => import("./site/Studio").then((m) => ({ default: m.Studio }));
+const loadEmptyPage = () => import("./empty/EmptyStatePage").then((m) => ({ default: m.EmptyStatePage }));
+const loadComponentPage = () => import("./site/ComponentPage").then((m) => ({ default: m.ComponentPage }));
+const Studio = lazy(loadStudio);
+const EmptyStatePage = lazy(loadEmptyPage);
+const ComponentPage = lazy(loadComponentPage);
+
+/** what a sheet shows for the moment before its page has arrived: the title, in place */
+function SheetStub({ name }: { name: string }) {
+  return <div className="sheetPage"><div className="head"><div className="headIcon" /></div><h1 className="h1">{name}</h1></div>;
+}
+/** an empty state's sheet: its drawing code and its page both load on demand */
+function EmptySheet({ k }: { k: string }) {
+  const ill = useIll(k);
+  const stub = <SheetStub name={illOf(k)?.name ?? ""} />;
+  return ill ? <Suspense fallback={stub}><EmptyStatePage ill={ill} /></Suspense> : stub;
+}
+
+const REPO = "https://github.com/johntony1/effects-free";
 
 /* ── Routing: #/ripple, #/confetti, #/introduction ── */
 type Lib = "ripple" | "confetti" | TypeEffectKey | TransitionKind;
@@ -323,22 +340,17 @@ function Brand() {
   return (
     <>
       <span className="brandMark"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="currentColor" /><circle cx="12" cy="12" r="6.6" stroke="currentColor" strokeOpacity=".7" strokeWidth="1.6" /><circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity=".35" strokeWidth="1.6" /></svg></span>
-      <span>Effects<span className="dim">.free</span></span>
+      <span>Kit</span>
     </>
   );
 }
 
 /** the repo's star count, if GitHub answers */
-/** sounds on or off, remembered */
-function SoundToggle() {
-  const on = useSyncExternalStore(sound.subscribe, sound.enabled, () => true);
-  return <VintageSwitch on={on} onToggle={() => { if (on) play("off", { force: true }); sound.toggle(); }} label={on ? "Sound on. Turn it off" : "Sound off. Turn it on"} />;
-}
 
 function useStars() {
   const [stars, setStars] = useState<number | null>(null);
   useEffect(() => {
-    fetch("https://api.github.com/repos/johntony1/qr-code-animatio").then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && typeof j.stargazers_count === "number") setStars(j.stargazers_count); }).catch(() => {});
+    fetch("https://api.github.com/repos/johntony1/effects-free").then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && typeof j.stargazers_count === "number") setStars(j.stargazers_count); }).catch(() => {});
   }, []);
   return stars;
 }
@@ -378,8 +390,8 @@ function SearchButton({ go }: { go: (r: Route) => void }) {
       </button>
       {open && (
         <div className="palScrim" onPointerDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}>
-          <div className="pal" role="dialog" aria-label="Search effects">
-            <input autoFocus className="palIn" placeholder="Search effects" value={q}
+          <div className="pal" role="dialog" aria-label="Search the library">
+            <input autoFocus className="palIn" placeholder="Search the library" value={q}
               onChange={(e) => { setQ(e.target.value); setHi(0); }}
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => Math.min(list.length - 1, h + 1)); }
@@ -403,19 +415,50 @@ function SearchButton({ go }: { go: (r: Route) => void }) {
 
 export default function App() {
   const [route, go] = useRoute();
+  const [kind, setKind] = useState<Kind>("All");
+  const inStudio = route.startsWith("studio:");
   const stars = useStars();
+  useEffect(() => {
+    // warm the sheets' code once the page has settled, so opening one is instant
+    const warm = () => { void loadEmptyPage(); void loadComponentPage(); };
+    // Safari has no requestIdleCallback: a short timer does the same job there
+    const idle = "requestIdleCallback" in window;
+    const id = idle ? window.requestIdleCallback(warm, { timeout: 4000 }) : window.setTimeout(warm, 2500);
+    return () => { if (idle) window.cancelIdleCallback(id); else clearTimeout(id); };
+  }, []);
+  // the raised pill under the chosen kind slides to the next one; measured, so any label width works
+  const navRef = useRef<HTMLElement>(null);
+  const [thumb, setThumb] = useState<{ x: number; w: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const place = () => { const b = el.querySelector<HTMLElement>(".topLink.on"); setThumb(b ? { x: b.offsetLeft, w: b.offsetWidth } : null); };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [kind, inStudio]);
+  // the magic wand over the hero's words: loaded once the page has settled, so it costs the first paint nothing
+  useEffect(() => {
+    let stop = () => {};
+    let live = true;
+    const id = window.setTimeout(() => import("./site/wand").then((m) => { if (live) stop = m.startWand(); }), 600);
+    return () => { live = false; clearTimeout(id); stop(); };
+  }, []);
   const year = useMemo(() => new Date().getFullYear(), []);
   return (
     <div className="site">
       <header className="top">
-        <a className="brand" href="#/" aria-label="Effects, home"><Brand /></a>
-        <nav className="topLinks" aria-label="Main">
-          <button type="button" className={`topLink ${!route.startsWith("studio:") ? "on" : ""}`} onClick={() => go("intro")}>Effects</button>
-          <button type="button" className={`topLink ${route.startsWith("studio:") ? "on" : ""}`} onClick={() => go(`studio:${route.startsWith("studio:") ? route.slice(7) : route === "intro" || isTrans(route) ? "ripple" : route}` as Route)}>Studio</button>
-          <a className="topLink" href={REPO} target="_blank" rel="noopener noreferrer">Source</a>
+        <a className="brand" href="#/" aria-label="Kit, home" onClick={() => setKind("All")}><Brand /></a>
+        <nav className="topLinks" aria-label="Main" ref={navRef}>
+          <span className="topThumb" aria-hidden="true" data-show={!!thumb} style={thumb ? { transform: `translateX(${thumb.x}px)`, width: thumb.w } : undefined} />
+          {KINDS.filter((k) => k !== "All").map((k) => (
+            <button key={k} type="button" className={`topLink ${!inStudio && kind === k ? "on" : ""}`} aria-current={!inStudio && kind === k ? "page" : undefined}
+              onClick={() => { setKind(k); if (route !== "intro") go("intro"); }}>{k}</button>
+          ))}
         </nav>
         <div className="topRight">
-          <SoundToggle />
+          <ThemeToggle />
           <SearchButton go={go} />
           <a className="topPill" href={REPO} target="_blank" rel="noopener noreferrer" aria-label={stars !== null ? `GitHub, ${stars} stars` : "GitHub"}>
             <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M8 .2a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2" /></svg>
@@ -425,17 +468,19 @@ export default function App() {
       </header>
 
       {route.startsWith("studio:") ? (
-        <Studio key={route} lib={route.slice(7) as StudioLib} go={(k) => go(`studio:${k}` as Route)}
-          libs={[{ k: "ripple", name: "Ripple", group: "Libraries" }, { k: "confetti", name: "Confetti pop", group: "Libraries" }, ...TYPE_KEYS.map((k) => ({ k, name: TYPE_EFFECTS[k].name, group: "Type" }))]} />
+        <Suspense fallback={<div className="studio" style={{ minHeight: "70vh" }} />}>
+          <Studio key={route} lib={route.slice(7) as StudioLib} go={(k) => go(`studio:${k}` as Route)}
+            libs={[{ k: "ripple", name: "Ripple", group: "Libraries" }, { k: "confetti", name: "Confetti pop", group: "Libraries" }, ...TYPE_KEYS.map((k) => ({ k, name: TYPE_EFFECTS[k].name, group: "Type" }))]} />
+        </Suspense>
       ) : (
-        <Home open={route === "intro" ? null : (route as BentoLib)} onOpen={(k) => go(k as Route)} onClose={() => go("intro")}
-          detail={(k) => k.startsWith("cmp-") ? <ComponentPage c={compOf(k.slice(4))!} /> : k.startsWith("es-") ? <EmptyStatePage ill={illOf(k.slice(3))!} /> : <div className="sheetPage"><LibraryPage lib={k as Lib} go={go} inSheet hero={<CardPreview k={k} />} /></div>} />
+        <Home kind={kind} onKind={setKind} open={route === "intro" ? null : (route as BentoLib)} onOpen={(k) => go(k as Route)} onClose={() => go("intro")}
+          detail={(k) => k.startsWith("cmp-") ? <Suspense fallback={<SheetStub name={compOf(k.slice(4))?.name ?? ""} />}><ComponentPage c={compOf(k.slice(4))!} /></Suspense> : k.startsWith("es-") ? <EmptySheet k={k.slice(3)} /> : <div className="sheetPage"><LibraryPage lib={k as Lib} go={go} inSheet hero={<CardPreview k={k} />} /></div>} />
       )}
 
       <footer className="foot">
         <div className="footLeft">
           <div className="brand"><Brand /></div>
-          <p className="footTag">Free motion effects for the web</p>
+          <p className="footTag">Free components, illustrations and effects for the web</p>
           <p className="footBy">Created by <a href="https://orevbajohn.me" target="_blank" rel="noopener noreferrer">John Orevba</a> · {year}</p>
         </div>
         <div className="footCols">

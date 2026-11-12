@@ -25,15 +25,16 @@ import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 
 const e = (px: number) => `${px / 14}em`;
 
+/* Shared tokens (index.css) plus this widget's own variables (see CSS below), so it has a dark and a light look. */
 const C = {
-  strong: "#e3e8e3",
-  soft: "#8b968f",
-  faint: "#5d6862",
-  divider: "rgba(255,255,255,0.08)",
-  raised: "linear-gradient(180deg,#2b2d2b,#242624)",
-  raisedShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
-  track: "rgba(0,0,0,0.28)",
-  trackShadow: "inset 0 1px 2px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04)",
+  strong: "var(--k-text)",
+  soft: "var(--k-muted)",
+  faint: "var(--k-faint)",
+  divider: "var(--sg-divider)",
+  raised: "var(--k-raised)",
+  raisedShadow: "var(--k-lift)",
+  track: "var(--sg-track)",
+  trackShadow: "var(--sg-track-sh)",
 };
 
 const INDICATOR_SPRING = { type: "spring" as const, stiffness: 440, damping: 38 };
@@ -129,9 +130,9 @@ function Shimmer({ children, run = true }: { children: ReactNode; run?: boolean 
 function Tooltip({ label }: { label: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", pointerEvents: "none", userSelect: "none" }}>
-      <div style={{ ...TEXT, background: "#323532", borderRadius: e(13), padding: `${e(7)} ${e(13)}`, color: C.strong, boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.5)" }}>{label}</div>
+      <div style={{ ...TEXT, background: "var(--sg-tip)", borderRadius: e(13), padding: `${e(7)} ${e(13)}`, color: "var(--sg-tip-text)", boxShadow: "var(--sg-tip-sh)" }}>{label}</div>
       <svg width={e(18)} height={e(9)} viewBox="0 0 18 9" style={{ display: "block", marginTop: -1 }}>
-        <path d="M0 0 C4.5 0, 6.5 9, 9 9 C11.5 9, 13.5 0, 18 0 Z" fill="#323532" />
+        <path d="M0 0 C4.5 0, 6.5 9, 9 9 C11.5 9, 13.5 0, 18 0 Z" style={{ fill: "var(--sg-tip)" }} />
       </svg>
     </div>
   );
@@ -157,7 +158,7 @@ function StatusIconButton({ s, getIsQuick, onHoverEnd, onSelect }: { s: Status; 
         onHoverEnd={() => { setHovered(false); onHoverEnd(); }}
         whileHover={reduced ? {} : { scale: 1.16 }} whileTap={reduced ? {} : { scale: 0.88 }}
         transition={{ type: "spring", stiffness: 500, damping: 20 }}
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", borderRadius: e(24), background: "rgba(255,255,255,0.06)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.04)", padding: e(6) }}>
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", borderRadius: e(24), background: "var(--sg-icon)", boxShadow: "inset 0 0 0 1px var(--sg-icon-line)", padding: e(6) }}>
         <span style={{ display: "block", width: e(20), height: e(20) }}><StatusGlyph k={s.k} /></span>
       </motion.button>
     </motion.div>
@@ -170,7 +171,7 @@ function StatusPopover({ onSelect }: { onSelect: (s: Status) => void }) {
   return (
     <motion.div variants={POPOVER_CONTAINER} initial="initial" animate="animate" exit="exit"
       style={{ position: "absolute", bottom: "100%", left: "50%", marginBottom: e(12), zIndex: 50, width: "max-content", transformOrigin: "bottom center" }}>
-      <div role="menu" aria-label="Set status" style={{ display: "flex", alignItems: "center", borderRadius: e(32), background: C.raised, padding: e(4), gap: e(8), boxShadow: `${C.raisedShadow}, 0 16px 40px rgba(0,0,0,.45)` }}>
+      <div role="menu" aria-label="Set status" style={{ display: "flex", alignItems: "center", borderRadius: e(32), background: C.raised, padding: e(4), gap: e(8), boxShadow: "var(--sg-pop-sh)" }}>
         {STATUSES.map((s) => (
           <StatusIconButton key={s.k} s={s} getIsQuick={getIsQuick} onHoverEnd={() => { lastHoverEndAt.current = Date.now(); }} onSelect={() => onSelect(s)} />
         ))}
@@ -183,13 +184,13 @@ function Chevron({ active }: { active: boolean }) {
   return (
     <motion.svg width={e(15)} height={e(15)} viewBox="0 0 15 15" fill="none" aria-hidden
       animate={{ rotate: active ? 180 : 0 }} transition={{ duration: TIMING.chevron, ease: "easeInOut" }}>
-      <path d="M3.5 5.5L7.5 9.5L11.5 5.5" stroke={active ? C.strong : C.soft} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3.5 5.5L7.5 9.5L11.5 5.5" style={{ stroke: active ? C.strong : C.soft }} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </motion.svg>
   );
 }
 
 function CloseIcon() {
-  return <svg width={e(20)} height={e(20)} viewBox="0 0 20 20" fill="none" aria-hidden><path d="M6.5 6.5L13.5 13.5M13.5 6.5L6.5 13.5" stroke={C.soft} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  return <svg width={e(20)} height={e(20)} viewBox="0 0 20 20" fill="none" aria-hidden><path d="M6.5 6.5L13.5 13.5M13.5 6.5L6.5 13.5" style={{ stroke: C.soft }} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
 
 function Divider({ visible }: { visible: boolean }) {
@@ -211,10 +212,9 @@ function TabBtn({ id, active, onClick, px, children }: { id: TabId; active: TabI
       whileTap={reduced ? {} : { scale: PRESS.scale }} transition={PRESS.spring}
       style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", padding: `${e(4)} ${e(px)}`, borderRadius: e(16) }}>
       {on && <Indicator radius={16} />}
-      <motion.span animate={{ color: on ? C.strong : C.soft }} transition={{ duration: TIMING.label, ease: "easeInOut" }}
-        style={{ ...TEXT, position: "relative", zIndex: 1, display: "flex", alignItems: "center", gap: e(4), userSelect: "none" }}>
+      <span style={{ ...TEXT, position: "relative", zIndex: 1, display: "flex", alignItems: "center", gap: e(4), userSelect: "none", color: on ? C.strong : C.soft, transition: `color ${TIMING.label}s ease-in-out` }}>
         {children}
-      </motion.span>
+      </span>
     </motion.button>
   );
 }
@@ -246,11 +246,17 @@ function SelectedStatusBtn({ status, onOpen, onClear }: { status: Status; onOpen
 }
 
 const CSS = `
+.segmented { --sg-divider: rgba(255,255,255,0.08); --sg-track: rgba(0,0,0,0.28); --sg-track-sh: inset 0 1px 2px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04);
+  --sg-tip: #323532; --sg-tip-text: #e3e8e3; --sg-tip-sh: inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.5);
+  --sg-icon: rgba(255,255,255,0.06); --sg-icon-line: rgba(255,255,255,0.04); --sg-pop-sh: var(--k-lift), 0 16px 40px rgba(0,0,0,.45); --sg-shine: #ffffff; }
+:root[data-theme="light"] .segmented { --sg-divider: var(--k-line2); --sg-track: var(--k-well); --sg-track-sh: inset 0 1px 2px var(--k-inset), 0 1px 0 oklch(1 0 0);
+  --sg-tip: oklch(0.27 0.008 264); --sg-tip-text: oklch(0.97 0.002 264); --sg-tip-sh: inset 0 1px 0 oklch(1 0 0 / 0.08), 0 2px 6px -2px oklch(0.22 0.008 264 / 0.3);
+  --sg-icon: oklch(0.22 0.008 264 / 0.05); --sg-icon-line: oklch(0.22 0.008 264 / 0.05); --sg-pop-sh: var(--k-lift), 0 16px 40px -8px oklch(0.22 0.008 264 / 0.18); --sg-shine: oklch(0.78 0.006 264); }
 .segmented-btn { appearance: none; border: 0; background: none; margin: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .segmented-btn:focus-visible { outline: 2px solid rgba(52,181,98,.7); outline-offset: 1px; }
 @keyframes segmented-shimmer { from { background-position: 200% center; } to { background-position: -200% center; } }
 .segmented-shimmer {
-  background: linear-gradient(90deg, currentColor 0%, currentColor 35%, #ffffff 50%, currentColor 65%, currentColor 100%);
+  background: linear-gradient(90deg, currentColor 0%, currentColor 35%, var(--sg-shine) 50%, currentColor 65%, currentColor 100%);
   background-size: 200% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   animation: segmented-shimmer 0.65s cubic-bezier(0.23, 1, 0.32, 1);
 }
@@ -293,7 +299,7 @@ export default function Segmented({ size = "card" }: { size?: "card" | "big" }) 
   const showPill = active === "set-status" && status !== null;
 
   return (
-    <div ref={rootRef} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+    <div ref={rootRef} className="segmented" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
       <style>{CSS}</style>
       <LayoutGroup id={uid}>
         <div data-own-click style={{ pointerEvents: "auto", fontSize: 14 * k, transform: short ? "translateY(14px)" : undefined }}>
@@ -318,7 +324,7 @@ export default function Segmented({ size = "card" }: { size?: "card" | "big" }) 
             <TabBtn id="archived" active={active} onClick={() => onTab("archived")} px={8}>Archived</TabBtn>
             <Divider visible={showDivider("archived", null, active)} />
             <div aria-hidden style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: e(4), borderRadius: e(6), flexShrink: 0 }}>
-              <svg width={e(20)} height={e(20)} viewBox="0 0 20 20" fill="none"><path d="M10 4.75V15.25M4.75 10H15.25" stroke={C.soft} strokeWidth="1.5" strokeLinecap="round" /></svg>
+              <svg width={e(20)} height={e(20)} viewBox="0 0 20 20" fill="none"><path d="M10 4.75V15.25M4.75 10H15.25" style={{ stroke: C.soft }} strokeWidth="1.5" strokeLinecap="round" /></svg>
             </div>
           </div>
         </div>

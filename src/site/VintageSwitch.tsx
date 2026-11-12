@@ -1,9 +1,11 @@
-// VintageSwitch: the sound switch in the top bar, built like an old panel toggle, standing upright.
+// VintageSwitch: the light switch in the top bar and the dock, built like an old panel toggle, standing upright.
 // A small plate in our dark tones with a chrome rim and four screws; a hex nut holds a polished
 // lever. Flip it and the lever travels straight up (on) or down (off), passing toward you through
 // the middle (it shortens as it points at the viewer, the ball grows), overshoots a touch and
-// settles. A small green lamp shows when sound is on.
-import { useEffect, useId } from "react";
+// settles. Up is the light theme, and a small green lamp shows the lights are on.
+import { useEffect, useId, useSyncExternalStore } from "react";
+import { play } from "../sound/sound";
+import { theme } from "./theme";
 import { motion, useReducedMotion, useSpring, useTransform } from "framer-motion";
 
 const W = 30, H = 42, CX = 15, CY = 23, L = 11.5;
@@ -21,7 +23,7 @@ function Screw({ x, y, id }: { x: number; y: number; id: string }) {
   );
 }
 
-export function VintageSwitch({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
+export function VintageSwitch({ on, onToggle, label, title }: { on: boolean; onToggle: (e: React.MouseEvent<HTMLButtonElement>) => void; label: string; title: string }) {
   const id = useId().replace(/:/g, "");
   const reduced = useReducedMotion();
   const p = useSpring(on ? 1 : 0, { stiffness: 520, damping: 22, mass: 0.75 });
@@ -40,7 +42,7 @@ export function VintageSwitch({ on, onToggle, label }: { on: boolean; onToggle: 
   const lamp = useTransform(p, (v) => Math.min(1, Math.max(0, (v - 0.55) / 0.45)));
 
   return (
-    <motion.button type="button" className="vintage" aria-pressed={on} aria-label={label} title={on ? "Sound on" : "Sound off"} onClick={onToggle}
+    <motion.button type="button" className="vintage" role="switch" aria-checked={on} aria-label={label} title={title} onClick={onToggle}
       whileTap={{ scale: 0.97 }} transition={{ type: "spring", duration: 0.25, bounce: 0 }}>
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} aria-hidden="true">
         <defs>
@@ -88,5 +90,20 @@ export function VintageSwitch({ on, onToggle, label }: { on: boolean; onToggle: 
         <motion.circle cx={x2} cy={y2} r={ballR} fill={`url(#${id}-ball)`} stroke="rgba(0,0,0,.45)" strokeWidth=".35" />
       </svg>
     </motion.button>
+  );
+}
+
+/** light or dark, remembered. The same switch wherever it is placed (the top bar, the dock).
+ * The new theme grows out of the switch as a circle. */
+export function ThemeToggle() {
+  const t = useSyncExternalStore(theme.subscribe, theme.get, () => "dark" as const);
+  const light = t === "light";
+  return (
+    <VintageSwitch on={light} title={light ? "Light" : "Dark"} label={light ? "Light mode. Switch to dark" : "Dark mode. Switch to light"}
+      onToggle={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        play(light ? "off" : "on");
+        theme.set(light ? "dark" : "light", r.left + r.width / 2, r.top + r.height / 2);
+      }} />
   );
 }

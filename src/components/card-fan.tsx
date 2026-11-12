@@ -39,12 +39,21 @@ const CARDS = [
   { id: "naira", label: "Naira", symbol: "₦", amount: "50,000", color: "#f5841e" },
 ];
 
-/* ── dark tokens ── */
+/* ── tokens: the shared --k-* ones, plus the wallet's own (dark, then light). The cards keep their colours. ── */
 const C = {
-  text: "#e3e8e3", sec: "#c2cbc4", muted: "#8b968f", faint: "#5d6862",
-  raised: "linear-gradient(180deg,#2b2d2b,#242624)",
-  shadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
+  text: "var(--k-text)", sec: "var(--k-text2)", muted: "var(--k-muted)", faint: "var(--k-faint)",
+  raised: "var(--cf-shell)",
+  shadow: "var(--cf-shell-shadow)",
 };
+const CSS = `
+.cardfan { --cf-shell: var(--k-raised); --cf-shell-shadow: var(--k-lift);
+  --cf-pocket: linear-gradient(180deg, rgba(44,46,44,.72) 0%, rgba(38,40,38,.97) 34%, #242624 100%);
+  --cf-pocket-shadow: inset 0 1px 0 rgba(255,255,255,.1); }
+:root[data-theme="light"] .cardfan { --cf-shell: linear-gradient(180deg, oklch(0.93 0.004 264), oklch(0.955 0.003 264));
+  --cf-shell-shadow: inset 0 1px 2px oklch(0.22 0.008 264 / 0.06), 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 1px 2px oklch(0.22 0.008 264 / 0.06), 0 10px 24px -10px oklch(0.22 0.008 264 / 0.16), 0 28px 48px -28px oklch(0.22 0.008 264 / 0.16);
+  --cf-pocket: linear-gradient(180deg, oklch(1 0 0 / 0.72) 0%, oklch(0.995 0.002 264 / 0.97) 34%, oklch(0.985 0.002 264) 100%);
+  --cf-pocket-shadow: inset 0 1px 0 oklch(1 0 0), 0 -1px 0 oklch(0.22 0.008 264 / 0.08), 0 -6px 12px -6px oklch(0.22 0.008 264 / 0.12); }
+`;
 
 /* the widget is laid out at the source's size and scaled to fit the card */
 const BASE_W = 343;
@@ -159,8 +168,9 @@ export default function CardFan({ size = "card" }: { size?: "card" | "big" }) {
 
   return (
     <div ref={ref} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+      <style>{CSS}</style>
       <div style={{ width: BASE_W * s, height: BASE_H * s, position: "relative" }}>
-        <div data-own-click style={{ pointerEvents: "auto", position: "absolute", left: 0, top: 0, width: BASE_W, height: BASE_H, transform: `scale(${s})`, transformOrigin: "0 0", color: C.text }}>
+        <div data-own-click className="cardfan" style={{ pointerEvents: "auto", position: "absolute", left: 0, top: 0, width: BASE_W, height: BASE_H, transform: `scale(${s})`, transformOrigin: "0 0", color: C.text }}>
           <motion.div
             style={{ position: "absolute", left: 0, top: LIFT, width: BASE_W, height: 259 }}
             initial={reduced ? { opacity: 0 } : { opacity: 0, y: 32 }}
@@ -201,9 +211,9 @@ export default function CardFan({ size = "card" }: { size?: "card" | "big" }) {
               <div aria-hidden style={{
                 position: "absolute", left: 0, right: 0, top: 124, bottom: 0, zIndex: 6, pointerEvents: "none",
                 borderRadius: "8px 8px 32px 32px",
-                background: "linear-gradient(180deg, rgba(44,46,44,.72) 0%, rgba(38,40,38,.97) 34%, #242624 100%)",
+                background: "var(--cf-pocket)",
                 backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,.1)",
+                boxShadow: "var(--cf-pocket-shadow)",
               }} />
 
               <motion.div style={{ position: "absolute", left: 0, right: 0, top: 168, zIndex: 7, display: "flex", flexDirection: "column", alignItems: "center" }}

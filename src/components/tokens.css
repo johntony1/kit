@@ -1,0 +1,52 @@
+/* ── component tokens ─────────────────────────────────────────
+ * Every component in src/components paints with these, so each one has a dark and a light look.
+ * Dark values are the original dark palette; light values sit on the same OKLCH neutral (264)
+ * as the page. Accents (green, the brand colours of cards, flags) are not tokens. */
+:root {
+  --k-card: #191a19;                 /* the tile behind a component */
+  --k-surface: #242624;              /* a widget's main body */
+  --k-raised: linear-gradient(180deg, #2b2d2b, #242624); /* buttons, pills, thumbs that stand up */
+  --k-raised-solid: #2b2d2b;
+  --k-raised-hi: #313331;            /* raised, hovered */
+  --k-well: rgba(0, 0, 0, 0.24);     /* inset tracks, inputs, recessed areas */
+  --k-well-solid: #1d1f1d;
+  --k-sunk: #121312;                 /* the deepest inset (slots, holes) */
+  --k-text: #e3e8e3;
+  --k-text2: #c2cbc4;
+  --k-muted: #8b968f;
+  --k-faint: #5d6862;
+  --k-line: rgba(255, 255, 255, 0.07);     /* hairline dividers and inner borders */
+  --k-line2: rgba(255, 255, 255, 0.12);
+  --k-hi: rgba(255, 255, 255, 0.07);       /* the top inner highlight of a raised thing */
+  --k-ring: rgba(0, 0, 0, 0.55);           /* the outer 1px ring of a raised thing */
+  --k-shadow: rgba(0, 0, 0, 0.45);         /* drop shadows */
+  --k-shadow-soft: rgba(0, 0, 0, 0.3);
+  --k-inset: rgba(0, 0, 0, 0.45);          /* inner shadow of a well */
+  --k-lift: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 0 0 1px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.45), 0 4px 10px -4px rgba(0, 0, 0, 0.4);
+  --k-float: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 16px 40px rgba(0, 0, 0, 0.45);  /* popovers, menus */
+  --k-on-accent: #ffffff;
+}
+:root[data-theme="light"] {
+  --k-card: oklch(0.958 0.003 264);  /* a soft grey container: white widgets stand out on it */
+  --k-surface: oklch(1 0 0);
+  --k-raised: linear-gradient(180deg, oklch(1 0 0), oklch(0.975 0.002 264));
+  --k-raised-solid: oklch(1 0 0);
+  --k-raised-hi: oklch(0.985 0.002 264);
+  --k-well: oklch(0.948 0.004 264);
+  --k-well-solid: oklch(0.948 0.004 264);
+  --k-sunk: oklch(0.92 0.004 264);
+  --k-text: oklch(0.22 0.008 264);
+  --k-text2: oklch(0.38 0.009 264);
+  --k-muted: oklch(0.53 0.011 264);
+  --k-faint: oklch(0.69 0.009 264);
+  --k-line: oklch(0.22 0.008 264 / 0.08);
+  --k-line2: oklch(0.22 0.008 264 / 0.13);
+  --k-hi: oklch(1 0 0 / 0.9);
+  --k-ring: oklch(0.22 0.008 264 / 0.1);
+  --k-shadow: oklch(0.22 0.008 264 / 0.12);
+  --k-shadow-soft: oklch(0.22 0.008 264 / 0.07);
+  --k-inset: oklch(0.22 0.008 264 / 0.08);
+  --k-lift: inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 1px 2px oklch(0.22 0.008 264 / 0.06), 0 2px 6px -2px oklch(0.22 0.008 264 / 0.08);
+  --k-float: 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 16px 40px -8px oklch(0.22 0.008 264 / 0.18);
+  --k-on-accent: #ffffff;
+}

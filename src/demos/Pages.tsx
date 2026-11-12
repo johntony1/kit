@@ -1,4 +1,4 @@
-// A small website to transition between: Effects.free with Home, Library and About.
+// A small website to transition between: Kit with Home, Library and About.
 // Click a nav link and the transition plays to that page from where you clicked,
 // the way it would on your own site.
 
@@ -8,7 +8,7 @@ const NAMES = ["Home", "Library", "About"];
 function Nav({ i }: { i: number }) {
   return (
     <nav className="wsNav">
-      <span className="wsLogo">Effects<span>.free</span></span>
+      <span className="wsLogo">Kit</span>
       <span className="wsLinks">
         {NAMES.map((n, k) => <span key={n} data-go={k} className={`wsLink ${k === i ? "on" : ""}`}>{n}</span>)}
       </span>
@@ -47,7 +47,7 @@ export function DemoPage({ n, compact = false }: { n: number; compact?: boolean 
       <Nav i={2} />
       <div className="wsHero">
         <p className="wsKick">About</p>
-        <h3 className="wsH">Effects I made for my own work, free for yours.</h3>
+        <h3 className="wsH">A kit I made for my own work, free for yours.</h3>
         <div className="wsFacts"><span>Free</span><b>Personal and commercial</b><span>Files</span><b>One each, no dependencies</b><span>Prompts</span><b>For any coding agent</b></div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 // Voice transcription: a voice note whose waveform plays while its words scroll by, line by line.
-// Port of Music transcription / MusicTranscription.tsx, dark. Audio is simulated with a clock.
+// Port of Music transcription / MusicTranscription.tsx, in both themes. Audio is simulated with a clock.
 import { AnimatePresence, MotionConfig, motion, useMotionValue, useMotionValueEvent, useReducedMotion, useTransform } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { play } from "../sound/sound";

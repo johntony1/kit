@@ -2,7 +2,7 @@
 // sideways (or use the arrow keys) and it steps day by day, the label above
 // rolling to the picked date, then settles on the nearest day with a spring.
 // Sound: a detent on every day the needle passes.
-// From balance.tsx (port of modal animaation / DateWheel.tsx), dark.
+// From balance.tsx (port of modal animaation / DateWheel.tsx). Light and dark, from the shared tokens.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useReducedMotion, type PanInfo } from "framer-motion";
 import { play } from "../sound/sound";
@@ -19,7 +19,7 @@ const RANGE_DAYS = 30;
 const NAT_W = VIEWPORT_WIDTH + 24;
 const NAT_H = 32 + 8 + LABEL_Y + 4;
 
-const T = { text: "#e3e8e3", sub: "#c2cbc4", muted: "#8b968f", bar: "#3d6bff" };
+const T = { text: "var(--k-text)", sub: "var(--k-text2)", muted: "var(--k-muted)", bar: "#3d6bff" };
 
 const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
@@ -34,7 +34,7 @@ const Svg = ({ size, children, style }: { size: number; children: ReactNode; sty
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ display: "block", flexShrink: 0, ...style }}>{children}</svg>
 );
 const CalendarIcon = () => (
-  <Svg size={18}><rect x="4" y="5.5" width="16" height="14.5" rx="2.5" stroke={T.sub} strokeWidth="1.8" /><path d="M8 3.5v4M16 3.5v4M4 10h16" stroke={T.sub} strokeWidth="1.8" strokeLinecap="round" /><circle cx="8.5" cy="13.5" r="1" fill={T.sub} /><circle cx="12" cy="13.5" r="1" fill={T.sub} /><circle cx="15.5" cy="13.5" r="1" fill={T.sub} /><circle cx="8.5" cy="16.8" r="1" fill={T.sub} /><circle cx="12" cy="16.8" r="1" fill={T.sub} /></Svg>
+  <Svg size={18}><rect x="4" y="5.5" width="16" height="14.5" rx="2.5" style={{ stroke: T.sub }} strokeWidth="1.8" /><path d="M8 3.5v4M16 3.5v4M4 10h16" style={{ stroke: T.sub }} strokeWidth="1.8" strokeLinecap="round" /><circle cx="8.5" cy="13.5" r="1" style={{ fill: T.sub }} /><circle cx="12" cy="13.5" r="1" style={{ fill: T.sub }} /><circle cx="15.5" cy="13.5" r="1" style={{ fill: T.sub }} /><circle cx="8.5" cy="16.8" r="1" style={{ fill: T.sub }} /><circle cx="12" cy="16.8" r="1" style={{ fill: T.sub }} /></Svg>
 );
 
 // ── AnimatedLabel: odometer swap per character ─────────────
@@ -134,11 +134,11 @@ export default function DateRuler({ size = "card" }: { size?: "card" | "big" }) 
 
   return (
     <MotionConfig reducedMotion="user" transformPagePoint={(p) => ({ x: p.x / scaleRef.current, y: p.y / scaleRef.current })}>
-      <style>{`.ruler-root [tabindex]:focus-visible{outline:2px solid rgba(52,181,98,.55);outline-offset:2px;border-radius:6px}`}</style>
+      <style>{`.ruler-root [tabindex]:focus-visible{outline:2px solid rgba(52,181,98,.55);outline-offset:2px;border-radius:6px}.ruler-root{--dr-chip:rgba(255,255,255,.06);--dr-chip-ring:rgba(255,255,255,.06)}:root[data-theme="light"] .ruler-root{--dr-chip:oklch(0.22 0.008 264 / 0.045);--dr-chip-ring:oklch(0.22 0.008 264 / 0.07)}`}</style>
       <div ref={rootRef} className="ruler-root" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
         <div style={{ position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center center" }}>
           <div data-own-click="" style={{ pointerEvents: "auto", width: NAT_W, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-            <div aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", gap: 10, borderRadius: 16, background: "rgba(255,255,255,.06)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.06)", padding: "6px 12px 6px 8px" }}>
+            <div aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", gap: 10, borderRadius: 16, background: "var(--dr-chip)", boxShadow: "inset 0 0 0 1px var(--dr-chip-ring)", padding: "6px 12px 6px 8px" }}>
               <CalendarIcon />
               <AnimatedLabel value={label} style={{ color: T.sub, fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px" }} />
             </div>
@@ -173,11 +173,11 @@ export default function DateRuler({ size = "card" }: { size?: "card" | "big" }) 
                       const isSel = i === selectedIdx;
                       return (
                         <g key={i}>
-                          <line x1={cx} x2={cx} y1={0} y2={TICK_HEIGHT} stroke={T.text} strokeOpacity={isSel ? 0 : 0.5} strokeWidth={1.5} />
+                          <line x1={cx} x2={cx} y1={0} y2={TICK_HEIGHT} style={{ stroke: T.text }} strokeOpacity={isSel ? 0 : 0.5} strokeWidth={1.5} />
                           {[1, 2, 3].map((m) => (
-                            <line key={m} x1={cx + (m * CELL_WIDTH) / 4} x2={cx + (m * CELL_WIDTH) / 4} y1={TICK_HEIGHT - 6} y2={TICK_HEIGHT} stroke={T.text} strokeOpacity={0.18} strokeWidth={1} />
+                            <line key={m} x1={cx + (m * CELL_WIDTH) / 4} x2={cx + (m * CELL_WIDTH) / 4} y1={TICK_HEIGHT - 6} y2={TICK_HEIGHT} style={{ stroke: T.text }} strokeOpacity={0.18} strokeWidth={1} />
                           ))}
-                          <text x={cx} y={LABEL_Y} textAnchor="middle" fontSize={11} fill={isSel ? T.text : T.muted} fontWeight={isSel ? 600 : 400} fontFamily="inherit">{d.getDate()}</text>
+                          <text x={cx} y={LABEL_Y} textAnchor="middle" fontSize={11} style={{ fill: isSel ? T.text : T.muted }} fontWeight={isSel ? 600 : 400} fontFamily="inherit">{d.getDate()}</text>
                         </g>
                       );
                     })}

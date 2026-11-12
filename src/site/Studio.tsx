@@ -14,7 +14,7 @@ import { TYPE_EFFECTS, type TypeEffectKey } from "../type/effects";
 import { TYPE_META } from "../type/meta";
 import { typePrompt } from "../type/prompt";
 import { TypeCanvas } from "../type/TypeCanvas";
-import { CopyIcon, Seg, Slider, Switch, useCopy } from "./ui";
+import { CopyIcon, Seg, Slider, Stable, Switch, useCopy } from "./ui";
 
 export type StudioLib = "ripple" | "confetti" | TypeEffectKey;
 type V = Record<string, string | number | boolean>;
@@ -391,8 +391,8 @@ export function Studio({ lib, libs, go }: { lib: StudioLib; libs: { k: StudioLib
           <button type="button" className="round" aria-label="Reset to the original" title="Reset" onClick={() => { setV({ ...spec.defaults }); setPlayKey((n) => n + 1); }}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M3 8a5 5 0 1 0 1.5-3.6M3 3v3h3" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
-          <button type="button" className="topPill small" onClick={share}><CopyIcon done={link.done} />{link.done ? "Link copied" : "Share link"}</button>
-          <button type="button" className="btn primary" onClick={() => prompt.copy(spec.prompt(v))}><CopyIcon done={prompt.done} />{prompt.done ? "Copied" : "Copy prompt"}</button>
+          <button type="button" className="topPill small" onClick={share}><CopyIcon done={link.done} /><Stable value={link.done ? "Link copied" : "Share link"} options={["Share link", "Link copied"]} /></button>
+          <button type="button" className="btn primary" onClick={() => prompt.copy(spec.prompt(v))}><CopyIcon done={prompt.done} /><Stable value={prompt.done ? "Copied" : "Copy prompt"} options={["Copy prompt", "Copied"]} /></button>
         </div>
       </div>
 

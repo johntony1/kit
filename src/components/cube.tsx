@@ -38,12 +38,12 @@ function useFit(size: "card" | "big") {
 
 /* ── the four faces: drawn, not exported ─────────────────────────────── */
 
-const ink = "#e9eefc";
-const faceBase: CSSProperties = { position: "absolute", inset: 0, overflow: "hidden", fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif", color: ink, background: "#020718" };
+const ink = "var(--cu-ink)";
+const faceBase: CSSProperties = { position: "absolute", inset: 0, overflow: "hidden", fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif", color: ink, background: "var(--cu-bg)" };
 
 function Glow() {
   // the blue light frame the Moonlytics stage sits in
-  return <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(59,130,246,.55), transparent 7%, transparent 93%, rgba(59,130,246,.55)), linear-gradient(180deg, rgba(37,99,235,.7), transparent 9%)", pointerEvents: "none" }} />;
+  return <div style={{ position: "absolute", inset: 0, background: "var(--cu-glow)", pointerEvents: "none" }} />;
 }
 
 function Moon() {
@@ -51,8 +51,8 @@ function Moon() {
   const m = "radial-gradient(circle at 50% 50%, #000 49.5%, transparent 50.5%)";
   return (
     <div style={{ position: "absolute", right: 22, top: 40, width: 118, height: 118 }}>
-      <div style={{ position: "absolute", inset: -30, borderRadius: "50%", background: "radial-gradient(closest-side, rgba(59,130,246,.22), transparent)" }} />
-      <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 34% 30%, transparent 16%, rgba(2,7,24,.5) 50%, rgba(2,7,24,.92) 72%), radial-gradient(rgba(170,205,255,.95) 0.9px, transparent 1.2px)", backgroundSize: "100% 100%, 4px 4px", WebkitMaskImage: m, maskImage: m }} />
+      <div style={{ position: "absolute", inset: -30, borderRadius: "50%", background: "var(--cu-halo)" }} />
+      <div style={{ position: "absolute", inset: 0, backgroundImage: "var(--cu-moon)", backgroundSize: "100% 100%, 4px 4px", WebkitMaskImage: m, maskImage: m }} />
     </div>
   );
 }
@@ -65,10 +65,10 @@ function HeroFace() {
       <div style={{ position: "absolute", left: 22, top: 30, width: 190 }}>
         <div style={{ font: "400 17px/1.15 Inter, system-ui", letterSpacing: "-0.03em" }}>
           Introducing Moonlytics<br />
-          <span style={{ color: "#8ea3c4" }}>Smart insights for every</span> memecoin move.
+          <span style={{ color: "var(--cu-sub)" }}>Smart insights for every</span> memecoin move.
         </div>
-        <div style={{ font: "400 7.5px/1.45 Inter, system-ui", color: "#a8b6cc", marginTop: 22, width: 150 }}>A new analytics platform that tracks and predicts memecoin markets in real time.</div>
-        <div style={{ display: "inline-block", marginTop: 10, padding: "5px 8px", borderRadius: 5, font: "500 7px/1 Inter, system-ui", background: "linear-gradient(#1c2233,#111624)", boxShadow: "inset 0 0 0 .5px rgba(255,255,255,.18), 0 1px 2px rgba(0,0,0,.4)" }}>Explore Dashboard</div>
+        <div style={{ font: "400 7.5px/1.45 Inter, system-ui", color: "var(--cu-body)", marginTop: 22, width: 150 }}>A new analytics platform that tracks and predicts memecoin markets in real time.</div>
+        <div style={{ display: "inline-block", marginTop: 10, padding: "5px 8px", borderRadius: 5, font: "500 7px/1 Inter, system-ui", background: "var(--cu-btn)", boxShadow: "var(--cu-btn-shadow)" }}>Explore Dashboard</div>
       </div>
     </div>
   );
@@ -77,11 +77,11 @@ function HeroFace() {
 function InsightsFace() {
   const bars = [38, 52, 44, 70, 58, 84, 66, 92, 74, 60, 80, 96];
   return (
-    <div style={{ ...faceBase, background: "radial-gradient(90% 70% at 80% 0%, #0d2a6b, #020718 70%)" }}>
+    <div style={{ ...faceBase, background: "var(--cu-bg-insights)" }}>
       <Glow />
-      <div style={{ position: "absolute", left: 22, top: 26, font: "500 7px/1 Inter, system-ui", letterSpacing: "0.14em", textTransform: "uppercase", color: "#7fa2e0" }}>Insights</div>
+      <div style={{ position: "absolute", left: 22, top: 26, font: "500 7px/1 Inter, system-ui", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--cu-label)" }}>Insights</div>
       <div style={{ position: "absolute", left: 22, top: 40, font: "400 15px/1.15 Inter, system-ui", letterSpacing: "-0.03em", width: 170 }}>Know the move before it moves.</div>
-      <div style={{ position: "absolute", left: 22, right: 22, bottom: 22, height: 92, display: "flex", alignItems: "flex-end", gap: 5, borderBottom: "1px solid rgba(255,255,255,.1)" }}>
+      <div style={{ position: "absolute", left: 22, right: 22, bottom: 22, height: 92, display: "flex", alignItems: "flex-end", gap: 5, borderBottom: "1px solid var(--cu-axis)" }}>
         {bars.map((h, i) => (
           <div key={i} style={{ flex: 1, height: `${h}%`, borderRadius: "3px 3px 0 0", background: i === 11 ? "linear-gradient(#60a5fa,#2563eb)" : "linear-gradient(rgba(96,165,250,.5), rgba(37,99,235,.15))" }} />
         ))}
@@ -93,18 +93,18 @@ function InsightsFace() {
 function MarketsFace() {
   const rows: [string, string, string, boolean][] = [["PEPE", "$0.0000121", "+18.4%", true], ["BONK", "$0.0000302", "+6.1%", true], ["WIF", "$2.41", "-3.7%", false], ["DOGE", "$0.162", "+2.2%", true]];
   return (
-    <div style={{ ...faceBase, background: "#030a1d" }}>
+    <div style={{ ...faceBase, background: "var(--cu-bg-markets)" }}>
       <Glow />
-      <div style={{ position: "absolute", left: 22, right: 22, top: 26, display: "flex", justifyContent: "space-between", font: "500 7px/1 Inter, system-ui", letterSpacing: "0.14em", textTransform: "uppercase", color: "#7fa2e0" }}>
-        <span>Trending</span><span style={{ color: "#5b6b86" }}>24h</span>
+      <div style={{ position: "absolute", left: 22, right: 22, top: 26, display: "flex", justifyContent: "space-between", font: "500 7px/1 Inter, system-ui", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--cu-label)" }}>
+        <span>Trending</span><span style={{ color: "var(--cu-dim)" }}>24h</span>
       </div>
       <div style={{ position: "absolute", left: 22, right: 22, top: 46 }}>
         {rows.map(([t, p, c, up], i) => (
-          <div key={t} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 0", borderTop: i ? "1px solid rgba(255,255,255,.07)" : undefined, font: "500 9px/1 Inter, system-ui" }}>
+          <div key={t} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 0", borderTop: i ? "1px solid var(--cu-rule)" : undefined, font: "500 9px/1 Inter, system-ui" }}>
             <span style={{ width: 18, height: 18, borderRadius: 9, background: `linear-gradient(135deg, hsl(${210 + i * 24} 80% 62%), hsl(${230 + i * 24} 70% 38%))` }} />
             <span style={{ flex: 1 }}>{t}</span>
-            <span style={{ color: "#a8b6cc", fontVariantNumeric: "tabular-nums" }}>{p}</span>
-            <span style={{ width: 44, textAlign: "right", color: up ? "#4ade80" : "#f87171", fontVariantNumeric: "tabular-nums" }}>{c}</span>
+            <span style={{ color: "var(--cu-body)", fontVariantNumeric: "tabular-nums" }}>{p}</span>
+            <span style={{ width: 44, textAlign: "right", color: up ? "var(--cu-up)" : "var(--cu-down)", fontVariantNumeric: "tabular-nums" }}>{c}</span>
           </div>
         ))}
       </div>
@@ -114,21 +114,51 @@ function MarketsFace() {
 
 function VolumeFace() {
   return (
-    <div style={{ ...faceBase, background: "radial-gradient(80% 90% at 10% 100%, #0b3a8a, #020718 65%)" }}>
+    <div style={{ ...faceBase, background: "var(--cu-bg-volume)" }}>
       <Glow />
-      <div style={{ position: "absolute", left: 22, top: 26, font: "500 7px/1 Inter, system-ui", letterSpacing: "0.14em", textTransform: "uppercase", color: "#7fa2e0" }}>Volume tracked</div>
+      <div style={{ position: "absolute", left: 22, top: 26, font: "500 7px/1 Inter, system-ui", letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--cu-label)" }}>Volume tracked</div>
       <div style={{ position: "absolute", left: 22, top: 42, font: "400 36px/1 Inter, system-ui", letterSpacing: "-0.05em", fontVariantNumeric: "tabular-nums" }}>$2.48B</div>
-      <div style={{ position: "absolute", left: 22, top: 84, font: "500 8px/1 Inter, system-ui", color: "#4ade80" }}>+12.6% this week</div>
+      <div style={{ position: "absolute", left: 22, top: 84, font: "500 8px/1 Inter, system-ui", color: "var(--cu-up)" }}>+12.6% this week</div>
       <svg viewBox="0 0 300 80" preserveAspectRatio="none" style={{ position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: 90 }}>
         <defs>
           <linearGradient id="cube-vol" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#3b82f6" stopOpacity=".45" /><stop offset="1" stopColor="#3b82f6" stopOpacity="0" /></linearGradient>
         </defs>
         <path d="M0 62 C30 58 40 40 70 44 S110 60 140 38 S190 30 210 22 S260 30 300 8 L300 80 L0 80Z" fill="url(#cube-vol)" />
-        <path d="M0 62 C30 58 40 40 70 44 S110 60 140 38 S190 30 210 22 S260 30 300 8" fill="none" stroke="#60a5fa" strokeWidth="1.6" />
+        <path d="M0 62 C30 58 40 40 70 44 S110 60 140 38 S190 30 210 22 S260 30 300 8" fill="none" style={{ stroke: "var(--cu-stroke)" }} strokeWidth="1.6" />
       </svg>
     </div>
   );
 }
+
+// The screens' palette: night blue in dark, a daylight version of the same screens in light.
+const CSS = `
+.cube-root{
+  --cu-ink:#e9eefc;--cu-sub:#8ea3c4;--cu-body:#a8b6cc;--cu-label:#7fa2e0;--cu-dim:#5b6b86;
+  --cu-up:#4ade80;--cu-down:#f87171;--cu-stroke:#60a5fa;
+  --cu-axis:rgba(255,255,255,.1);--cu-rule:rgba(255,255,255,.07);
+  --cu-bg:#020718;--cu-bg-markets:#030a1d;
+  --cu-bg-insights:radial-gradient(90% 70% at 80% 0%, #0d2a6b, #020718 70%);
+  --cu-bg-volume:radial-gradient(80% 90% at 10% 100%, #0b3a8a, #020718 65%);
+  --cu-glow:linear-gradient(90deg, rgba(59,130,246,.55), transparent 7%, transparent 93%, rgba(59,130,246,.55)), linear-gradient(180deg, rgba(37,99,235,.7), transparent 9%);
+  --cu-halo:radial-gradient(closest-side, rgba(59,130,246,.22), transparent);
+  --cu-moon:radial-gradient(circle at 34% 30%, transparent 16%, rgba(2,7,24,.5) 50%, rgba(2,7,24,.92) 72%), radial-gradient(rgba(170,205,255,.95) 0.9px, transparent 1.2px);
+  --cu-btn:linear-gradient(#1c2233,#111624);--cu-btn-shadow:inset 0 0 0 .5px rgba(255,255,255,.18), 0 1px 2px rgba(0,0,0,.4);
+  --cu-edge:inset 0 0 0 1px rgba(255,255,255,.08);--cu-shade:#020408;
+}
+:root[data-theme="light"] .cube-root{
+  --cu-ink:oklch(0.22 0.008 264);--cu-sub:oklch(0.53 0.011 264);--cu-body:oklch(0.38 0.009 264);--cu-label:oklch(0.5 0.17 262);--cu-dim:oklch(0.53 0.011 264);
+  --cu-up:oklch(0.52 0.15 150);--cu-down:oklch(0.55 0.19 25);--cu-stroke:#3b82f6;
+  --cu-axis:oklch(0.22 0.008 264 / .13);--cu-rule:oklch(0.22 0.008 264 / .08);
+  --cu-bg:oklch(0.995 0.002 264);--cu-bg-markets:oklch(0.995 0.002 264);
+  --cu-bg-insights:radial-gradient(90% 70% at 80% 0%, oklch(0.9 0.05 258), oklch(0.995 0.002 264) 70%);
+  --cu-bg-volume:radial-gradient(80% 90% at 10% 100%, oklch(0.88 0.06 258), oklch(0.995 0.002 264) 65%);
+  --cu-glow:linear-gradient(90deg, rgba(59,130,246,.2), transparent 7%, transparent 93%, rgba(59,130,246,.2)), linear-gradient(180deg, rgba(37,99,235,.24), transparent 9%);
+  --cu-halo:radial-gradient(closest-side, rgba(59,130,246,.16), transparent);
+  --cu-moon:radial-gradient(circle at 34% 30%, transparent 16%, oklch(0.995 0.002 264 / .5) 50%, oklch(0.995 0.002 264 / .92) 72%), radial-gradient(rgba(37,99,235,.85) 0.9px, transparent 1.2px);
+  --cu-btn:linear-gradient(oklch(1 0 0),oklch(0.975 0.002 264));--cu-btn-shadow:inset 0 0 0 .5px oklch(0.22 0.008 264 / .16), 0 1px 2px oklch(0.22 0.008 264 / .1);
+  --cu-edge:inset 0 0 0 1px oklch(0.22 0.008 264 / .12);--cu-shade:oklch(0.62 0.03 262);
+}
+`;
 
 const FACES: { key: string; node: ReactNode }[] = [
   { key: "hero", node: <HeroFace /> },
@@ -250,7 +280,8 @@ export default function Cube({ size = "card" }: { size?: "card" | "big" }) {
 
   const W = FW * s, H = FH * s;
   return (
-    <div ref={ref} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+    <div ref={ref} className="cube-root" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+      <style>{CSS}</style>
       <style>{`.cube-dot{background:rgba(255,255,255,.16)}:root[data-theme="light"] .cube-dot{background:oklch(0.22 0.008 264 / .2)}`}</style>
       <div style={{ display: "flex", alignItems: "center", gap: 18 * Math.max(0.8, s), transform: size === "card" ? "translateY(2px)" : undefined }}>
         <div style={{ width: 8 }} />
@@ -280,11 +311,11 @@ export default function Cube({ size = "card" }: { size?: "card" | "big" }) {
                     position: "absolute", inset: 0, borderRadius: 6, overflow: "hidden",
                     transform: `rotateX(${-HINGE * 90 * i}deg) translateZ(${D + i * 0.5}px)`,
                     backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
-                    boxShadow: "inset 0 0 0 1px rgba(255,255,255,.08)",
+                    boxShadow: "var(--cu-edge)",
                   }}
                 >
                   {f.node}
-                  <div ref={(el) => { shadeRefs.current[i] = el; }} style={{ position: "absolute", inset: 0, background: "#020408", opacity: i ? 1 : 0, pointerEvents: "none" }} />
+                  <div ref={(el) => { shadeRefs.current[i] = el; }} style={{ position: "absolute", inset: 0, background: "var(--cu-shade)", opacity: i ? 1 : 0, pointerEvents: "none" }} />
                 </div>
               ))}
             </div>

@@ -33,13 +33,35 @@ const SLIP_END = R_TOP + R_H + 14; // room for the 8px float and the bottom scal
 const FULL_H = SLIP_END + BTN_ROW;
 const CLIP_TOP = 40; // the slip is hidden above this line (inside the printer body)
 
-/* ── dark tokens ── */
+/* ── tokens: shared ones for the controls, scoped ones (below) for the hardware ── */
 const C = {
-  text: "#e3e8e3", sec: "#c2cbc4", muted: "#8b968f", faint: "#5d6862",
-  raised: "linear-gradient(180deg,#2b2d2b,#242624)",
-  shadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
+  text: "var(--k-text)", sec: "var(--k-text2)", muted: "var(--k-muted)", faint: "var(--k-faint)",
+  raised: "var(--k-raised)",
+  shadow: "var(--k-lift)",
   green: "linear-gradient(180deg,#3cc06b,#22994c)",
 };
+/* the printer body, its slot and the shadows: charcoal plastic in dark, pale grey plastic in light.
+ * The slip is paper in both. */
+const CSS = `
+.pr-root{
+  --pr-b1:#3a3d3a;--pr-b2:#2e312e;--pr-b3:#232523;
+  --pr-satin1:rgba(255,255,255,0.16);--pr-satin2:rgba(255,255,255,0.06);
+  --pr-edge:rgba(0,0,0,0.3);--pr-lip:rgba(0,0,0,0.25);--pr-slot:#050505;--pr-ring:none;
+  --pr-body-shadow:drop-shadow(0 20px 36px rgba(0,0,0,0.5)) drop-shadow(0 4px 10px rgba(0,0,0,0.35));
+  --pr-slip-shadow:drop-shadow(0 12px 28px rgba(0,0,0,0.45)) drop-shadow(0 3px 8px rgba(0,0,0,0.3));
+  --pr-track-shadow:inset 0 1px 2px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06), 0 1px 0 rgba(255,255,255,.04);
+  --pr-handle-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 0 0 1px rgba(0,0,0,.45), 0 2px 6px -2px rgba(0,0,0,.5);
+}
+:root[data-theme="light"] .pr-root{
+  --pr-b1:oklch(0.995 0.001 264);--pr-b2:oklch(0.968 0.003 264);--pr-b3:oklch(0.925 0.005 264);
+  --pr-satin1:oklch(1 0 0 / 0.9);--pr-satin2:oklch(1 0 0 / 0.4);
+  --pr-edge:oklch(0.22 0.008 264 / 0.07);--pr-lip:oklch(0.22 0.008 264 / 0.07);--pr-slot:oklch(0.34 0.008 264);--pr-ring:oklch(0.22 0.008 264 / 0.14);
+  --pr-body-shadow:drop-shadow(0 18px 30px oklch(0.22 0.008 264 / 0.14)) drop-shadow(0 3px 6px oklch(0.22 0.008 264 / 0.08));
+  --pr-slip-shadow:drop-shadow(0 12px 24px oklch(0.22 0.008 264 / 0.14)) drop-shadow(0 2px 5px oklch(0.22 0.008 264 / 0.1)) drop-shadow(0 0 1px oklch(0.22 0.008 264 / 0.3));
+  --pr-track-shadow:inset 0 1px 2px var(--k-inset), 0 0 0 1px var(--k-line);
+  --pr-handle-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 0 0 1px oklch(0.5 0.14 150), 0 2px 6px -2px oklch(0.5 0.14 150 / 0.5);
+}
+`;
 
 function useFit(size: "card" | "big") {
   const ref = useRef<HTMLDivElement>(null);
@@ -192,7 +214,7 @@ function SlideButton({ onComplete, scale }: { onComplete: () => void; scale: Rea
 
   return (
     <div style={{ position: "relative", width: TRACK_W, height: 44, flexShrink: 0 }}>
-      <div style={{ position: "absolute", inset: 0, borderRadius: 24, background: "#1d1f1d", boxShadow: "inset 0 1px 2px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06), 0 1px 0 rgba(255,255,255,.04)" }} />
+      <div style={{ position: "absolute", inset: 0, borderRadius: 24, background: "var(--k-well-solid)", boxShadow: "var(--pr-track-shadow)" }} />
       {!isSlid && (
         <p style={{ position: "absolute", inset: 0, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 500, fontSize: 14, letterSpacing: "-0.084px", lineHeight: "20px", color: C.muted, pointerEvents: "none", whiteSpace: "nowrap" }}>
           Slide to print pay slip
@@ -205,7 +227,7 @@ function SlideButton({ onComplete, scale }: { onComplete: () => void; scale: Rea
         style={{
           position: "absolute", top: HANDLE_P, left: HANDLE_P, width: isSlid ? SLID_W : handleW, height: 40,
           borderRadius: 24, overflow: "hidden", background: C.green,
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,.28), 0 0 0 1px rgba(0,0,0,.45), 0 2px 6px -2px rgba(0,0,0,.5)",
+          boxShadow: "var(--pr-handle-shadow)",
           cursor: triggered.current ? "default" : dragging ? "grabbing" : "grab",
           display: "flex", alignItems: "center", justifyContent: isSlid ? "center" : "flex-start",
           padding: "8px 16px", gap: 16, boxSizing: "border-box", userSelect: "none", touchAction: "none", outline: "none",
@@ -271,14 +293,15 @@ export default function Printer({ size = "card" }: { size?: "card" | "big" }) {
   }, [phase, reduced]);
 
   return (
-    <div ref={ref} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+    <div ref={ref} className="pr-root" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+      <style>{CSS}</style>
       <div style={{ width: BASE_W * s, height: BASE_H * s, position: "relative" }}>
         <div data-own-click style={{ pointerEvents: "auto", position: "absolute", left: 0, top: 0, width: BASE_W, height: BASE_H, transform: `scale(${s})`, transformOrigin: "0 0" }}>
           {/* slip: hidden above the slot, shown in full below it */}
           <div style={{
             position: "absolute", left: 0, top: CLIP_TOP, width: PW, height: SLIP_END - CLIP_TOP, overflow: "hidden", pointerEvents: "none",
           }}>
-            <div ref={receiptRef} style={{ position: "absolute", top: R_TOP - CLIP_TOP, left: R_LEFT, width: R_W, height: R_H, filter: "drop-shadow(0 12px 28px rgba(0,0,0,0.45)) drop-shadow(0 3px 8px rgba(0,0,0,0.3))" }}>
+            <div ref={receiptRef} style={{ position: "absolute", top: R_TOP - CLIP_TOP, left: R_LEFT, width: R_W, height: R_H, filter: "var(--pr-slip-shadow)" }}>
               <div style={{ width: R_INNER_W, height: R_INNER_H, transform: `scale(${R_SCALE})`, transformOrigin: "top left" }}>
                 <Payslip />
               </div>
@@ -290,32 +313,32 @@ export default function Printer({ size = "card" }: { size?: "card" | "big" }) {
             initial={reduced ? false : { opacity: 0, y: 28, scale: 0.88 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 200, damping: 22, delay: T.printerDelay }}
-            style={{ position: "absolute", top: 0, left: 0, zIndex: 20, lineHeight: 0, filter: "drop-shadow(0 20px 36px rgba(0,0,0,0.5)) drop-shadow(0 4px 10px rgba(0,0,0,0.35))", pointerEvents: "none" }}
+            style={{ position: "absolute", top: 0, left: 0, zIndex: 20, lineHeight: 0, filter: "var(--pr-body-shadow)", pointerEvents: "none" }}
           >
             <svg width={PW} height={BODY_H} viewBox="0 0 915 273" fill="none" style={{ display: "block" }} aria-hidden>
               <defs>
                 <linearGradient id="printer-body" x1="0" y1="0" x2="0" y2="273" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="#3a3d3a" />
-                  <stop offset="38%" stopColor="#2e312e" />
-                  <stop offset="100%" stopColor="#232523" />
+                  <stop offset="0%" style={{ stopColor: "var(--pr-b1)" }} />
+                  <stop offset="38%" style={{ stopColor: "var(--pr-b2)" }} />
+                  <stop offset="100%" style={{ stopColor: "var(--pr-b3)" }} />
                 </linearGradient>
                 <radialGradient id="printer-satin" cx="50%" cy="18%" rx="39%" ry="29%">
-                  <stop offset="0%" stopColor="rgba(255,255,255,0.16)" />
-                  <stop offset="36%" stopColor="rgba(255,255,255,0.06)" />
+                  <stop offset="0%" style={{ stopColor: "var(--pr-satin1)" }} />
+                  <stop offset="36%" style={{ stopColor: "var(--pr-satin2)" }} />
                   <stop offset="68%" stopColor="rgba(255,255,255,0)" />
                 </radialGradient>
                 <linearGradient id="printer-edge" x1="0" y1="0" x2="915" y2="0" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="rgba(0,0,0,0.3)" />
+                  <stop offset="0%" style={{ stopColor: "var(--pr-edge)" }} />
                   <stop offset="5%" stopColor="rgba(0,0,0,0)" />
                   <stop offset="95%" stopColor="rgba(0,0,0,0)" />
-                  <stop offset="100%" stopColor="rgba(0,0,0,0.3)" />
+                  <stop offset="100%" style={{ stopColor: "var(--pr-edge)" }} />
                 </linearGradient>
               </defs>
               <path d={BODY_PATH} fill="url(#printer-body)" />
               <path d={BODY_PATH} fill="url(#printer-satin)" />
-              <path d={BODY_PATH} fill="url(#printer-edge)" />
-              <path d="M12.185 198.952C18.021 204.52 21.809 209.803 29 214.484C51.911 229.399 87.703 224.591 114.766 224.601L228.8 224.578L581.68 224.561L776.5 224.574L826.74 224.712C860.57 224.809 886.81 226.691 906.02 192.246C908.2 188.344 909.55 184.247 912.15 180.64C910.61 203.777 911.67 245.055 894.29 261.033C879.54 274.596 856.57 272.256 837.84 272.04L837.83 256.793L837.82 245.209L79.047 245.216L79.05 256.901L79.092 272.008C66.206 272.223 52.641 273.578 40.869 268.495C13.146 256.739 13.016 222.537 8.55298 196.177L10.074 195.805C11.138 197.159 11.572 197.418 12.185 198.952Z" fill="rgba(0,0,0,0.25)" />
-              <path d="M79.05 256.901C70.623 257.056 63.632 258.241 57.038 251.901C47.845 243.062 58.301 234.462 67.603 234.216C85.768 233.736 104.006 233.979 122.182 234.024L230.618 234.086L692.27 234.076L806.7 234.074C820.89 234.074 836.81 233.625 850.99 234.535C856.65 234.897 863.08 242.207 860.14 247.942C855.66 258.055 846.8 257.139 837.83 256.793L837.82 245.209L79.047 245.216L79.05 256.901Z" fill="#050505" />
+              <path d={BODY_PATH} fill="url(#printer-edge)" style={{ stroke: "var(--pr-ring)" }} strokeWidth={2} />
+              <path d="M12.185 198.952C18.021 204.52 21.809 209.803 29 214.484C51.911 229.399 87.703 224.591 114.766 224.601L228.8 224.578L581.68 224.561L776.5 224.574L826.74 224.712C860.57 224.809 886.81 226.691 906.02 192.246C908.2 188.344 909.55 184.247 912.15 180.64C910.61 203.777 911.67 245.055 894.29 261.033C879.54 274.596 856.57 272.256 837.84 272.04L837.83 256.793L837.82 245.209L79.047 245.216L79.05 256.901L79.092 272.008C66.206 272.223 52.641 273.578 40.869 268.495C13.146 256.739 13.016 222.537 8.55298 196.177L10.074 195.805C11.138 197.159 11.572 197.418 12.185 198.952Z" style={{ fill: "var(--pr-lip)" }} />
+              <path d="M79.05 256.901C70.623 257.056 63.632 258.241 57.038 251.901C47.845 243.062 58.301 234.462 67.603 234.216C85.768 233.736 104.006 233.979 122.182 234.024L230.618 234.086L692.27 234.076L806.7 234.074C820.89 234.074 836.81 233.625 850.99 234.535C856.65 234.897 863.08 242.207 860.14 247.942C855.66 258.055 846.8 257.139 837.83 256.793L837.82 245.209L79.047 245.216L79.05 256.901Z" style={{ fill: "var(--pr-slot)" }} />
             </svg>
           </motion.div>
 

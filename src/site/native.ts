@@ -1,11 +1,14 @@
 // Native, dark versions of the components: one file each in src/components/<key>.tsx,
-// default export ({ size }) => JSX. Found automatically by file name.
-import type { ComponentType } from "react";
+// default export ({ size }) => JSX. Found automatically by file name, and each loaded on its own
+// the first time it is shown.
+import { lazy, type ComponentType } from "react";
 
 export type NativeSize = "card" | "big";
-const MODS = import.meta.glob("../components/*.tsx", { eager: true, import: "default" }) as Record<string, ComponentType<{ size?: NativeSize }>>;
-const RAW = import.meta.glob("../components/*.tsx", { eager: true, query: "?raw", import: "default" }) as Record<string, string>;
+type Native = ComponentType<{ size?: NativeSize }>;
+const MODS = import.meta.glob<{ default: Native }>("../components/*.tsx");
+const RAW = import.meta.glob<string>("../components/*.tsx", { query: "?raw", import: "default" });
 
 const key = (p: string) => p.split("/").pop()!.replace(/\.tsx$/, "");
-export const NATIVE: Record<string, ComponentType<{ size?: NativeSize }>> = Object.fromEntries(Object.entries(MODS).map(([p, m]) => [key(p), m]));
-export const NATIVE_SRC: Record<string, string> = Object.fromEntries(Object.entries(RAW).map(([p, m]) => [key(p), m]));
+export const NATIVE: Record<string, Native> = Object.fromEntries(Object.entries(MODS).map(([p, load]) => [key(p), lazy(load)]));
+/** a component's source file as text, for the Code tab and the prompt */
+export const loadNativeSrc = (k: string): Promise<string | undefined> => RAW[`../components/${k}.tsx`]?.() ?? Promise.resolve(undefined);

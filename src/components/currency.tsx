@@ -26,12 +26,25 @@ function useCountTo() {
   return { countTo, cancel };
 }
 
-/* ── dark tokens ── */
+/* ── tokens: the shared --k-* ones, plus the swap card's own (dark, then light) ── */
 const T = {
-  text: "#e3e8e3", sec: "#c2cbc4", muted: "#8b968f", faint: "#5d6862",
-  raised: "linear-gradient(180deg,#2b2d2b,#242624)",
-  shadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
+  text: "var(--k-text)", sec: "var(--k-text2)", muted: "var(--k-muted)", faint: "var(--cs-side)",
+  raised: "var(--k-raised)",
+  shadow: "var(--cs-card)",
 };
+const CSS = `
+.curswap { --cs-side: #5d6862; --cs-card: var(--k-lift);
+  --cs-chip: rgba(255,255,255,.06); --cs-chip-ring: rgba(255,255,255,.06);
+  --cs-well: rgba(0,0,0,.2); --cs-well-ring: rgba(255,255,255,.04);
+  --cs-knob: #2f322f; --cs-knob-edge: #282a28; --cs-knob-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 1px 3px rgba(0,0,0,.4);
+  --cs-flag-ring: transparent; }
+:root[data-theme="light"] .curswap { --cs-side: oklch(0.53 0.011 264);
+  --cs-card: inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 1px 2px oklch(0.22 0.008 264 / 0.05), 0 8px 20px -8px oklch(0.22 0.008 264 / 0.12), 0 24px 48px -24px oklch(0.22 0.008 264 / 0.14);
+  --cs-chip: oklch(0.955 0.003 264); --cs-chip-ring: oklch(0.22 0.008 264 / 0.06);
+  --cs-well: oklch(0.96 0.003 264); --cs-well-ring: oklch(0.22 0.008 264 / 0.05);
+  --cs-knob: oklch(1 0 0); --cs-knob-edge: oklch(0.985 0.002 264); --cs-knob-shadow: 0 0 0 1px oklch(0.22 0.008 264 / 0.1), 0 1px 3px oklch(0.22 0.008 264 / 0.12), 0 3px 8px -3px oklch(0.22 0.008 264 / 0.14);
+  --cs-flag-ring: oklch(0.22 0.008 264 / 0.12); }
+`;
 const SWAP_SPRING = { type: "spring", stiffness: 480, damping: 36, mass: 0.8 } as const;
 const PRESS = { type: "spring", stiffness: 700, damping: 42 } as const;
 const FADE = { duration: 0.12, ease: "easeOut" } as const;
@@ -156,7 +169,7 @@ function Flag({ code, size = 24 }: { code: string; size?: number }) {
 function IconTransfer() {
   return (
     <svg width="14" height="15" viewBox="0 0 14.0592 14.8925" fill="none" aria-hidden>
-      <path d="M7.41667 11.1963L10.3629 14.1425L13.3092 11.1963M10.3629 4.11283L10.3629 14.1128M0.75 3.69628L3.69628 0.75L6.64256 3.69628M3.69628 0.7795L3.69628 10.7795" stroke={T.text} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7.41667 11.1963L10.3629 14.1425L13.3092 11.1963M10.3629 4.11283L10.3629 14.1128M0.75 3.69628L3.69628 0.75L6.64256 3.69628M3.69628 0.7795L3.69628 10.7795" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -164,7 +177,7 @@ function IconTransfer() {
 function CurrencyTag({ currency }: { currency: Currency }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <Flag code={currency.code} size={24} />
+      <span style={{ display: "flex", flexShrink: 0, borderRadius: 999, boxShadow: "0 0 0 1px var(--cs-flag-ring)" }}><Flag code={currency.code} size={24} /></span>
       <span style={{ fontWeight: 500, fontSize: 18, lineHeight: "24px", letterSpacing: "-0.2px", color: T.text, whiteSpace: "nowrap" }}>{currency.code}</span>
     </div>
   );
@@ -245,8 +258,9 @@ export default function CurrencySwap({ size = "card" }: { size?: "card" | "big" 
 
   return (
     <div ref={ref} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+      <style>{CSS}</style>
       <div style={{ width: BASE_W * s, height: BASE_H * s, position: "relative" }}>
-        <div data-own-click style={{ pointerEvents: "auto", position: "absolute", left: 0, top: 0, width: BASE_W, transform: `scale(${s})`, transformOrigin: "0 0", perspective: 900, perspectiveOrigin: "50% 50%" }}>
+        <div data-own-click className="curswap" style={{ pointerEvents: "auto", position: "absolute", left: 0, top: 0, width: BASE_W, transform: `scale(${s})`, transformOrigin: "0 0", perspective: 900, perspectiveOrigin: "50% 50%" }}>
           <motion.div
             animate={flip}
             style={{
@@ -274,7 +288,7 @@ export default function CurrencySwap({ size = "card" }: { size?: "card" | "big" 
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                         <span style={side}>{sell.symbol}{sell.balance.toLocaleString("en-US")}</span>
                         <motion.button type="button" whileTap={{ scale: 0.92 }} transition={PRESS} onClick={handleMax}
-                          style={{ fontFamily: "inherit", fontWeight: 500, fontSize: 12, lineHeight: "16px", color: T.sec, background: "rgba(255,255,255,.06)", border: "none", borderRadius: 999, padding: "4px 8px", cursor: "pointer", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.06)" }}>
+                          style={{ fontFamily: "inherit", fontWeight: 500, fontSize: 12, lineHeight: "16px", color: T.sec, background: "var(--cs-chip)", border: "none", borderRadius: 999, padding: "4px 8px", cursor: "pointer", boxShadow: "inset 0 0 0 1px var(--cs-chip-ring)" }}>
                           Max
                         </motion.button>
                       </div>
@@ -287,7 +301,7 @@ export default function CurrencySwap({ size = "card" }: { size?: "card" | "big" 
             {/* swap button: outer div owns centring so the rotate does not fight translateX */}
             <div style={{ position: "absolute", top: 85, left: "50%", transform: "translateX(-50%)", zIndex: 10 }}>
               <motion.button type="button" onClick={handleSwap} whileTap={{ scale: 0.86 }} animate={reduced ? {} : { rotate: iconAngle }} transition={SWAP_SPRING} aria-label="Swap currencies"
-                style={{ width: 36, height: 36, background: "#2f322f", border: "2px solid #282a28", borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 8, boxShadow: "inset 0 1px 0 rgba(255,255,255,.08), 0 1px 3px rgba(0,0,0,.4)" }}>
+                style={{ width: 36, height: 36, background: "var(--cs-knob)", border: "2px solid var(--cs-knob-edge)", color: T.text, borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 8, boxShadow: "var(--cs-knob-shadow)" }}>
                 <IconTransfer />
               </motion.button>
             </div>
@@ -295,7 +309,7 @@ export default function CurrencySwap({ size = "card" }: { size?: "card" | "big" 
             {/* Receive at least */}
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.div key={`receive-${receive.code}`} layout={!reduced} initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduced ? undefined : { opacity: 0 }} transition={FADE}>
-                <div style={{ background: "rgba(0,0,0,.2)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.04)", borderRadius: "8px 8px 24px 24px", padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ background: "var(--cs-well)", boxShadow: "inset 0 0 0 1px var(--cs-well-ring)", borderRadius: "8px 8px 24px 24px", padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
                   <p style={label}>Receive at least</p>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <AnimatePresence mode="wait" initial={false}>

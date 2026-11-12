@@ -1,5 +1,5 @@
 // Dev only: #/dots shows every dot illustration at rest and hovered; #/dots/<k> shows one, big.
-import { DotArt } from "./DotArt";
+import { LazyDot } from "./DotArt";
 import { THEMES } from "./dots";
 import { ILLS } from "./ills";
 
@@ -12,7 +12,7 @@ export default function DotsLab() {
       {list.length === 0 && <p style={{ color: "#fff" }}>No illustration "{only}". Have: {ILLS.map((i) => i.k).join(", ")}</p>}
       {list.flatMap((ill) => [false, true].map((hv) => (
         <div key={ill.k + hv} data-k={ill.k} data-hover={hv} style={{ width: size[0], height: size[1], position: "relative", borderRadius: 20, background: "#111", display: "grid", placeItems: "center" }}>
-          <div style={{ width: size[0] - 40, height: size[1] - 40, position: "relative" }}><DotArt ill={ill} hover={hv} theme={THEMES[0]} /></div>
+          <div style={{ width: size[0] - 40, height: size[1] - 40, position: "relative" }}><LazyDot k={ill.k} hover={hv} theme={THEMES[0]} /></div>
           <span style={{ position: "absolute", left: 12, top: 8, font: "11px monospace", color: "#666" }}>{ill.k} {ill.kind} {hv ? "hovered" : "rest"}</span>
         </div>
       )))}

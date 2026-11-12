@@ -1,5 +1,5 @@
 // Balance card: total balance, a bar chart with hover tooltips, a date ruler and the share step.
-// Port of modal animaation / BalanceCard.tsx, BarChart.tsx, ShareSection.tsx, DateWheel.tsx, dark.
+// Port of modal animaation / BalanceCard.tsx, BarChart.tsx, ShareSection.tsx, DateWheel.tsx. Light and dark.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { play } from "../sound/sound";
 import { AnimatePresence, MotionConfig, animate, motion, useMotionValue, useReducedMotion, type PanInfo } from "framer-motion";
@@ -21,37 +21,60 @@ const NAT_H = 300;
 
 // ── Tokens ─────────────────────────────────────────────────
 const T = {
-  text: "#e3e8e3",
-  sub: "#c2cbc4",
-  muted: "#8b968f",
-  faint: "#5d6862",
-  raised: "linear-gradient(180deg,#2b2d2b,#242624)",
-  raisedShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)",
+  text: "var(--k-text)",
+  sub: "var(--k-text2)",
+  muted: "var(--k-muted)",
+  faint: "var(--k-faint)",
+  raised: "var(--k-raised)",
+  raisedShadow: "var(--k-lift)",
   bar: "#3d6bff",
   green: "#34b562",
 };
+// this card's own colours: dark, then light
+const CSS = `
+.balance-root { --bl-shell: #202120; --bl-shell-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(255,255,255,.04), 0 10px 30px -10px rgba(0,0,0,.5);
+  --bl-chip: rgba(255,255,255,.06); --bl-chip-ring: rgba(255,255,255,.06); --bl-hover: rgba(255,255,255,.06);
+  --bl-input: #1e1f1e; --bl-input-shadow: inset 0 1px 2px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06), 0 1px 0 rgba(255,255,255,.04);
+  --bl-float: inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 12px 32px -8px rgba(0,0,0,0.6), 0 4px 8px -4px rgba(0,0,0,0.5);
+  --bl-tip: #e3e8e3; --bl-tip-ink: #191a19; --bl-tip-sub: rgba(25,26,25,.55);
+  --bl-tip-shadow: 0 6px 16px -4px rgba(0,0,0,0.5), 0 2px 4px -1px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.4);
+  --bl-send: linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%), #e3e8e3; --bl-send-ink: #191a19;
+  --bl-send-shadow: 0 0 0 0.75px rgba(255,255,255,.3), 0 1px 3px -1.5px rgba(0,0,0,0.5), inset 0 1px 2px 0 rgba(255,255,255,0.4);
+  --bl-cut: #242624; --bl-bar-ring: rgba(0,0,0,.25); --bl-up: #5fd38a; }
+:root[data-theme="light"] .balance-root { --bl-shell: oklch(0.965 0.003 264); --bl-shell-shadow: inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 1px 2px oklch(0.22 0.008 264 / 0.04), 0 10px 24px -10px oklch(0.22 0.008 264 / 0.12), 0 24px 48px -24px oklch(0.22 0.008 264 / 0.12);
+  --bl-chip: oklch(0.22 0.008 264 / 0.05); --bl-chip-ring: oklch(0.22 0.008 264 / 0.06); --bl-hover: oklch(0.22 0.008 264 / 0.05);
+  --bl-input: oklch(0.955 0.003 264); --bl-input-shadow: inset 0 1px 2px oklch(0.22 0.008 264 / 0.08), inset 0 0 0 1px oklch(0.22 0.008 264 / 0.06), 0 1px 0 oklch(1 0 0);
+  --bl-float: inset 0 1px 0 oklch(1 0 0), 0 0 0 1px oklch(0.22 0.008 264 / 0.08), 0 12px 32px -8px oklch(0.22 0.008 264 / 0.18), 0 4px 8px -4px oklch(0.22 0.008 264 / 0.1);
+  --bl-tip: oklch(0.22 0.008 264); --bl-tip-ink: oklch(0.985 0.002 264); --bl-tip-sub: oklch(0.985 0.002 264 / 0.65);
+  --bl-tip-shadow: 0 6px 16px -4px oklch(0.22 0.008 264 / 0.3), 0 2px 4px -1px oklch(0.22 0.008 264 / 0.2), inset 0 1px 0 oklch(1 0 0 / 0.14);
+  --bl-send: linear-gradient(180deg, oklch(1 0 0 / 0.16) 0%, oklch(1 0 0 / 0) 100%), oklch(0.22 0.008 264); --bl-send-ink: oklch(0.985 0.002 264);
+  --bl-send-shadow: 0 0 0 0.75px oklch(0.22 0.008 264), 0 1px 3px -1.5px oklch(0.22 0.008 264 / 0.4), inset 0 1px 2px 0 oklch(1 0 0 / 0.18);
+  --bl-cut: oklch(1 0 0); --bl-bar-ring: oklch(0.45 0.2 266 / 0.45); --bl-up: oklch(0.52 0.15 150); }
+:root[data-theme="light"] .balance-root .balance-x { color: var(--k-muted); }
+:root[data-theme="light"] .balance-root .balance-x:hover { color: var(--k-text2); }
+`;
 
 // ── Icons (mingcute shapes, inline) ────────────────────────
 const Svg = ({ size, children, style }: { size: number; children: ReactNode; style?: CSSProperties }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ display: "block", flexShrink: 0, ...style }}>{children}</svg>
 );
 const InfoIcon = () => (
-  <Svg size={18}><circle cx="12" cy="12" r="8.5" stroke={T.faint} strokeWidth="1.8" /><path d="M12 11v5" stroke={T.faint} strokeWidth="1.8" strokeLinecap="round" /><circle cx="12" cy="8" r="1.1" fill={T.faint} /></Svg>
+  <Svg size={18} style={{ color: T.faint }}><circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" /><path d="M12 11v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><circle cx="12" cy="8" r="1.1" fill="currentColor" /></Svg>
 );
 const MoreIcon = () => (
-  <Svg size={20}><circle cx="12" cy="5.5" r="1.7" fill={T.faint} /><circle cx="12" cy="12" r="1.7" fill={T.faint} /><circle cx="12" cy="18.5" r="1.7" fill={T.faint} /></Svg>
+  <Svg size={20} style={{ color: T.faint }}><circle cx="12" cy="5.5" r="1.7" fill="currentColor" /><circle cx="12" cy="12" r="1.7" fill="currentColor" /><circle cx="12" cy="18.5" r="1.7" fill="currentColor" /></Svg>
 );
 const CalendarIcon = () => (
-  <Svg size={18}><rect x="4" y="5.5" width="16" height="14.5" rx="2.5" stroke={T.sub} strokeWidth="1.8" /><path d="M8 3.5v4M16 3.5v4M4 10h16" stroke={T.sub} strokeWidth="1.8" strokeLinecap="round" /><circle cx="8.5" cy="13.5" r="1" fill={T.sub} /><circle cx="12" cy="13.5" r="1" fill={T.sub} /><circle cx="15.5" cy="13.5" r="1" fill={T.sub} /><circle cx="8.5" cy="16.8" r="1" fill={T.sub} /><circle cx="12" cy="16.8" r="1" fill={T.sub} /></Svg>
+  <Svg size={18} style={{ color: T.sub }}><rect x="4" y="5.5" width="16" height="14.5" rx="2.5" stroke="currentColor" strokeWidth="1.8" /><path d="M8 3.5v4M16 3.5v4M4 10h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><circle cx="8.5" cy="13.5" r="1" fill="currentColor" /><circle cx="12" cy="13.5" r="1" fill="currentColor" /><circle cx="15.5" cy="13.5" r="1" fill="currentColor" /><circle cx="8.5" cy="16.8" r="1" fill="currentColor" /><circle cx="12" cy="16.8" r="1" fill="currentColor" /></Svg>
 );
 const CloseIcon = ({ size = 16 }: { size?: number }) => (
   <Svg size={size}><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></Svg>
 );
 const CloseCircleIcon = () => (
-  <Svg size={16}><circle cx="12" cy="12" r="10" fill="currentColor" /><path d="M9 9l6 6M15 9l-6 6" stroke="#242624" strokeWidth="2" strokeLinecap="round" /></Svg>
+  <Svg size={16}><circle cx="12" cy="12" r="10" fill="currentColor" /><path d="M9 9l6 6M15 9l-6 6" style={{ stroke: "var(--bl-cut)" }} strokeWidth="2" strokeLinecap="round" /></Svg>
 );
 const ArrowRightIcon = () => (
-  <Svg size={18}><path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5" stroke="#191a19" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></Svg>
+  <Svg size={18}><path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5" style={{ stroke: "var(--bl-send-ink)" }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></Svg>
 );
 
 // ── AutoResize: tween explicit height to the content (CSS, 300ms) ──
@@ -119,7 +142,7 @@ function BarChart({ maxHeight, reduced }: { maxHeight: number; reduced: boolean 
                   {isHovered && <Tooltip label={BAR_DATA[i].label} amount={BAR_DATA[i].amount} reduced={reduced} align={align} />}
                 </AnimatePresence>
                 <motion.div
-                  style={{ width: 14, height: barHeight, borderRadius: 4, background: T.bar, boxShadow: "inset 0 4px 8px 0 rgba(255,255,255,0.25), 0 0 0 1px rgba(0,0,0,.25)", willChange: "transform, opacity" }}
+                  style={{ width: 14, height: barHeight, borderRadius: 4, background: T.bar, boxShadow: "inset 0 4px 8px 0 rgba(255,255,255,0.25), 0 0 0 1px var(--bl-bar-ring)", willChange: "transform, opacity" }}
                   animate={{ opacity: isDimmed ? 0.4 : 1 }}
                   transition={{ opacity: { duration: 0.18, ease: EASE_OUT } }}
                 />
@@ -147,12 +170,12 @@ function Tooltip({ label, amount, reduced, align }: { label: string; amount: str
       exit={initial}
       transition={TOOLTIP_SPRING}
     >
-      <div style={{ borderRadius: 8, background: T.text, padding: "6px 10px", whiteSpace: "nowrap", boxShadow: "0 6px 16px -4px rgba(0,0,0,0.5), 0 2px 4px -1px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.4)" }}>
-        <div style={{ fontVariantNumeric: "tabular-nums", fontSize: 11, lineHeight: "14px", color: "rgba(25,26,25,.55)" }}>{label}</div>
-        <div style={{ fontVariantNumeric: "tabular-nums", fontSize: 13, lineHeight: "16px", fontWeight: 500, color: "#191a19" }}>{amount}</div>
+      <div style={{ borderRadius: 8, background: "var(--bl-tip)", padding: "6px 10px", whiteSpace: "nowrap", boxShadow: "var(--bl-tip-shadow)" }}>
+        <div style={{ fontVariantNumeric: "tabular-nums", fontSize: 11, lineHeight: "14px", color: "var(--bl-tip-sub)" }}>{label}</div>
+        <div style={{ fontVariantNumeric: "tabular-nums", fontSize: 13, lineHeight: "16px", fontWeight: 500, color: "var(--bl-tip-ink)" }}>{amount}</div>
       </div>
       <svg aria-hidden="true" width="10" height="5" viewBox="0 0 10 5" style={{ position: "absolute", top: "100%", left: arrowX, transform: "translateX(-50%)", marginTop: -1 }}>
-        <path d="M0 0h10L5 5z" fill={T.text} />
+        <path d="M0 0h10L5 5z" style={{ fill: "var(--bl-tip)" }} />
       </svg>
     </motion.div>
   );
@@ -174,7 +197,7 @@ function TodayPill({ label, onClick, ariaLabel }: { label: string; onClick: () =
       aria-label={ariaLabel}
       whileTap={{ scale: 0.96 }}
       transition={{ duration: 0.1 }}
-      style={{ display: "inline-flex", alignItems: "center", gap: 10, borderRadius: 16, background: "rgba(255,255,255,.06)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.06)", padding: "6px 12px 6px 8px", border: "none", cursor: "pointer", font: "inherit" }}
+      style={{ display: "inline-flex", alignItems: "center", gap: 10, borderRadius: 16, background: "var(--bl-chip)", boxShadow: "inset 0 0 0 1px var(--bl-chip-ring)", padding: "6px 12px 6px 8px", border: "none", cursor: "pointer", font: "inherit" }}
     >
       <CalendarIcon />
       <AnimatedLabel value={label} style={{ color: T.sub, fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px" }} />
@@ -254,11 +277,11 @@ function DateWheel({ selected, onChange, label, onClose, reduced }: { selected: 
                 const isSel = i === selectedIdx;
                 return (
                   <g key={i}>
-                    <line x1={cx} x2={cx} y1={0} y2={TICK_HEIGHT} stroke={T.text} strokeOpacity={isSel ? 0 : 0.5} strokeWidth={1.5} />
+                    <line x1={cx} x2={cx} y1={0} y2={TICK_HEIGHT} style={{ stroke: T.text }} strokeOpacity={isSel ? 0 : 0.5} strokeWidth={1.5} />
                     {[1, 2, 3].map((m) => (
-                      <line key={m} x1={cx + (m * CELL_WIDTH) / 4} x2={cx + (m * CELL_WIDTH) / 4} y1={TICK_HEIGHT - 6} y2={TICK_HEIGHT} stroke={T.text} strokeOpacity={0.18} strokeWidth={1} />
+                      <line key={m} x1={cx + (m * CELL_WIDTH) / 4} x2={cx + (m * CELL_WIDTH) / 4} y1={TICK_HEIGHT - 6} y2={TICK_HEIGHT} style={{ stroke: T.text }} strokeOpacity={0.18} strokeWidth={1} />
                     ))}
-                    <text x={cx} y={LABEL_Y} textAnchor="middle" fontSize={11} fill={isSel ? T.text : T.muted} fontWeight={isSel ? 600 : 400} fontFamily="inherit">{d.getDate()}</text>
+                    <text x={cx} y={LABEL_Y} textAnchor="middle" fontSize={11} style={{ fill: isSel ? T.text : T.muted }} fontWeight={isSel ? 600 : 400} fontFamily="inherit">{d.getDate()}</text>
                   </g>
                 );
               })}
@@ -364,7 +387,7 @@ function ShareCard({ onClose, maxSuggestions }: { onClose: () => void; maxSugges
         </motion.button>
       </div>
       <div style={{ position: "relative", width: "100%" }}>
-        <div onClick={() => inputRef.current?.focus()} style={{ position: "relative", display: "flex", minHeight: 48, cursor: "text", alignItems: "center", gap: 8, borderRadius: 999, background: "#1e1f1e", padding: "6px 6px 6px 12px", boxShadow: "inset 0 1px 2px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06), 0 1px 0 rgba(255,255,255,.04)", boxSizing: "border-box" }}>
+        <div onClick={() => inputRef.current?.focus()} style={{ position: "relative", display: "flex", minHeight: 48, cursor: "text", alignItems: "center", gap: 8, borderRadius: 999, background: "var(--bl-input)", padding: "6px 6px 6px 12px", boxShadow: "var(--bl-input-shadow)", boxSizing: "border-box" }}>
           <div style={{ display: "flex", minWidth: 0, flex: 1, flexWrap: "wrap", alignItems: "center", gap: 6 }}>
             {pills.map((user) => (
               <motion.span
@@ -415,7 +438,7 @@ function ShareCard({ onClose, maxSuggestions }: { onClose: () => void; maxSugges
                   aria-label="Send invite"
                   whileTap={{ scale: 0.96 }}
                   transition={{ duration: 0.1 }}
-                  style={{ position: "relative", display: "grid", width: 36, height: 36, flexShrink: 0, placeItems: "center", overflow: "hidden", borderRadius: 999, border: "none", cursor: "pointer", padding: 0, background: "linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%), #e3e8e3", boxShadow: "0 0 0 0.75px rgba(255,255,255,.3), 0 1px 3px -1.5px rgba(0,0,0,0.5), inset 0 1px 2px 0 rgba(255,255,255,0.4)" }}
+                  style={{ position: "relative", display: "grid", width: 36, height: 36, flexShrink: 0, placeItems: "center", overflow: "hidden", borderRadius: 999, border: "none", cursor: "pointer", padding: 0, background: "var(--bl-send)", boxShadow: "var(--bl-send-shadow)" }}
                 >
                   <ArrowRightIcon />
                 </motion.button>
@@ -431,7 +454,7 @@ function ShareCard({ onClose, maxSuggestions }: { onClose: () => void; maxSugges
               animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
               exit={{ opacity: 0, y: -4, scale: 0.97, filter: "blur(2px)" }}
               transition={{ type: "spring", duration: 0.24, bounce: 0 }}
-              style={{ position: "absolute", left: 0, right: 0, top: "calc(100% + 8px)", zIndex: 30, overflow: "hidden", borderRadius: 16, background: T.raised, padding: 6, transformOrigin: "top center", boxShadow: "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 12px 32px -8px rgba(0,0,0,0.6), 0 4px 8px -4px rgba(0,0,0,0.5)", willChange: "transform, filter" }}
+              style={{ position: "absolute", left: 0, right: 0, top: "calc(100% + 8px)", zIndex: 30, overflow: "hidden", borderRadius: 16, background: T.raised, padding: 6, transformOrigin: "top center", boxShadow: "var(--bl-float)", willChange: "transform, filter" }}
             >
               {suggestions.map((u, i) => {
                 const active = i === highlighted;
@@ -443,7 +466,7 @@ function ShareCard({ onClose, maxSuggestions }: { onClose: () => void; maxSugges
                     aria-selected={active}
                     onPointerDown={(e) => { e.preventDefault(); addPill(u); }}
                     onPointerEnter={() => setHighlighted(i)}
-                    style={{ display: "flex", width: "100%", alignItems: "center", gap: 10, borderRadius: 12, padding: 8, textAlign: "left", border: "none", cursor: "pointer", font: "inherit", backgroundColor: active ? "rgba(255,255,255,.06)" : "transparent", transition: "background-color 150ms" }}
+                    style={{ display: "flex", width: "100%", alignItems: "center", gap: 10, borderRadius: 12, padding: 8, textAlign: "left", border: "none", cursor: "pointer", font: "inherit", backgroundColor: active ? "var(--bl-hover)" : "transparent", transition: "background-color 150ms" }}
                   >
                     <Avatar user={u} size={28} />
                     <div style={{ display: "flex", minWidth: 0, flex: 1, alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -525,12 +548,13 @@ export default function Balance({ size = "card" }: { size?: "card" | "big" }) {
 
   return (
     <MotionConfig reducedMotion="user" transformPagePoint={(p) => ({ x: p.x / scaleRef.current, y: p.y / scaleRef.current })}>
+      <style>{CSS}</style>
       <style>{`.balance-input::placeholder{color:${T.muted};opacity:1}.balance-input{caret-color:${T.green}}.balance-icobtn{color:${T.muted};transition:color 150ms}.balance-icobtn:hover{color:${T.text}}.balance-x{color:${T.faint};transition:color 150ms}.balance-x:hover{color:${T.muted}}.balance-root button:focus-visible,.balance-root [tabindex]:focus-visible{outline:2px solid rgba(52,181,98,.55);outline-offset:2px}`}</style>
       <div ref={rootRef} className="balance-root" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
         <div style={{ position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: "center center" }}>
           <div
             data-own-click=""
-            style={{ pointerEvents: "auto", background: "#202120", padding: "4px 4px 12px 4px", borderRadius: 24, width: NAT_W, boxSizing: "border-box", boxShadow: "inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(255,255,255,.04), 0 10px 30px -10px rgba(0,0,0,.5)" }}
+            style={{ pointerEvents: "auto", background: "var(--bl-shell)", padding: "4px 4px 12px 4px", borderRadius: 24, width: NAT_W, boxSizing: "border-box", boxShadow: "var(--bl-shell-shadow)" }}
           >
             {/* Card surface */}
             <div style={{ position: "relative", width: "100%", borderRadius: 20, padding: 16, background: T.raised, boxShadow: T.raisedShadow, boxSizing: "border-box" }}>
@@ -550,7 +574,7 @@ export default function Balance({ size = "card" }: { size?: "card" | "big" }) {
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600, color: T.text, fontSize: 32, lineHeight: 1.1, letterSpacing: "-1.2px" }}>2,982</span>
-                          <span style={{ fontVariantNumeric: "tabular-nums", display: "inline-flex", height: 20, alignItems: "center", borderRadius: 5, background: "rgba(52,181,98,.14)", padding: "0 6px", fontSize: 12, lineHeight: "18px", color: "#5fd38a" }}>2.45%</span>
+                          <span style={{ fontVariantNumeric: "tabular-nums", display: "inline-flex", height: 20, alignItems: "center", borderRadius: 5, background: "rgba(52,181,98,.14)", padding: "0 6px", fontSize: 12, lineHeight: "18px", color: "var(--bl-up)" }}>2.45%</span>
                         </div>
                         <BarChart maxHeight={102} reduced={reduced} />
                       </motion.div>

@@ -6,7 +6,9 @@
 // four mechanical keys (magenta 0, black 1, magenta 2, black enter), a USB-C plug on the left
 // and a braided magenta cable looping behind. Each key travels down into its switch and springs
 // back; 0, 1 and 2 type onto the screen, enter confirms and clears.
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+// Two finishes, picked from the site theme: dark is slate aluminium with black keys, plug and strap;
+// light is pale silver aluminium with white keys, plug and strap. The glass screen and the magenta stay.
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { motion, useReducedMotion, useSpring, useTransform } from "framer-motion";
 import { play } from "../sound/sound";
 
@@ -51,6 +53,49 @@ const BLACK: Mat = { dark: hex("#060608"), light: hex("#3a3c44"), amb: 0.14, ks:
 const HOUSING: Mat = { dark: hex("#050608"), light: hex("#2c2f37"), amb: 0.12, ks: 0.1, sh: 12, rim: 0.05 };
 const GLASSRIM: Mat = { dark: hex("#030305"), light: hex("#1d2028"), amb: 0.2, ks: 0.4, sh: 30, rim: 0.1 };
 const PLUG: Mat = { dark: hex("#040405"), light: hex("#3a3c43"), amb: 0.1, ks: 0.5, sh: 40, rim: 0.2 };
+type Mats = { ALU: Mat; ALU_IN: Mat; PINK: Mat; BLACK: Mat; HOUSING: Mat; GLASSRIM: Mat; PLUG: Mat };
+const DARK_MATS: Mats = { ALU, ALU_IN, PINK, BLACK, HOUSING, GLASSRIM, PLUG };
+// the light finish: silver aluminium, white caps and plug, grey switch housings
+const LIGHT_MATS: Mats = {
+  ALU: { ...ALU, dark: hex("#7c8496"), light: hex("#f1f3f9") },
+  ALU_IN: { ...ALU_IN, dark: hex("#70778a"), light: hex("#c3c8d4") },
+  PINK,
+  BLACK: { ...BLACK, dark: hex("#9299a8"), light: hex("#ffffff"), amb: 0.3 },
+  HOUSING: { ...HOUSING, dark: hex("#5a6070"), light: hex("#b1b6c3") },
+  GLASSRIM,
+  PLUG: { ...PLUG, dark: hex("#8a90a0"), light: hex("#f4f5f9"), ks: 0.3 },
+};
+
+// everything that is painted in the JSX rather than shaded from the model
+const DARK_INK = {
+  focusGap: "#191a19",
+  sink: ["#3b4256", "#8f98b1"], floor: ["#07080b", "#14171e"],
+  weave: ["#25272e", "#3d4049", "#33363e"], strapShade: [0.65, 0.1, 0.45], seam: "rgba(255,255,255,.07)",
+  cableCast: 0.5, cast: ["rgba(0,0,0,.85)", "rgba(0,0,0,.9)"],
+  vent: "#010102", ventLine: "rgba(255,255,255,.07)",
+  usb: "#030304", usbHi: "rgba(255,255,255,.14)",
+  capEdge: "rgba(255,255,255,.22)", capDigit: "#f8f4f7", capEnter: "#f1f1f4", capDish: 1,
+};
+const LIGHT_INK: typeof DARK_INK = {
+  focusGap: "var(--k-card)",
+  sink: ["#8a92a5", "#d3d8e3"], floor: ["#7f8698", "#aab0be"],
+  weave: ["#c3c7d0", "#e4e6ec", "#d5d8df"], strapShade: [0.3, 0.04, 0.2], seam: "rgba(40,46,62,.16)",
+  cableCast: 0.16, cast: ["rgba(38,44,62,.22)", "rgba(38,44,62,.3)"],
+  vent: "#3d4250", ventLine: "rgba(255,255,255,.3)",
+  usb: "#c9cdd7", usbHi: "rgba(255,255,255,.85)",
+  capEdge: "rgba(255,255,255,.95)", capDigit: "#2b2e38", capEnter: "#2b2e38", capDish: 0.4,
+};
+type Ink = typeof DARK_INK;
+
+// the site theme, read from <html data-theme>
+type Theme = "light" | "dark";
+const readTheme = (): Theme => (document.documentElement.dataset.theme === "light" ? "light" : "dark");
+const watchTheme = (cb: () => void) => {
+  const mo = new MutationObserver(cb);
+  mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  return () => mo.disconnect();
+};
+const useTheme = () => useSyncExternalStore(watchTheme, readTheme, (): Theme => "dark");
 
 function shade(n: V3, p: V3, m: Mat) {
   const nn = nrm(n);
@@ -166,11 +211,12 @@ type KeyModel = {
   dx: number; dy: number; hit: P2[];
 };
 
-function buildKey(i: number): KeyModel {
+function buildKey(i: number, mats: Mats): KeyModel {
   const k = KEYS[i];
   const kx = KX[i];
+  const { PINK, BLACK, HOUSING } = mats;
   const m = k.tone === "pink" ? PINK : BLACK;
-  // switch housing: a dark box standing on the tray floor
+  // switch housing: a box standing on the tray floor
   const hRing = (ins: number, z: number): V3[] => rr(24 - ins, 24 - ins, 3).map(([a, b]) => [kx + a, KCY + b, z]);
   const housing = walls([hRing(0, 12), hRing(0, KB + 1)], HOUSING);
   const hTop = hRing(0, KB + 1);
@@ -197,7 +243,8 @@ function buildKey(i: number): KeyModel {
   };
 }
 
-function build() {
+function build(mats: Mats) {
+  const { ALU, ALU_IN, GLASSRIM, PLUG } = mats;
   // lid
   const lidWalls = walls([lidRing(3, 0), lidRing(0, 2.5), lidRing(0, LT - 3), lidRing(1.3, LT - 1), lidRing(3.2, LT)], ALU);
   const lidFace = { d: rp(lidRing(3.2, LT)) + rp(lidRing(11, LT)), fill: capFill(lidRing(3.2, LT), ALU) };
@@ -250,7 +297,7 @@ function build() {
   const plugCap = { d: rp(plugEnd), fill: capFill(plugEnd, PLUG) };
   const cableStart = proj([-BW - 40, 0, 19]);
 
-  const keys = KEYS.map((_, i) => buildKey(i));
+  const keys = KEYS.map((_, i) => buildKey(i, mats));
   const keyOrder = [...keys].sort((a, b) => Math.hypot(...sub([KX[b.i], KCY, 45], CAM)) - Math.hypot(...sub([KX[a.i], KCY, 45], CAM)));
 
   // frame: everything solid, then pad
@@ -297,7 +344,8 @@ function sampleChain(p0: P2, segs: [P2, P2, P2][]) {
   return { core: lane(0), lanes: [-2.9, -1.45, 0, 1.45, 2.9].map(lane), hi: lane(-2.6), lo: lane(3.1) };
 }
 
-const M = build();
+const MD = build(DARK_MATS);
+let ML: typeof MD | null = null; // the light finish, built the first time it is shown
 
 /* ── components ──────────────────────────────────────────────────────── */
 
@@ -311,7 +359,7 @@ function ScrewG({ s, id }: { s: Screw; id: string }) {
   );
 }
 
-function Key({ k, id, pressed, reduced }: { k: KeyModel; id: string; pressed: boolean; reduced: boolean | null }) {
+function Key({ k, id, pressed, reduced, ink }: { k: KeyModel; id: string; pressed: boolean; reduced: boolean | null; ink: Ink }) {
   const t = useSpring(0, { stiffness: 1100, damping: 26, mass: 0.6 });
   useEffect(() => { if (reduced) t.jump(pressed ? 1 : 0); else t.set(pressed ? 1 : 0); }, [pressed, reduced, t]);
   const x = useTransform(t, (v) => v * k.dx);
@@ -322,14 +370,14 @@ function Key({ k, id, pressed, reduced }: { k: KeyModel; id: string; pressed: bo
       {k.skirt.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.5} strokeLinejoin="round" />)}
       <path d={k.top} fill={k.topFill} />
       {/* the dish: darker toward the back, a soft pool of light toward the front */}
-      <path d={k.top} fill={`url(#${id}-dish)`} />
+      <path d={k.top} fill={`url(#${id}-dish)`} opacity={pink ? 1 : ink.capDish} />
       <path d={k.top} fill={`url(#${id}-${pink ? "pkspot" : "bkspot"})`} />
-      <path d={k.topEdge} fill="none" stroke={pink ? "rgba(255,190,222,.55)" : "rgba(255,255,255,.22)"} strokeWidth={0.8} strokeLinecap="round" />
+      <path d={k.topEdge} fill="none" stroke={pink ? "rgba(255,190,222,.55)" : ink.capEdge} strokeWidth={0.8} strokeLinecap="round" />
       <g transform={k.labelM}>
         {k.label === "Enter" ? (
-          <path d="M8 -9 V2 H-8 M-3 -3.5 L-8.5 2 L-3 7.5" fill="none" stroke="#f1f1f4" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M8 -9 V2 H-8 M-3 -3.5 L-8.5 2 L-3 7.5" fill="none" stroke={ink.capEnter} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
         ) : (
-          <text x={0} y={10} textAnchor="middle" fill="#f8f4f7" fontSize={29}
+          <text x={0} y={10} textAnchor="middle" fill={pink ? "#f8f4f7" : ink.capDigit} fontSize={29}
             style={{ fontFamily: '"DIN Condensed","DIN Alternate","Barlow Condensed","Roboto Condensed","Arial Narrow",sans-serif', fontWeight: 700 }}>{k.label}</text>
         )}
       </g>
@@ -347,7 +395,7 @@ function useFit(size: "card" | "big") {
       const w = el.clientWidth, h = el.clientHeight;
       const clear = size === "big" ? 170 : h >= 300 ? 150 : 30;
       const side = size === "big" ? Math.min(200, w * 0.14) : h >= 300 ? 110 : 220;
-      setS(Math.max(0.2, Math.min((w - side) / M.vb.w, (h - clear) / M.vb.h, size === "big" ? 1.75 : 1)));
+      setS(Math.max(0.2, Math.min((w - side) / MD.vb.w, (h - clear) / MD.vb.h, size === "big" ? 1.75 : 1)));
     };
     fit();
     const ro = new ResizeObserver(fit);
@@ -396,6 +444,9 @@ export default function MacroPad({ size = "card" }: { size?: "card" | "big" }) {
   };
   const onKeyUp = (e: React.KeyboardEvent) => { const k = keyFor(e); if (k) { e.preventDefault(); up(k); } };
 
+  const light = useTheme() === "light";
+  const M = light ? (ML ??= build(LIGHT_MATS)) : MD;
+  const ink = light ? LIGHT_INK : DARK_INK;
   const { vb } = M;
   const W = vb.w * scale, H = vb.h * scale;
   const shown = ok ? "" : text;
@@ -405,7 +456,7 @@ export default function MacroPad({ size = "card" }: { size?: "card" | "big" }) {
     <div ref={ref} data-own-click style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
       <style>{`
         .mp-dev{outline:none;user-select:none;-webkit-user-select:none;border-radius:24px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-        .mp-dev:focus-visible{box-shadow:0 0 0 2px #191a19,0 0 0 4px #e0408a}
+        .mp-dev:focus-visible{box-shadow:0 0 0 2px ${ink.focusGap},0 0 0 4px #e0408a}
         .mp-key{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
         .mp-key:focus{outline:none}
         .mp-caret{animation:mp-blink 1.05s steps(1) infinite}
@@ -422,7 +473,7 @@ export default function MacroPad({ size = "card" }: { size?: "card" | "big" }) {
               <stop offset="0" stopColor="#f2f5fb" /><stop offset=".45" stopColor="#aab2c6" /><stop offset="1" stopColor="#5b6378" />
             </radialGradient>
             <radialGradient id={`${id}-sink`} cx=".5" cy=".62" r=".6">
-              <stop offset=".55" stopColor="#3b4256" /><stop offset="1" stopColor="#8f98b1" />
+              <stop offset=".55" stopColor={ink.sink[0]} /><stop offset="1" stopColor={ink.sink[1]} />
             </radialGradient>
             <linearGradient id={`${id}-sweep`} x1="0" y1="0" x2="1" y2=".25">
               <stop offset="0" stopColor="#fff" stopOpacity=".12" /><stop offset=".35" stopColor="#fff" stopOpacity=".02" /><stop offset=".7" stopColor="#000" stopOpacity=".05" /><stop offset="1" stopColor="#000" stopOpacity=".2" />
@@ -437,7 +488,7 @@ export default function MacroPad({ size = "card" }: { size?: "card" | "big" }) {
               <stop offset="0" stopColor="#dfe6ff" stopOpacity="0" /><stop offset=".5" stopColor="#dfe6ff" stopOpacity=".07" /><stop offset="1" stopColor="#dfe6ff" stopOpacity="0" />
             </linearGradient>
             <linearGradient id={`${id}-floor`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#07080b" /><stop offset="1" stopColor="#14171e" />
+              <stop offset="0" stopColor={ink.floor[0]} /><stop offset="1" stopColor={ink.floor[1]} />
             </linearGradient>
             <linearGradient id={`${id}-dish`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor="#000" stopOpacity=".26" /><stop offset=".55" stopColor="#000" stopOpacity=".04" /><stop offset="1" stopColor="#fff" stopOpacity=".06" />
@@ -449,10 +500,10 @@ export default function MacroPad({ size = "card" }: { size?: "card" | "big" }) {
               <stop offset="0" stopColor="#fff" stopOpacity=".1" /><stop offset="1" stopColor="#fff" stopOpacity="0" />
             </radialGradient>
             <pattern id={`${id}-weave`} width="3.2" height="3.2" patternUnits="userSpaceOnUse" patternTransform="rotate(-8)">
-              <rect width="3.2" height="3.2" fill="#25272e" /><rect width="1.6" height="1.6" fill="#3d4049" /><rect x="1.6" y="1.6" width="1.6" height="1.6" fill="#33363e" />
+              <rect width="3.2" height="3.2" fill={ink.weave[0]} /><rect width="1.6" height="1.6" fill={ink.weave[1]} /><rect x="1.6" y="1.6" width="1.6" height="1.6" fill={ink.weave[2]} />
             </pattern>
             <linearGradient id={`${id}-strapShade`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#000" stopOpacity=".65" /><stop offset=".55" stopColor="#000" stopOpacity=".1" /><stop offset="1" stopColor="#000" stopOpacity=".45" />
+              <stop offset="0" stopColor="#000" stopOpacity={ink.strapShade[0]} /><stop offset=".55" stopColor="#000" stopOpacity={ink.strapShade[1]} /><stop offset="1" stopColor="#000" stopOpacity={ink.strapShade[2]} />
             </linearGradient>
             <radialGradient id={`${id}-fade`} gradientUnits="userSpaceOnUse" cx={vb.x + vb.w / 2} cy={vb.y + vb.h / 2} r={Math.max(vb.w, vb.h) * 0.66}>
               <stop offset=".72" stopColor="#fff" /><stop offset="1" stopColor="#fff" stopOpacity="0" />
@@ -470,7 +521,7 @@ export default function MacroPad({ size = "card" }: { size?: "card" | "big" }) {
 
           {/* braided cable, behind everything */}
           <g mask={`url(#${id}-cablemask)`} fill="none" strokeLinecap="round" strokeLinejoin="round">
-            <path d={M.braid.core} stroke="#000" strokeOpacity={0.5} strokeWidth={12} transform="translate(0 4)" filter={`url(#${id}-blur3)`} />
+            <path d={M.braid.core} stroke="#000" strokeOpacity={ink.cableCast} strokeWidth={12} transform="translate(0 4)" filter={`url(#${id}-blur3)`} />
             <path d={M.braid.core} stroke="#3e0420" strokeWidth={9.4} />
             {M.braid.lanes.map((d, j) => (
               <g key={j}>
@@ -483,13 +534,13 @@ export default function MacroPad({ size = "card" }: { size?: "card" | "big" }) {
           </g>
 
           {/* soft contact shadow */}
-          <path d={M.shadow} fill="rgba(0,0,0,.85)" filter={`url(#${id}-blur10)`} transform="translate(0 10)" />
-          <path d={M.shadow} fill="rgba(0,0,0,.9)" filter={`url(#${id}-blur3)`} transform="translate(0 3)" />
+          <path d={M.shadow} fill={ink.cast[0]} filter={`url(#${id}-blur10)`} transform="translate(0 10)" />
+          <path d={M.shadow} fill={ink.cast[1]} filter={`url(#${id}-blur3)`} transform="translate(0 3)" />
 
           {/* fabric strap hinge */}
           <path d={M.strap} fill={`url(#${id}-weave)`} />
           <path d={M.strap} fill={`url(#${id}-strapShade)`} />
-          {M.strapSeams.map((d, i) => <path key={i} d={d} fill="none" stroke="rgba(255,255,255,.07)" strokeWidth={0.7} strokeDasharray="1.4 1.2" />)}
+          {M.strapSeams.map((d, i) => <path key={i} d={d} fill="none" stroke={ink.seam} strokeWidth={0.7} strokeDasharray="1.4 1.2" />)}
 
           {/* lid */}
           {M.lidWalls.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.5} strokeLinejoin="round" />)}
@@ -547,11 +598,11 @@ export default function MacroPad({ size = "card" }: { size?: "card" | "big" }) {
               <g key={k.id}>
                 {k.housing.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.4} />)}
                 <path d={k.housingTop.d} fill={k.housingTop.fill} />
-                {k.vents.map((d, i) => <path key={i} d={d} fill="#010102" stroke="rgba(255,255,255,.07)" strokeWidth={0.4} />)}
+                {k.vents.map((d, i) => <path key={i} d={d} fill={ink.vent} stroke={ink.ventLine} strokeWidth={0.4} />)}
               </g>
             ))}
           </g>
-          {M.keyOrder.map((k) => <Key key={k.id} k={k} id={id} pressed={pressed[k.id]} reduced={reduced} />)}
+          {M.keyOrder.map((k) => <Key key={k.id} k={k} id={id} pressed={pressed[k.id]} reduced={reduced} ink={ink} />)}
           {/* the front of the rim, again, over the key skirts */}
           <g clipPath={`url(#${id}-front)`}>
             <path d={M.rimTop.d} fill={M.rimTop.fill} fillRule="evenodd" />
@@ -563,8 +614,8 @@ export default function MacroPad({ size = "card" }: { size?: "card" | "big" }) {
 
           {/* USB-C plug and its cable */}
           <g mask={`url(#${id}-cablemask)`} fill="none" strokeLinecap="round">
-            <path d={M.usb} stroke="#030304" strokeWidth={10.5} />
-            <path d={M.usb} stroke="rgba(255,255,255,.14)" strokeWidth={1.2} transform="translate(-1.6 -2.2)" />
+            <path d={M.usb} stroke={ink.usb} strokeWidth={10.5} />
+            <path d={M.usb} stroke={ink.usbHi} strokeWidth={1.2} transform="translate(-1.6 -2.2)" />
           </g>
           {M.plug.map((f, i) => <path key={i} d={f.d} fill={f.fill} stroke={f.fill} strokeWidth={0.5} strokeLinejoin="round" />)}
           <path d={M.plugCap.d} fill={M.plugCap.fill} />

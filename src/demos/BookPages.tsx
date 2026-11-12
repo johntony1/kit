@@ -12,7 +12,7 @@ const CHAPTERS: { kicker: string; title: string; body: string }[] = [
 function BookPage({ n, total, children, side }: { n: number; total: number; children: ReactNode; side: "l" | "r" }) {
   return (
     <div className={`bkp bkp-${side}`}>
-      <div className="bkpHead"><span>Effects.free</span><span>A field guide</span></div>
+      <div className="bkpHead"><span>Kit</span><span>A field guide</span></div>
       <div className="bkpBody">{children}</div>
       <div className="bkpFoot">{n} <span>/ {total}</span></div>
     </div>
@@ -22,7 +22,7 @@ function BookPage({ n, total, children, side }: { n: number; total: number; chil
 export function bookPages(): ReactNode[] {
   const total = 2 + CHAPTERS.length * 2;
   const out: ReactNode[] = [];
-  out.push(<div className="bkp bkpCover" key="c"><span className="bkpCoverKick">A field guide</span><h3>Effects<br />.free</h3><span className="bkpCoverFoot">Drag the edge, or click</span></div>);
+  out.push(<div className="bkp bkpCover" key="c"><span className="bkpCoverKick">A field guide</span><h3>Kit</h3><span className="bkpCoverFoot">Drag the edge, or click</span></div>);
   out.push(<BookPage key="i" n={2} total={total} side="r"><p className="bkpKick">Contents</p>{CHAPTERS.map((c, i) => <p key={c.title} className="bkpToc"><span>{c.title}</span><span>{3 + i * 2}</span></p>)}</BookPage>);
   CHAPTERS.forEach((c, i) => {
     out.push(<BookPage key={`a${i}`} n={3 + i * 2} total={total} side="l"><p className="bkpKick">{c.kicker}</p><h4 className="bkpTitle">{c.title}</h4><p className="bkpText">{c.body}</p></BookPage>);

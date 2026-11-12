@@ -24,9 +24,9 @@ const UPLOAD_DURATION_MS = 1400;
 // natural height of the card with a full tray, for fitting
 const NAT_H = 124;
 
-const T = { text: "#e3e8e3", sub: "#c2cbc4", muted: "#8b968f", faint: "#5d6862" };
-const RAISED = "linear-gradient(180deg,#2b2d2b,#242624)";
-const RAISED_SHADOW = "inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.45), 0 4px 10px -4px rgba(0,0,0,.4)";
+const T = { text: "var(--k-text)", sub: "var(--k-text2)", muted: "var(--k-muted)", faint: "var(--at-hint)" };
+const RAISED = "var(--k-raised)";
+const RAISED_SHADOW = "var(--k-lift)";
 
 type Attachment = {
   id: string; kind: "image" | "doc"; bg?: string; ext?: string; name: string;
@@ -55,11 +55,17 @@ function ClipIcon() {
 const TEXT_STYLE = { fontSize: 15, lineHeight: "24px", letterSpacing: "-0.09px", fontFeatureSettings: "'ss11' 1, 'calt' 0, 'liga' 0" } as const;
 
 const CSS = `
+.attach-root { --at-hint: #5d6862; --at-clip: rgba(255,255,255,.04); --at-clip-hi: rgba(255,255,255,.08);
+  --at-ph: linear-gradient(135deg, #2f322f 0%, #3a3d3a 50%, #2b2d2b 100%); --at-doc: linear-gradient(180deg,#363936,#2b2d2b);
+  --at-edge: rgba(255,255,255,.06); --at-ext: #34b562; --at-dot: #e3e8e3; --at-dot-ink: #191a19; --at-dot-track: rgba(25,26,25,0.22); }
+:root[data-theme="light"] .attach-root { --at-hint: var(--k-muted); --at-clip: oklch(0.22 0.008 264 / 0.05); --at-clip-hi: oklch(0.22 0.008 264 / 0.09);
+  --at-ph: linear-gradient(135deg, oklch(0.955 0.003 264) 0%, oklch(0.92 0.004 264) 50%, oklch(0.955 0.003 264) 100%); --at-doc: linear-gradient(180deg, oklch(0.975 0.002 264), oklch(0.945 0.004 264));
+  --at-edge: oklch(0.22 0.008 264 / 0.1); --at-ext: oklch(0.52 0.15 150); --at-dot: oklch(0.22 0.008 264); --at-dot-ink: oklch(1 0 0); --at-dot-track: oklch(1 0 0 / 0.3); }
 .attach-btn { appearance: none; border: 0; margin: 0; padding: 0; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .attach-btn:focus-visible { outline: 2px solid rgba(52,181,98,.7); outline-offset: 2px; }
-.attach-clip { width: 28px; height: 28px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.04); color: ${T.sub}; transition: background-color 150ms ease-out, color 150ms ease-out, transform 150ms ease-out; position: relative; }
+.attach-clip { width: 28px; height: 28px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: var(--at-clip); color: ${T.sub}; transition: background-color 150ms ease-out, color 150ms ease-out, transform 150ms ease-out; position: relative; }
 .attach-clip::before { content: ''; position: absolute; inset: -6px; }
-.attach-clip:hover { background: rgba(255,255,255,.08); color: ${T.text}; }
+.attach-clip:hover { background: var(--at-clip-hi); color: ${T.text}; }
 .attach-clip:active { transform: scale(0.92); }
 @media (prefers-reduced-motion: reduce) { .attach-clip { transition: none !important; } }`;
 
@@ -123,7 +129,7 @@ export default function Attach({ size = "card" }: { size?: "card" | "big" }) {
   }, []);
 
   return (
-    <div ref={rootRef} style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+    <div ref={rootRef} className="attach-root" style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none" }}>
       <style>{CSS}</style>
       <div style={{ transform: scale !== 1 ? `scale(${scale})` : undefined }}>
         <div data-own-click style={{ position: "relative", width, pointerEvents: "auto", color: T.text }}>
@@ -189,21 +195,21 @@ function AttachmentTile({ attachment, onRemove, reduceMotion, ref }: { attachmen
       title={attachment.name}
       style={{ position: "relative", flexShrink: 0, width: 40, height: 40 }}
     >
-      <div style={{ position: "absolute", inset: 0, borderRadius: 4, overflow: "hidden", background: "linear-gradient(135deg, #2f322f 0%, #3a3d3a 50%, #2b2d2b 100%)" }} />
+      <div style={{ position: "absolute", inset: 0, borderRadius: 4, overflow: "hidden", background: "var(--at-ph)" }} />
       <div style={{
-        position: "absolute", inset: 0, borderRadius: 4, overflow: "hidden", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.06)",
+        position: "absolute", inset: 0, borderRadius: 4, overflow: "hidden", boxShadow: "inset 0 0 0 1px var(--at-edge)",
         filter: reduceMotion ? "none" : `blur(${blurPx}px) saturate(${sat})`, transition: "filter 80ms linear", willChange: "filter",
       }}>
         {attachment.kind === "image" ? (
           <div style={{ position: "absolute", inset: 0, background: attachment.bg }} />
         ) : (
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg,#363936,#2b2d2b)", display: "grid", placeItems: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: "var(--at-doc)", display: "grid", placeItems: "center" }}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
-              <path d="M7 3h7l4 4v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" fill="#e3e8e3" fillOpacity=".1" stroke="#c2cbc4" strokeWidth="1.3" strokeLinejoin="round" />
-              <path d="M14 3v4h4" stroke="#c2cbc4" strokeWidth="1.3" strokeLinejoin="round" />
-              <path d="M9 12h6M9 15h4" stroke="#8b968f" strokeWidth="1.3" strokeLinecap="round" />
+              <path d="M7 3h7l4 4v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" fillOpacity=".1" strokeWidth="1.3" strokeLinejoin="round" style={{ fill: "var(--k-text)", stroke: "var(--k-text2)" }} />
+              <path d="M14 3v4h4" strokeWidth="1.3" strokeLinejoin="round" style={{ stroke: "var(--k-text2)" }} />
+              <path d="M9 12h6M9 15h4" strokeWidth="1.3" strokeLinecap="round" style={{ stroke: "var(--k-muted)" }} />
             </svg>
-            <span style={{ position: "absolute", bottom: 2, left: 0, right: 0, textAlign: "center", fontSize: 7, lineHeight: "8px", fontWeight: 700, letterSpacing: ".04em", color: "#34b562" }}>{attachment.ext}</span>
+            <span style={{ position: "absolute", bottom: 2, left: 0, right: 0, textAlign: "center", fontSize: 7, lineHeight: "8px", fontWeight: 700, letterSpacing: ".04em", color: "var(--at-ext)" }}>{attachment.ext}</span>
           </div>
         )}
       </div>
@@ -232,9 +238,9 @@ function AttachmentTile({ attachment, onRemove, reduceMotion, ref }: { attachmen
               initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }}
               exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.5 }} transition={SPRING_POP}
               whileTap={!reduceMotion ? { scale: 0.85 } : undefined}
-              style={{ position: "relative", width: 10, height: 10, borderRadius: 999, background: "#e3e8e3", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 0 1.5px #242624" }}>
+              style={{ position: "relative", width: 10, height: 10, borderRadius: 999, background: "var(--at-dot)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 0 1.5px var(--k-surface)" }}>
               <span style={{ position: "absolute", inset: -7 }} />
-              <svg viewBox="0 0 12 12" width="5" height="5" fill="none" aria-hidden="true"><path d="M3.25 3.25l5.5 5.5M8.75 3.25l-5.5 5.5" stroke="#191a19" strokeWidth="2" strokeLinecap="round" /></svg>
+              <svg viewBox="0 0 12 12" width="5" height="5" fill="none" aria-hidden="true"><path d="M3.25 3.25l5.5 5.5M8.75 3.25l-5.5 5.5" strokeWidth="2" strokeLinecap="round" style={{ stroke: "var(--at-dot-ink)" }} /></svg>
             </motion.button>
           )}
         </AnimatePresence>
@@ -249,10 +255,10 @@ function ProgressRing({ progress }: { progress: number }) {
   const offset = c * (1 - Math.max(0, Math.min(100, progress)) / 100);
   return (
     <svg viewBox="0 0 10 10" style={{ display: "block", width: "100%", height: "100%" }} aria-hidden="true">
-      <circle cx="5" cy="5" r="5" fill="#e3e8e3" />
-      <circle cx="5" cy="5" r={r} fill="none" stroke="rgba(25,26,25,0.22)" strokeWidth="1" />
-      <circle cx="5" cy="5" r={r} fill="none" stroke="#191a19" strokeWidth="1" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset}
-        transform="rotate(-90 5 5)" style={{ transition: "stroke-dashoffset 80ms linear" }} />
+      <circle cx="5" cy="5" r="5" style={{ fill: "var(--at-dot)" }} />
+      <circle cx="5" cy="5" r={r} fill="none" strokeWidth="1" style={{ stroke: "var(--at-dot-track)" }} />
+      <circle cx="5" cy="5" r={r} fill="none" strokeWidth="1" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset}
+        transform="rotate(-90 5 5)" style={{ stroke: "var(--at-dot-ink)", transition: "stroke-dashoffset 80ms linear" }} />
     </svg>
   );
 }

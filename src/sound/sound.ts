@@ -217,7 +217,8 @@ let ctx: AudioContext | null = null;
 let out: AudioNode | null = null;
 let unlocked = false;
 let primed = false;
-let on = (() => { try { return localStorage.getItem(KEY) !== "off"; } catch { return true; } })();
+// sound is always on: the site has no switch for it (an older stored "off" is ignored)
+let on = true;
 const subs = new Set<() => void>();
 const last: Partial<Record<Cue, number>> = {};
 const noiseBufs = new WeakMap<BaseAudioContext, AudioBuffer>();
