@@ -6,7 +6,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 /** `virtual:ills-meta`: the key, name and title of every empty state, read from its file's header.
- *  The site lists and searches 500 pieces from this, and loads a piece's drawing code only when
+ *  The site lists and searches every piece from this, and loads a piece's drawing code only when
  *  the piece is on screen. */
 function illsMeta(): Plugin {
   const dir = fileURLToPath(new URL("./src/empty/ills", import.meta.url));
@@ -19,6 +19,18 @@ function illsMeta(): Plugin {
   return {
     name: "ills-meta",
     resolveId(id) { return id === ID ? RES : undefined; },
+    // a piece added or removed while the dev server runs: rebuild the list and reload the page
+    configureServer(server) {
+      server.watcher.add(dir);
+      const changed = (file: string) => {
+        if (path.dirname(file) !== dir || !file.endsWith(".ts")) return;
+        const mod = server.moduleGraph.getModuleById(RES);
+        if (mod) server.moduleGraph.invalidateModule(mod);
+        server.ws.send({ type: "full-reload" });
+      };
+      server.watcher.on("add", changed);
+      server.watcher.on("unlink", changed);
+    },
     load(id) {
       if (id !== RES) return;
       const out: Record<string, string>[] = [];
