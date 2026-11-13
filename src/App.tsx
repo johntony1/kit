@@ -25,6 +25,7 @@ import { compOf, COMPS } from "./site/components";
 import { TRANS_KEYS, TRANS_META, TransInstall, TransPlayground, TransPreview, transPrompt } from "./site/TransitionPage";
 import type { TransitionKind } from "./transitions/transitions";
 import { Later } from "./site/sheet";
+import { KitMark } from "./site/KitMark";
 import { play, sound } from "./sound/sound";
 
 // the heavy pages arrive when they are first opened (and are fetched quietly once the home page is idle)
@@ -340,7 +341,7 @@ function NavItem({ active, icon, children, onClick }: { active: boolean; icon?: 
 function Brand() {
   return (
     <>
-      <span className="brandMark"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="currentColor" /><circle cx="12" cy="12" r="6.6" stroke="currentColor" strokeOpacity=".7" strokeWidth="1.6" /><circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity=".35" strokeWidth="1.6" /></svg></span>
+      <span className="brandMark"><KitMark size={20} flat style={{ width: "100%", height: "100%", display: "block" }} /></span>
       <span>Kit</span>
     </>
   );
