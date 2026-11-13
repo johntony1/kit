@@ -24,6 +24,6 @@ Built with Vite, React, TypeScript, Tailwind and Motion.
 
 ## License
 
-[MIT](LICENSE). The code, the prompts and the illustrations are free for personal and commercial work.
+Free to use in personal and commercial projects, not open source. See [LICENSE](LICENSE).
 
 Made by [John Orevba](https://orevbajohn.me).

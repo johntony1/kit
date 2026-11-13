@@ -1,5 +1,5 @@
 // The menu on phones and tablets: a button in the top bar opens a panel from the right with the
-// kinds, the light and dark switch, and the repo. On wider windows the kinds sit in the top bar.
+// kinds, the light and dark switch, and the license. On wider windows the kinds sit in the top bar.
 
 /* ─────────────────────────────────────────────────────────
  * ANIMATION STORYBOARD
@@ -101,20 +101,17 @@ export function MobileMenu<K extends string>({ open, onClose, items, current, on
   );
 }
 
-/** the footer of the panel: appearance and the repo */
-export function MenuFooter({ repo, stars }: { repo: string; stars: number | null }) {
+/** the footer of the panel: appearance and the license */
+export function MenuFooter() {
   return (
     <>
       <div className="mmRow">
         <span>Appearance</span>
         <ThemeToggle />
       </div>
-      <a className="mmRow mmLink" href={repo} target="_blank" rel="noopener noreferrer">
-        <span className="mmLinkL">
-          <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 .2a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2" /></svg>
-          GitHub
-        </span>
-        <span className="mmMuted">{stars !== null ? `${stars} stars` : "Star it"}</span>
+      <a className="mmRow mmLink" href="/license.txt" target="_blank" rel="noopener">
+        <span>License</span>
+        <span className="mmMuted">Free to use</span>
       </a>
     </>
   );

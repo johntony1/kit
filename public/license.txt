@@ -1,0 +1,20 @@
+Kit License
+
+Copyright (c) 2026 John Orevba. All rights reserved, except as granted below.
+
+Kit (https://kit.orevbajohn.me) is free to use. You may copy, use and modify the
+components, illustrations, effects, type, transitions, prompts and code from Kit
+in your own projects, personal or commercial, including work you do for clients,
+without paying and without credit.
+
+You may not:
+- redistribute, sell, sublicense or share Kit's items as they are, or as part of
+  a component library, UI kit, template, theme, icon or illustration pack, or any
+  other product whose main value is the items themselves;
+- offer Kit's items, or close copies of them, as a competing library or service.
+
+Kit is not open source. A paid version may follow; this license covers the free items.
+
+THE ITEMS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE ITEMS OR THEIR USE.

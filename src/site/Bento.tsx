@@ -321,7 +321,7 @@ export function Home({ kind: filter, onKind: setFilter, open, onOpen, onClose, d
   return (
     <MotionConfig reducedMotion="user">
       <section className="bnHero">
-        <span className="bnPill">Free and open source</span>
+        <span className="bnPill">Free to use</span>
         <h1 className="bnH"><Magic>A library you can copy</Magic></h1>
         <p className="bnSub">Components, illustrations, effects, type and transitions. Every one is a file and a prompt for <Magic>your own project</Magic>.</p>
       </section>
