@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, useSyncExternalStore } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, useSyncExternalStore } from "react";
 import rippleTs from "./ripple/ripple.ts?raw";
 import rippleTsx from "./ripple/RippleCanvas.tsx?raw";
 import confettiTs from "./confetti/confetti.ts?raw";
@@ -17,8 +17,9 @@ import { TYPE_META } from "./type/meta";
 import { typePrompt } from "./type/prompt";
 import { TypeCanvas } from "./type/TypeCanvas";
 import type { StudioLib } from "./site/Studio";
-import { CardPreview, ES_COUNT, Home, KINDS, type BentoLib, type Kind } from "./site/Bento";
+import { CardPreview, ES_COUNT, Home, KINDS, type BentoLib, type Kind, FILTER_ICON } from "./site/Bento";
 import { ThemeToggle } from "./site/VintageSwitch";
+import { MenuButton, MenuFooter, MobileMenu } from "./site/MobileMenu";
 import { ILLS, illOf, useIll } from "./empty/ills";
 import { catOf } from "./empty/cats";
 import { compOf, COMPS } from "./site/components";
@@ -431,6 +432,9 @@ function SearchButton({ go }: { go: (r: Route) => void }) {
 export default function App() {
   const [route, go] = useRoute();
   const [kind, setKind] = useState<Kind>("All");
+  // phones and tablets: the kinds live in a side panel behind a menu button
+  const [menu, setMenu] = useState(false);
+  const closeMenu = useCallback(() => setMenu(false), []);
   const inStudio = route.startsWith("studio:");
   const stars = useStars();
   useEffect(() => {
@@ -473,14 +477,19 @@ export default function App() {
           ))}
         </nav>
         <div className="topRight">
-          <ThemeToggle />
+          <span className="topTheme"><ThemeToggle /></span>
           <SearchButton go={go} />
-          <a className="topPill" href={REPO} target="_blank" rel="noopener noreferrer" aria-label={stars !== null ? `GitHub, ${stars} stars` : "GitHub"}>
+          <a className="topPill topGit" href={REPO} target="_blank" rel="noopener noreferrer" aria-label={stars !== null ? `GitHub, ${stars} stars` : "GitHub"}>
             <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M8 .2a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2" /></svg>
             {stars !== null ? <span>{stars >= 1000 ? `${(stars / 1000).toFixed(1)}k` : stars}</span> : <span>GitHub</span>}
           </a>
+          <MenuButton open={menu} onClick={() => setMenu((m) => !m)} />
         </div>
       </header>
+      <MobileMenu open={menu} onClose={closeMenu} current={inStudio || kind === "All" ? null : kind}
+        items={KINDS.filter((k) => k !== "All").map((k) => ({ k, icon: FILTER_ICON[k] }))}
+        onPick={(k) => { setKind(k); if (route !== "intro") go("intro"); requestAnimationFrame(() => window.scrollTo({ top: 0 })); }}
+        footer={<MenuFooter repo={REPO} stars={stars} />} />
 
       {route.startsWith("studio:") ? (
         <Suspense fallback={<div className="studio" style={{ minHeight: "70vh" }} />}>

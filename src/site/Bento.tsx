@@ -172,7 +172,7 @@ const FILTERS = KINDS.filter((k) => k !== "All");
 type Filter = Kind;
 /** how many empty states there are, for the top bar */
 export const ES_COUNT = ILLS.length;
-const FILTER_ICON: Record<Filter, ReactNode> = {
+export const FILTER_ICON: Record<Kind, ReactNode> = {
   All: <><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1.2" /><rect x="9" y="2.5" width="4.5" height="4.5" rx="1.2" /><rect x="2.5" y="9" width="4.5" height="4.5" rx="1.2" /><rect x="9" y="9" width="4.5" height="4.5" rx="1.2" /></>,
   Components: <><path d="M8 1.8 13.5 5 8 8.2 2.5 5Z" /><path d="M2.5 8 8 11.2 13.5 8M2.5 11 8 14.2 13.5 11" /></>,
   "Empty states": <>{[3.5, 8, 12.5].flatMap((x) => [3.5, 8, 12.5].map((y) => <circle key={`${x}${y}`} cx={x} cy={y} r=".9" fill="currentColor" stroke="none" opacity={x + y > 20 ? 0.35 : 1} />))}</>,
