@@ -24,6 +24,6 @@ Built with Vite, React, TypeScript, Tailwind and Motion.
 
 ## License
 
-Free to use in personal and commercial projects, not open source. See [LICENSE](LICENSE).
+Free to use in personal and commercial projects. Source available, not open source: you can't redistribute or resell Kit's items as a kit or library. See [LICENSE](LICENSE).
 
 Made by [John Orevba](https://orevbajohn.me).

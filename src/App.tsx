@@ -322,7 +322,7 @@ function Intro({ go }: { go: (r: Route) => void }) {
           <li><b>Install</b> has the files to drop into your project, in React or plain JavaScript.</li>
           <li><b>Playground</b> lets you tune it, then copy only the settings you changed.</li>
         </ol>
-        <p className="installNote">Everything respects reduced motion. Free to use in personal and commercial projects.</p>
+        <p className="installNote">Everything respects reduced motion. Free to use in personal and commercial projects. Source available, not open source.</p>
       </div>
     </>
   );
@@ -347,6 +347,17 @@ function Brand() {
   );
 }
 
+
+const REPO = "https://github.com/johntony1/kit";
+
+/** the repo's star count, if GitHub answers */
+function useStars() {
+  const [stars, setStars] = useState<number | null>(null);
+  useEffect(() => {
+    fetch("https://api.github.com/repos/johntony1/kit").then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && typeof j.stargazers_count === "number") setStars(j.stargazers_count); }).catch(() => {});
+  }, []);
+  return stars;
+}
 
 /** Search ⌘K: a small palette that jumps to any effect */
 function SearchButton({ go }: { go: (r: Route) => void }) {
@@ -422,6 +433,7 @@ function SearchButton({ go }: { go: (r: Route) => void }) {
 export default function App() {
   const [route, go] = useRoute();
   const [kind, setKind] = useState<Kind>("All");
+  const stars = useStars();
   // phones and tablets: the kinds live in a side panel behind a menu button
   const [menu, setMenu] = useState(false);
   const closeMenu = useCallback(() => setMenu(false), []);
@@ -468,13 +480,17 @@ export default function App() {
         <div className="topRight">
           <span className="topTheme"><ThemeToggle /></span>
           <SearchButton go={go} />
+          <a className="topPill topGit" href={REPO} target="_blank" rel="noopener noreferrer" aria-label={stars !== null ? `Star Kit on GitHub, ${stars} stars` : "Star Kit on GitHub"}>
+            <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M8 .2a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2" /></svg>
+            {stars !== null ? <span>{stars >= 1000 ? `${(stars / 1000).toFixed(1)}k` : stars}</span> : <span>Star</span>}
+          </a>
           <MenuButton open={menu} onClick={() => setMenu((m) => !m)} />
         </div>
       </header>
       <MobileMenu open={menu} onClose={closeMenu} current={inStudio || kind === "All" ? null : kind}
         items={KINDS.filter((k) => k !== "All").map((k) => ({ k, icon: FILTER_ICON[k] }))}
         onPick={(k) => { setKind(k); if (route !== "intro") go("intro"); requestAnimationFrame(() => window.scrollTo({ top: 0 })); }}
-        footer={<MenuFooter />} />
+        footer={<MenuFooter repo={REPO} stars={stars} />} />
 
       {route.startsWith("studio:") ? (
         <Suspense fallback={<div className="studio" style={{ minHeight: "70vh" }} />}>
@@ -508,6 +524,7 @@ export default function App() {
           </div>
           <div>
             <div className="footHead">Links</div>
+            <a href={REPO} target="_blank" rel="noopener noreferrer">GitHub</a>
             <a href="/license.txt" target="_blank" rel="noopener">License</a>
             <a href="https://orevbajohn.me" target="_blank" rel="noopener noreferrer">Portfolio</a>
             <a href="https://x.com/orevbajohn_" target="_blank" rel="noopener noreferrer">Twitter</a>
