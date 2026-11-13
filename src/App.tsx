@@ -20,6 +20,7 @@ import type { StudioLib } from "./site/Studio";
 import { CardPreview, ES_COUNT, Home, KINDS, type BentoLib, type Kind, FILTER_ICON } from "./site/Bento";
 import { ThemeToggle } from "./site/VintageSwitch";
 import { MenuButton, MenuFooter, MobileMenu } from "./site/MobileMenu";
+import { track } from "./site/track";
 import { ILLS, illOf, useIll } from "./empty/ills";
 import { catOf } from "./empty/cats";
 import { compOf, COMPS } from "./site/components";
@@ -247,7 +248,7 @@ function ConfettiPlayground() {
 function LibraryPage({ lib, go, inSheet = false, hero }: { lib: Lib; go: (r: Route) => void; inSheet?: boolean; hero?: ReactNode }) {
   const [tab, setTab] = useState<"Preview" | "Install">("Preview");
   const [fw, setFw] = useState<"React" | "JavaScript">("React");
-  const { done, copy } = useCopy();
+  const { done, copy } = useCopy("prompt");
   const L = isTrans(lib) ? { name: TRANS_META[lib].name, icon: <TransIcon k={lib} />, desc: TRANS_META[lib].desc } : isType(lib) ? { name: TYPE_EFFECTS[lib].name, icon: <TypeIcon k={lib} />, desc: TYPE_META[lib].desc } : LIBS[lib];
   const i = ORDER.indexOf(lib);
   return (
@@ -397,7 +398,18 @@ function SearchButton({ go }: { go: (r: Route) => void }) {
     return () => { removeEventListener("keydown", on); removeEventListener("kit:search", show); };
   }, []);
   useEffect(() => { if (open) { setQ(""); setHi(0); } }, [open]);
-  const pick = (r: Route) => { setOpen(false); go(r); };
+  const pick = (r: Route) => { track("search", q.trim().toLowerCase().slice(0, 40) || "(browsed)", r, list.length); setOpen(false); go(r); };
+  // closed without picking: still worth knowing what was looked for, above all when nothing matched
+  const wasOpen = useRef(false);
+  const lastQ = useRef("");
+  lastQ.current = q;
+  const lastN = useRef(0);
+  lastN.current = list.length;
+  useEffect(() => {
+    if (open) { wasOpen.current = true; return; }
+    if (wasOpen.current && lastQ.current.trim()) track("search", lastQ.current.trim().toLowerCase().slice(0, 40), "", lastN.current);
+    wasOpen.current = false;
+  }, [open]);
   return (
     <>
       <button type="button" className="topPill search" onClick={() => setOpen(true)} aria-haspopup="dialog">
@@ -434,6 +446,13 @@ export default function App() {
   const [route, go] = useRoute();
   const [kind, setKind] = useState<Kind>("All");
   const stars = useStars();
+  // anonymous counts for the dashboard: every page seen, every item opened, every kind chosen
+  useEffect(() => {
+    track("view", route === "intro" ? "home" : undefined);
+    if (route !== "intro" && !route.startsWith("studio:")) track("open", route);
+  }, [route]);
+  const firstKind = useRef(true);
+  useEffect(() => { if (firstKind.current) { firstKind.current = false; return; } track("kind", kind); }, [kind]);
   // phones and tablets: the kinds live in a side panel behind a menu button
   const [menu, setMenu] = useState(false);
   const closeMenu = useCallback(() => setMenu(false), []);
@@ -480,7 +499,7 @@ export default function App() {
         <div className="topRight">
           <span className="topTheme"><ThemeToggle /></span>
           <SearchButton go={go} />
-          <a className="topPill topGit" href={REPO} target="_blank" rel="noopener noreferrer" aria-label={stars !== null ? `Star Kit on GitHub, ${stars} stars` : "Star Kit on GitHub"}>
+          <a className="topPill topGit" href={REPO} target="_blank" rel="noopener noreferrer" onClick={() => track("github", "top")} aria-label={stars !== null ? `Star Kit on GitHub, ${stars} stars` : "Star Kit on GitHub"}>
             <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M8 .2a8 8 0 0 0-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7 0-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 .2" /></svg>
             {stars !== null ? <span>{stars >= 1000 ? `${(stars / 1000).toFixed(1)}k` : stars}</span> : <span>Star</span>}
           </a>
@@ -524,7 +543,7 @@ export default function App() {
           </div>
           <div>
             <div className="footHead">Links</div>
-            <a href={REPO} target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href={REPO} target="_blank" rel="noopener noreferrer" onClick={() => track("github", "footer")}>GitHub</a>
             <a href="/license.txt" target="_blank" rel="noopener">License</a>
             <a href="https://orevbajohn.me" target="_blank" rel="noopener noreferrer">Portfolio</a>
             <a href="https://x.com/orevbajohn_" target="_blank" rel="noopener noreferrer">Twitter</a>

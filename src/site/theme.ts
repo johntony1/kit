@@ -1,3 +1,4 @@
+import { track } from "./track";
 // theme.ts: light and dark. The choice is remembered; the change grows out of the switch as a
 // circle (View Transitions), or swaps at once where that is not supported or motion is reduced.
 export type Theme = "light" | "dark";
@@ -22,6 +23,7 @@ export const theme = {
   subscribe(f: () => void) { subs.add(f); return () => { subs.delete(f); }; },
   /** switch theme; the circle starts at (x, y) in viewport px */
   set(next: Theme, x = innerWidth - 80, y = 32) {
+    track("theme", next);
     if (next === current) return;
     try { localStorage.setItem(KEY, next); } catch { /* private mode */ }
     const doc = document as Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void> } };

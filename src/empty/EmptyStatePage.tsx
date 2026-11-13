@@ -1,6 +1,7 @@
 // The detail sheet of a dot matrix empty state: the piece big, in a real empty state, in every
 // colour, with its code, a prompt, and SVG and GIF downloads.
 import { useEffect, useState } from "react";
+import { track } from "../site/track";
 import { Chips, Code, CopyIcon, Seg, Slider, Stable, Switch, useCopy } from "../site/ui";
 import { Later } from "../site/sheet";
 import { DotArt } from "./DotArt";
@@ -94,6 +95,7 @@ ${artSrc}
 }
 
 const save = (blob: Blob, name: string) => {
+  track("download", undefined, name.split(".").pop());
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = name;
@@ -142,7 +144,7 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
   const reset = () => { setLook("Stipple"); setShapeName("Square"); setRes(1); setShade("Dark"); setStage(false); setTheme(THEMES[0]); };
   const mode = shade.toLowerCase() as Mode;
   const shape = SHAPES[shapeName];
-  const prompt = useCopy(), code = useCopy();
+  const prompt = useCopy("prompt"), code = useCopy("code");
   // the piece's own source text arrives a moment after the sheet opens
   const [src, setSrc] = useState("");
   useEffect(() => {

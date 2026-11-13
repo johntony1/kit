@@ -1,13 +1,14 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { track } from "./track";
 
 /* ── Small pieces ── */
-export function useCopy() {
+export function useCopy(what: "prompt" | "code" = "code") {
   const [done, setDone] = useState(false);
   return {
     done,
     copy: async (text: string) => {
-      try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1400); } catch { /* still selectable */ }
+      try { await navigator.clipboard.writeText(text); setDone(true); track("copy", undefined, what); setTimeout(() => setDone(false), 1400); } catch { /* still selectable */ }
     },
   };
 }

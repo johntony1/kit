@@ -7,7 +7,7 @@ import { CompIcon } from "./CompIcon";
 /** the detail sheet of a component: the live app, its code, its links */
 export function ComponentPage({ c }: { c: Comp }) {
   const [tab, setTab] = useState<"Preview" | "Code">("Preview");
-  const prompt = useCopy();
+  const prompt = useCopy("prompt");
   const C = NATIVE[c.k];
   // the source text arrives a moment after the sheet opens
   const [own, setOwn] = useState<string>();
