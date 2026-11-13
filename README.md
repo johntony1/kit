@@ -9,7 +9,7 @@ Every piece is a file with no dependencies and a prompt. Copy the code into your
 ## What's inside
 
 - **Components**: tactile UI pieces in light and dark, themed with the variables in `src/components/tokens.css`
-- **Empty states**: 830 dot matrix illustrations that animate on hover or loop, downloadable as SVG or GIF
+- **Empty states**: 1,010 dot matrix illustrations that animate on hover or loop, downloadable as SVG or GIF
 - **Libraries**: Ripple and Confetti pop
 - **Type** and **Transitions**: canvas type effects and page transitions
 

@@ -30,20 +30,26 @@ interface Tile { k: BentoLib; group: Group; c: number; r: number; tag?: string; 
 const subOf = (t: Tile) => (t.group === "Empty states" ? catOf(t.k.slice(3)) : t.group === "Components" ? (compOf(t.k.slice(4))?.verb ?? "") : "");
 const VERBS = ["Hover", "Press", "Drag", "Slide", "Swipe", "Type", "Select", "Scroll"];
 
+/** the empty states at the front of the home page; the rest follow in their usual order */
+const FRONT_ES = ILLS.filter((i) => ["notfound", "gift", "terminal"].includes(i.k));
+const REST_ES = ILLS.filter((i) => !FRONT_ES.includes(i));
+
 // the arrangement: 6 columns. Big features, halves, thirds, and one full-width row to end
 export const TILES: Tile[] = [
-  { k: "ripple", group: "Libraries", c: 4, r: 3, tag: "Library" }, { k: "confetti", group: "Libraries", c: 2, r: 3, tag: "Library" },
-  ...COMPS.slice(0, 12).map((c) => ({ k: `cmp-${c.k}` as BentoLib, group: "Components" as Group, c: c.c, r: c.r })),
-  { k: "bubble", group: "Type", c: 3, r: 2 }, { k: "lens", group: "Type", c: 3, r: 2 },
+  // the front door: what launch day opened and copied most, then the empty states
+  { k: "cmp-printer", group: "Components", c: 2, r: 3 }, { k: "confetti", group: "Libraries", c: 2, r: 3, tag: "Library" }, { k: "bubble", group: "Type", c: 2, r: 3 },
+  ...FRONT_ES.map((i) => ({ k: `es-${i.k}` as BentoLib, group: "Empty states" as Group, c: 2, r: 2 })),
+  { k: "ripple", group: "Libraries", c: 4, r: 3, tag: "Library" }, { k: "lens", group: "Type", c: 2, r: 3 },
+  ...COMPS.slice(0, 12).filter((c) => c.k !== "printer").map((c) => ({ k: `cmp-${c.k}` as BentoLib, group: "Components" as Group, c: c.c, r: c.r })),
   { k: "burn", group: "Transitions", c: 2, r: 2, tag: "New" }, { k: "paper", group: "Transitions", c: 2, r: 2, tag: "New" }, { k: "liquid", group: "Type", c: 2, r: 2 },
   { k: "rings", group: "Type", c: 2, r: 2 },
   { k: "slice", group: "Type", c: 2, r: 2 },
-  ...ILLS.slice(0, 6).map((i, n) => ({ k: `es-${i.k}` as BentoLib, group: "Empty states" as Group, c: n < 4 && ILLS.length % 3 === 1 ? 3 : 2, r: 2 })),
+  ...REST_ES.slice(0, 3).map((i) => ({ k: `es-${i.k}` as BentoLib, group: "Empty states" as Group, c: 2, r: 2 })),
   { k: "reveal", group: "Transitions", c: 3, r: 2 }, { k: "ink", group: "Transitions", c: 3, r: 2 },
   { k: "curtain", group: "Transitions", c: 2, r: 2 }, { k: "pixels", group: "Transitions", c: 2, r: 2 },
   ...COMPS.slice(12).map((c) => ({ k: `cmp-${c.k}` as BentoLib, group: "Components" as Group, c: c.c, r: c.r })),
   // All shows a dozen empty states; the Empty states filter shows every one
-  ...ILLS.slice(6).map((i, n) => ({ k: `es-${i.k}` as BentoLib, group: "Empty states" as Group, c: 2, r: 2, deep: n >= 6 })),
+  ...REST_ES.slice(3).map((i, n) => ({ k: `es-${i.k}` as BentoLib, group: "Empty states" as Group, c: 2, r: 2, deep: n >= 6 })),
 ];
 
 /** lay tiles into full rows of 6 columns so the grid never has holes, whatever the filter:
