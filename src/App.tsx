@@ -323,7 +323,7 @@ function Intro({ go }: { go: (r: Route) => void }) {
           <li><b>Install</b> has the files to drop into your project, in React or plain JavaScript.</li>
           <li><b>Playground</b> lets you tune it, then copy only the settings you changed.</li>
         </ol>
-        <p className="installNote">Everything respects reduced motion. Free for personal and commercial work.</p>
+        <p className="installNote">Everything respects reduced motion. MIT licensed: the code, the prompts and the illustrations are free for personal and commercial work.</p>
       </div>
     </>
   );
@@ -524,6 +524,7 @@ export default function App() {
           <div>
             <div className="footHead">Links</div>
             <a href={REPO} target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href={`${REPO}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer">MIT license</a>
             <a href="https://orevbajohn.me" target="_blank" rel="noopener noreferrer">Portfolio</a>
             <a href="https://x.com/orevbajohn_" target="_blank" rel="noopener noreferrer">Twitter</a>
           </div>
