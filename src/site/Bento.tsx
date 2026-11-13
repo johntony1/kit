@@ -79,15 +79,37 @@ export function nameOf(k: BentoLib) {
 }
 
 /** true while the element is on screen (with a little margin) */
+/* Cards build their live preview a little before they scroll into view and keep it until they
+ * are well past, so a scroll never builds and tears down the same card at the screen edge. Builds
+ * are queued and run one per idle moment, never several in the frame the page is scrolling in. */
+const queue: (() => void)[] = [];
+let queued = false;
+const idle = (f: () => void) => { if (typeof requestIdleCallback === "function") requestIdleCallback(f, { timeout: 180 }); else setTimeout(f, 16); };
+function drain() {
+  queued = false;
+  const job = queue.shift();
+  if (job) job();
+  if (queue.length) { queued = true; idle(drain); }
+}
+function later(job: () => void) {
+  queue.push(job);
+  if (!queued) { queued = true; idle(drain); }
+}
+
 function useInView<T extends Element>() {
   const ref = useRef<T>(null);
   const [seen, setSeen] = useState(false);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const io = new IntersectionObserver(([e]) => setSeen(e.isIntersecting), { rootMargin: "120px" });
-    io.observe(el);
-    return () => io.disconnect();
+    let live = true, want = false;
+    const set = (v: boolean) => { if (want === v) return; want = v; later(() => { if (live && want === v) setSeen(v); }); };
+    // build when within 600px of the window; take down only once more than 1600px away
+    const near = new IntersectionObserver(([e]) => { if (e.isIntersecting) set(true); }, { rootMargin: "600px 0px" });
+    const far = new IntersectionObserver(([e]) => { if (!e.isIntersecting) set(false); }, { rootMargin: "1600px 0px" });
+    near.observe(el);
+    far.observe(el);
+    return () => { live = false; near.disconnect(); far.disconnect(); };
   }, []);
   return [ref, seen] as const;
 }
@@ -219,7 +241,7 @@ const Card = memo(function Card({ t, open, onPick }: { t: Tile; open: boolean; o
     was.current = open;
   }, [open]);
   return (
-    <div ref={ref} className="bnSlot" style={{ gridColumn: `span ${t.c}`, gridRow: `span ${t.r}` }}>
+    <div ref={ref} className="bnSlot" data-g={t.group === "Empty states" ? "es" : t.group === "Libraries" ? "lib" : "std"} style={{ gridColumn: `span ${t.c}`, gridRow: `span ${t.r}` }}>
       {!open && (
         <motion.div role="button" tabIndex={0} layoutId={`bn-${t.k}`} transition={SPRING} className="bnCard" style={{ borderRadius: 28 }}
           onClick={(e) => { if (!(e.target as HTMLElement).closest("[data-own-click]")) onOpen(); }}

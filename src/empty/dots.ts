@@ -794,18 +794,45 @@ export class Stipple {
 
 /** the part of the grid the piece ever lights (sampled over its motion), plus a margin of dots */
 const boundsCache = new Map<string, { q0: number; r0: number; w: number; h: number }>();
+/** a short fingerprint of a piece's drawing code, so a remembered measurement is dropped when it changes */
+function sig(ill: Illustration) {
+  const src = ill.draw.toString();
+  let h = 0;
+  for (let i = 0; i < src.length; i += 7) h = (h * 31 + src.charCodeAt(i)) | 0;
+  return `${src.length}.${h}`;
+}
+const STORE = "kit-bounds-v1";
+let stored: Record<string, Bounds> | null = null;
+type Bounds = { q0: number; r0: number; w: number; h: number };
+function remembered(): Record<string, Bounds> {
+  if (stored) return stored;
+  try { stored = JSON.parse(localStorage.getItem(STORE) ?? "{}") as Record<string, Bounds>; } catch { stored = {}; }
+  return stored;
+}
+let saving = 0;
+function remember(key: string, b: Bounds) {
+  const all = remembered();
+  all[key] = b;
+  // written once things are quiet, not on every card
+  clearTimeout(saving);
+  saving = window.setTimeout(() => { try { localStorage.setItem(STORE, JSON.stringify(all)); } catch { /* full or blocked: measure again next time */ } }, 1500);
+}
+
 export function bounds(ill: Illustration, margin = 3) {
   const key = `${ill.k}|${+STAGE.on}`, hit = boundsCache.get(key);
   if (hit) return hit;
+  const skey = `${key}|${margin}|${sig(ill)}`, kept = remembered()[skey];
+  if (kept) { boundsCache.set(key, kept); return kept; }
   // measured on a grid padded by a quarter on every side: art that reaches past the piece's own grid
   // (a tall lanyard, a wide stage) is measured too, never cut flat at the grid's edge
   const P = Math.round(Math.max(ill.cols, ill.rows) / 4), C = ill.cols + P * 2, Rw = ill.rows + P * 2;
   let q0 = C, r0 = Rw, q1 = -1, r1 = -1;
   const per = ill.period ?? 3;
-  // sample enough moments that nothing that moves gets cropped mid motion
-  const N = 12;
+  // enough moments that nothing that moves gets cropped mid motion: a hover piece is calm at rest and
+  // only moves gently in time while hovered, so a few moments of time at each hover depth cover it
+  const N = ill.kind === "hover" ? 4 : 10;
   for (let i = 0; i < N; i++) {
-    for (const h of ill.kind === "hover" ? [0, 0.35, 0.7, 1] : [0]) {
+    for (const h of ill.kind === "hover" ? [0, 0.5, 0.8, 1] : [0]) {
       const g = renderGrid(ill, (i / N) * per, h, P);
       for (let r = 0; r < Rw; r++) for (let q = 0; q < C; q++) {
         if (g[r * C + q] < 0.035) continue;
@@ -816,6 +843,7 @@ export function bounds(ill: Illustration, margin = 3) {
   if (q1 < 0) return { q0: 0, r0: 0, w: ill.cols, h: ill.rows };
   const b = { q0: q0 - P - margin, r0: r0 - P - margin, w: q1 - q0 + 1 + margin * 2, h: r1 - r0 + 1 + margin * 2 };
   boundsCache.set(key, b);
+  remember(skey, b);
   return b;
 }
 

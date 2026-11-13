@@ -180,7 +180,7 @@ export function EmptyStatePage({ ill }: { ill: Illustration }) {
     <div className="sheetPage">
       <div className="head"><div className="headIcon"><DotsIcon theme={theme} shape={dots ? shape : "square"} /></div></div>
       <h1 className="h1">{ill.name}</h1>
-      <p className="lede">For “{ill.title}”. {ill.kind === "loop" ? "It loops on its own." : "It rests, and plays when you hover it."} {flat ? "It is real UI: copy the prompt or the code." : "Tune it on the right, then copy the prompt or the code, or download it as an SVG or a GIF."}</p>
+      <p className="lede">For “{ill.title}”. {ill.kind === "loop" ? "It loops on its own." : "It rests, and plays when you hover it."} {flat ? "It is real UI: copy the prompt or the code." : "Tune it, then copy the prompt or the code, or download it as an SVG or a GIF."}</p>
       <div className="studioBar esBar">
         <Seg label="View" value={tab} options={["Preview", "Code"] as const} onChange={setTab} />
         <div className="studioBarRight">

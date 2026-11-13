@@ -1061,3 +1061,80 @@ body::after { top: var(--gut); left: var(--gut); right: var(--gut); bottom: -40p
 :root[data-theme="light"] .palItem.on { background: oklch(0.958 0.003 264); color: oklch(0.22 0.008 264); }
 :root[data-theme="light"] .palItem em, :root[data-theme="light"] .palName small { color: oklch(0.55 0.008 264); }
 :root[data-theme="light"] .palEmpty { color: oklch(0.53 0.008 264); }
+
+/* ── Scrolling stays on the compositor ──
+ * The dots were a fixed background on <html>, which repaints the whole page on every scroll step;
+ * they now sit on their own fixed layer. The grain overlay blended (mix-blend-mode) over every pixel
+ * on every frame at 2% opacity, too faint to see: gone. Card labels no longer blur what scrolls
+ * under them; a near solid fill looks the same at that size. */
+html { background: var(--ground); }
+#root::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(circle at 11px 11px, var(--dot) 1px, transparent 1.6px) 0 0 / 22px 22px; }
+body::before { content: none; }
+html::before, html::after { will-change: opacity; }
+.bnTag, .bnName { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(18, 19, 18, 0.88); }
+
+/* ─────────────────────────────────────────────────────────
+ * RESPONSIVE: one set of rules for every window, phone to 5K
+ *
+ *   phone   ≤ 640   8px frame, cards nearly edge to edge, empty states two to a row
+ *   tablet  ≤ 900   components two to a row, empty states three, libraries full width
+ *   laptop          the six column bento as designed
+ *   big     ≥ 1600  the frame stops growing at 1880px and sits centred on the dotted ground
+ *                   (Apple and Linear keep a measure; they don't stretch), type steps up
+ * ───────────────────────────────────────────────────────── */
+:root { --side: max(var(--gut), calc((100vw - 1880px) / 2)); }
+.site { max-width: none; padding-inline: calc(var(--side) + var(--room)); }
+body::after { left: var(--side); right: var(--side); }
+.bnFade { left: calc(var(--side) + 1px); right: calc(var(--side) + 1px); }
+.site::before { background: linear-gradient(var(--grid-rule), var(--grid-rule)) var(--side) 100% / calc(100% - var(--side) * 2) 1px no-repeat, radial-gradient(circle at 11px 11px, var(--dot) 1px, transparent 1.6px) 0 0 / 22px 22px, var(--ground); }
+html::before, html::after {
+  -webkit-mask-image: linear-gradient(90deg, #000 var(--side), transparent var(--side), transparent calc(100% - var(--side)), #000 calc(100% - var(--side)));
+  mask-image: linear-gradient(90deg, #000 var(--side), transparent var(--side), transparent calc(100% - var(--side)), #000 calc(100% - var(--side))); }
+
+@media (min-width: 1600px) {
+  .bnH { font-size: clamp(56px, 3.6vw, 72px); }
+  .bnSub { max-width: 620px; font-size: 17px; }
+  .bnHero { padding: 96px 16px 56px; }
+  .bnGrid { grid-auto-rows: 172px; gap: 20px; }
+}
+
+@media (max-width: 900px) {
+  .bnGrid { grid-template-columns: repeat(6, 1fr); grid-auto-rows: 132px; gap: 14px; }
+  .bnSlot { grid-column: span 3 !important; grid-row: span 2 !important; }
+  .bnSlot[data-g="lib"] { grid-column: span 6 !important; }
+  .bnSlot[data-g="es"] { grid-column: span 2 !important; }
+  /* the kinds row runs to the frame's edges and fades out there, so it reads as scrollable */
+  .bnKinds { margin-inline: calc(var(--room) * -1); padding-inline: var(--room); scroll-padding-inline: var(--room);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--room), #000 calc(100% - var(--room)), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 var(--room), #000 calc(100% - var(--room)), transparent); }
+}
+
+@media (max-width: 640px) {
+  :root { --gut: 8px; --room: 12px; --frame-r: 20px; }
+  .bnHero { padding: 48px 4px 28px; gap: 14px; }
+  .bnH { font-size: clamp(34px, 10vw, 44px); letter-spacing: -0.03em; }
+  .bnSub { font-size: 15px; }
+  .bnGrid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 104px; gap: 10px; }
+  .bnSlot { grid-column: span 2 !important; grid-row: span 3 !important; }
+  .bnSlot[data-g="lib"] { grid-column: span 2 !important; }
+  .bnSlot[data-g="es"] { grid-column: span 1 !important; grid-row: span 2 !important; }
+  .bnSlot[data-g="es"] .bnTag { display: none; }
+  .bnSlot[data-g="es"] .bnName { max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-width: 640px) {
+  /* no tag on a small empty state card: the art takes the top, the name keeps the bottom to itself */
+  .bnSlot[data-g="es"] .bnDots { inset: 14px 12px 50px; }
+  .bnSlot[data-g="es"] .bnName { left: 10px; bottom: 10px; height: 26px; padding: 0 10px; font-size: 12px; }
+}
+@media (max-width: 640px) {
+  /* a sheet's action row on a phone: switches keep their width, the buttons share the row below */
+  .barRight { flex-wrap: wrap; gap: 8px; }
+  .seg { flex-wrap: nowrap; flex: none; }
+  .barRight .btn { flex: 1 1 140px; justify-content: center; }
+}
+@media (max-width: 900px) {
+  /* the category row lines up with the frame like the kinds row, and fades at its ends */
+  .bnSide { margin-inline: calc(var(--room) * -1); padding-inline: var(--room); scroll-padding-inline: var(--room);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--room), #000 calc(100% - var(--room)), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 var(--room), #000 calc(100% - var(--room)), transparent); }
+}

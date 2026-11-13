@@ -19,7 +19,9 @@ export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitc
   const cv = useRef<HTMLCanvasElement>(null);
   const [pitch, setPitch] = useState(5);
   const [over, setOver] = useState(false);
-  const [seen, setSeen] = useState(true);
+  // whether the piece is near the window: a ref, so scrolling it in and out pauses and resumes
+  // the loop without building the dot field again
+  const seen = useRef(true);
   const h = useRef(0);
   const want = hover ?? over;
   const st = useRef<Stipple | null>(null);
@@ -35,7 +37,7 @@ export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitc
     size();
     const ro = new ResizeObserver(size);
     ro.observe(el);
-    const io = new IntersectionObserver(([e]) => setSeen(e.isIntersecting), { rootMargin: "100px" });
+    const io = new IntersectionObserver(([e]) => { seen.current = e.isIntersecting; }, { rootMargin: "100px" });
     io.observe(el);
     return () => { ro.disconnect(); io.disconnect(); };
   }, [ill, fit, maxPitch, look, stage]);
@@ -47,32 +49,36 @@ export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitc
     const win = windowOf(ill, look, stage);
     const opts: DotOpts = { shape, res };
     if (look === "stipple") return runStipple(c, ill, theme, pitch, dpr, seen, ill.kind, h, wantRef, st, stage, opts);
+    const TONE = 1 / 30;
     const W = win.w * pitch, H = win.h * pitch;
     c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
     c.style.width = `${W}px`; c.style.height = `${H}px`; c.style.margin = "0";
     const ctx = c.getContext("2d")!;
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let raf = 0, last = performance.now(), t = 0, drawn = -1;
+    let raf = 0, last = performance.now(), t = 0, drawn = -1, since = 0;
     const frame = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      raf = requestAnimationFrame(frame);
+      if (!seen.current && drawn >= 0) return;
+      since += dt;
       const target = wantRef.current ? 1 : 0;
       // a critically damped approach to the hover target
       h.current += (target - h.current) * (1 - Math.exp(-dt * 7));
       if (Math.abs(target - h.current) < 0.002) h.current = target;
       const moving = ill.kind === "loop" ? !still : h.current !== drawn || (target === 1 && !still);
       if (ill.kind === "loop" || target === 1) t += dt;
-      if (moving || drawn < 0) {
+      // a dot matrix reads as smooth at 30 frames a second; painting at the screen's 120 is wasted
+      if ((moving && since >= TONE) || drawn < 0) {
+        since = 0;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, W, H);
         paintFrame(ctx, ill, still ? (ill.period ?? 3) * 0.3 : t, still ? Math.round(h.current) : h.current, theme, pitch, look, dpr, md, stage, opts);
         drawn = h.current;
       }
-      raf = requestAnimationFrame(frame);
     };
-    if (seen) raf = requestAnimationFrame(frame);
-    else { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H); paintFrame(ctx, ill, 0, 0, theme, pitch, look, dpr, md, stage, opts); }
+    raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [ill, theme, pitch, seen, look, md, stage, shape, res]);
+  }, [ill, theme, pitch, look, md, stage, shape, res]);
 
   if (ui && ill.flat && ill.flat in FLAT) { const F = FLAT[ill.flat as keyof typeof FLAT]; return <div ref={box} className="dotArt flatArt"><Suspense fallback={null}><F mode={md} /></Suspense></div>; }
   return (
@@ -99,7 +105,7 @@ export function DotArt({ ill, theme: chosen = THEMES[0], hover, fit = 1, maxPitc
 
 /** the stipple loop: re-sample the scene only when it changes, move the springs every frame they
  *  are live, and paint only when something moved */
-function runStipple(c: HTMLCanvasElement, ill: Illustration, theme: Theme, pitch: number, dpr: number, seen: boolean, kind: Illustration["kind"],
+function runStipple(c: HTMLCanvasElement, ill: Illustration, theme: Theme, pitch: number, dpr: number, seen: { current: boolean }, kind: Illustration["kind"],
   h: { current: number }, want: { current: boolean }, ref: { current: Stipple | null }, stage = false, opts: DotOpts = {}) {
   const s = new Stipple(ill, theme, pitch, dpr, true, stage, opts);
   ref.current = s;
@@ -110,23 +116,28 @@ function runStipple(c: HTMLCanvasElement, ill: Illustration, theme: Theme, pitch
   const ctx = c.getContext("2d")!;
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (still) s.leave();
-  let raf = 0, last = performance.now(), t = 0, toned = -1, live = false;
+  let raf = 0, last = performance.now(), t = 0, toned = -1, live = false, since = 1;
+  const TONE = 1 / 30;
   const frame = (now: number) => {
     const dt = Math.min(0.033, (now - last) / 1000); last = now;
+    raf = requestAnimationFrame(frame);
+    // out of sight: nothing to do until it comes back
+    if (!seen.current && toned >= 0) return;
+    since += dt;
     const target = want.current ? 1 : 0;
     h.current += (target - h.current) * (1 - Math.exp(-dt * 7));
     if (Math.abs(target - h.current) < 0.002) h.current = target;
     const playing = !still && (kind === "loop" || target === 1);
     if (playing) t += dt;
     let dirty = false;
-    if (playing || h.current !== toned || toned < 0) { s.setTone(still ? (ill.period ?? 3) * 0.3 : t, still ? Math.round(h.current) : h.current); toned = h.current; dirty = true; }
+    // the scene is sampled at 30 frames a second (a dot matrix reads as smooth there); the springs
+    // that follow the pointer still move every frame
+    if (((playing || h.current !== toned) && since >= TONE) || toned < 0) { since = 0; s.setTone(still ? (ill.period ?? 3) * 0.3 : t, still ? Math.round(h.current) : h.current); toned = h.current; dirty = true; }
     if (!still && (s.active || live)) { s.step(dt); dirty = true; }
     live = s.active;
     if (dirty) s.draw(ctx);
-    raf = requestAnimationFrame(frame);
   };
-  if (seen) raf = requestAnimationFrame(frame);
-  else { s.setTone(0, 0); s.draw(ctx); }
+  raf = requestAnimationFrame(frame);
   return () => { cancelAnimationFrame(raf); if (ref.current === s) ref.current = null; };
 }
 
