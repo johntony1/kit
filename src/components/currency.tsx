@@ -286,9 +286,9 @@ export default function CurrencySwap({ size = "card" }: { size?: "card" | "big" 
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end", minWidth: 113, flexShrink: 0 }}>
                       <CurrencyTag currency={sell} />
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={side}>{sell.symbol}{sell.balance.toLocaleString("en-US")}</span>
+                        <span title={`${sell.symbol}${sell.balance.toLocaleString("en-US")}`} style={{ ...side, maxWidth: 72, overflow: "hidden", textOverflow: "ellipsis" }}>{sell.symbol}{sell.balance.toLocaleString("en-US")}</span>
                         <motion.button type="button" whileTap={{ scale: 0.92 }} transition={PRESS} onClick={handleMax}
-                          style={{ fontFamily: "inherit", fontWeight: 500, fontSize: 12, lineHeight: "16px", color: T.sec, background: "var(--cs-chip)", border: "none", borderRadius: 999, padding: "4px 8px", cursor: "pointer", boxShadow: "inset 0 0 0 1px var(--cs-chip-ring)" }}>
+                          style={{ flexShrink: 0, fontFamily: "inherit", fontWeight: 500, fontSize: 12, lineHeight: "16px", color: T.sec, background: "var(--cs-chip)", border: "none", borderRadius: 999, padding: "4px 8px", cursor: "pointer", boxShadow: "inset 0 0 0 1px var(--cs-chip-ring)" }}>
                           Max
                         </motion.button>
                       </div>
@@ -311,13 +311,13 @@ export default function CurrencySwap({ size = "card" }: { size?: "card" | "big" 
               <motion.div key={`receive-${receive.code}`} layout={!reduced} initial={reduced ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduced ? undefined : { opacity: 0 }} transition={FADE}>
                 <div style={{ background: "var(--cs-well)", boxShadow: "inset 0 0 0 1px var(--cs-well-ring)", borderRadius: "8px 8px 24px 24px", padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
                   <p style={label}>Receive at least</p>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", rowGap: 8 }}>
                     <AnimatePresence mode="wait" initial={false}>
                       <motion.p key={`${receive.code}-${receiveAmt}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={FADE} style={{ ...big, margin: 0, whiteSpace: "nowrap" }}>
                         <span style={{ color: T.muted, fontWeight: 400 }}>{receive.symbol}</span>{fmt(receiveAmt)}
                       </motion.p>
                     </AnimatePresence>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end", marginLeft: "auto" }}>
                       <CurrencyTag currency={receive} />
                       <span style={side}>Bal : {receive.symbol}{receive.balance.toLocaleString("en-US")}</span>
                     </div>
