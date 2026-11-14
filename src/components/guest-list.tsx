@@ -117,8 +117,8 @@ function TaskRow({ label, time, delayS }: { label: string; time: string; delayS:
   return (
     <motion.div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "0 2px", minHeight: 28 }}
       initial={{ opacity: 0, y: reduced ? 0 : 8 }} animate={{ opacity: 1, y: 0 }} transition={reduced ? { duration: 0.15 } : { ...SPRING_ENTRY, delay: delayS }}>
-      <span style={{ fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", whiteSpace: "nowrap", userSelect: "none", color: T.text }}>{label}</span>
-      <div style={{ marginLeft: 8 }}><Badge>{time}</Badge></div>
+      <span title={label} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", whiteSpace: "nowrap", userSelect: "none", color: T.text }}>{label}</span>
+      <div style={{ marginLeft: 8, flexShrink: 0 }}><Badge>{time}</Badge></div>
     </motion.div>
   );
 }
@@ -168,11 +168,11 @@ function GuestsExpanded({ onClose, closeRef }: { onClose: () => void; closeRef: 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {GUESTS.map((g) => (
             <div key={g.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
                 <div aria-hidden="true" style={{ width: 20, height: 20, borderRadius: 999, background: g.bg, display: "grid", placeItems: "center", fontSize: 9, fontWeight: 700, color: "#1c1d1c", flexShrink: 0 }}>{g.name.slice(0, 1).toUpperCase()}</div>
-                <span style={{ fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", color: T.text, whiteSpace: "nowrap", userSelect: "none" }}>{g.name}</span>
+                <span title={g.name} style={{ fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", color: T.text, whiteSpace: "nowrap", userSelect: "none", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{g.name}</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                 <span style={{ fontWeight: 500, fontSize: 13, lineHeight: "20px", color: T.muted, whiteSpace: "nowrap", userSelect: "none" }}>{g.role}</span>
                 <Chev dir="down" />
               </div>
