@@ -169,3 +169,29 @@ export function Switch({ checked, onChange, label, h = 16, focus }: { checked: b
     </button>
   );
 }
+
+/** on a phone, a sheet ends in a bar that sends the piece to your computer: people find Kit on X on
+ *  their phone, but they build on a computer. The share sheet (AirDrop, Notes, Mail to yourself)
+ *  when there is one, else the link is copied. The link carries ?ref=phone, so the dashboard can
+ *  count the visits it brings back. Hidden above phone width by CSS. */
+export function SendToComputer({ name }: { name: string }) {
+  const [done, setDone] = useState(false);
+  const send = async () => {
+    const url = `${location.origin}/?ref=phone${location.hash}`;
+    const n = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
+    if (n.share) {
+      try { await n.share({ title: `${name} on Kit`, url }); track("share", undefined, "sheet"); } catch { /* closed the sheet */ }
+      return;
+    }
+    try { await navigator.clipboard.writeText(url); track("share", undefined, "link"); setDone(true); setTimeout(() => setDone(false), 1400); } catch { /* nothing to do */ }
+  };
+  return (
+    <div className="sendBar">
+      <span className="sendNote">Building on a computer?</span>
+      <button type="button" className="btn sendBtn" onClick={send}>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="2" y="3" width="12" height="8" rx="1.5" /><path d="M5.5 13.5h5" strokeLinecap="round" /></svg>
+        <Stable value={done ? "Link copied" : "Send to my computer"} options={["Send to my computer", "Link copied"]} />
+      </button>
+    </div>
+  );
+}

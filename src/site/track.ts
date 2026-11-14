@@ -4,7 +4,7 @@
 
 const ENDPOINT = "https://kit.orevbajohn.me/_k/e";
 
-type Event = "view" | "open" | "kind" | "copy" | "download" | "search" | "github" | "theme";
+type Event = "view" | "open" | "kind" | "copy" | "download" | "search" | "github" | "theme" | "share";
 
 const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("");
 function keep(store: () => Storage, key: string) {

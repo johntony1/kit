@@ -1193,3 +1193,15 @@ html::before, html::after {
 :root[data-theme="light"] .mmFoot { border-top-color: oklch(0.22 0.008 264 / 0.07); }
 @media (hover: hover) { :root[data-theme="light"] .mmItem:not([aria-current="true"]):hover, :root[data-theme="light"] .mmLink:hover { background: oklch(0.97 0.002 264); color: oklch(0.22 0.008 264); } }
 @media (prefers-reduced-motion: reduce) { .menuLines i { transition: none; } }
+
+/* SEND TO COMPUTER: phones only. A bar that rests at the foot of an open sheet; people find Kit on
+   their phone and build on a computer, so it sends the piece there */
+.sendBar { display: none; }
+@media (max-width: 640px) {
+  .sendBar { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 12px; margin-top: 8px;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, transparent, var(--sheet) 28%); }
+  .sendNote { flex: 1; min-width: 0; font-size: 13px; color: var(--muted); text-wrap: pretty; }
+  .sendBtn { height: 40px; padding: 0 14px; border-radius: 20px; color: var(--text); background: linear-gradient(180deg, #2b2d2b, #242624); box-shadow: var(--lift); transition: scale 150ms ease; touch-action: manipulation; }
+  .sendBtn:active { scale: 0.96; }
+  :root[data-theme="light"] .sendBtn { background: var(--panel); }
+}

@@ -16,6 +16,7 @@ import type { RippleHandle } from "../ripple/RippleCanvas";
 import { Book } from "../transitions/Book";
 import { bookPages } from "../demos/BookPages";
 import { SheetReady } from "./sheet";
+import { SendToComputer } from "./ui";
 import { play } from "../sound/sound";
 import { ThemeToggle } from "./VintageSwitch";
 import { ILLS, illOf } from "../empty/ills";
@@ -373,6 +374,7 @@ export function Home({ kind: filter, onKind: setFilter, open, onOpen, onClose, d
                   layout keeps it at full size while the sheet scales, the panels below wait */}
               <motion.div layout className="bnSheetInner" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.14 } }} exit={{ opacity: 0, transition: { duration: 0.08 } }}>
                 <SheetReady.Provider value={ready}>{detail(open)}</SheetReady.Provider>
+                <SendToComputer name={nameOf(open)} />
               </motion.div>
               <button type="button" className="bnClose" onClick={onClose} aria-label="Close">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" /></svg>
