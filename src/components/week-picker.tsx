@@ -147,10 +147,16 @@ function TaskRow({ label, time, delayS }: { label: string; time: string; delayS:
   return (
     <motion.div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "0 2px", minHeight: 28 }}
       initial={{ opacity: 0, y: reduced ? 0 : 8 }} animate={{ opacity: 1, y: 0 }} transition={reduced ? { duration: 0.15 } : { ...SPRING_ENTRY, delay: delayS }}>
-      <span style={{ fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", whiteSpace: "nowrap", userSelect: "none", color: T.text }}>{label}</span>
-      <div style={{ marginLeft: 8 }}><Badge>{time}</Badge></div>
+      <span title={label} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", whiteSpace: "nowrap", userSelect: "none", color: T.text }}>{label}</span>
+      <div style={{ marginLeft: 8, flexShrink: 0 }}><Badge>{time}</Badge></div>
     </motion.div>
   );
+}
+
+function ClosedTasks({ tasks }: { tasks: TaskItem[] }) {
+  return tasks.length
+    ? <>{tasks.map((t, i) => <TaskRow key={t.id} label={t.label} time={t.time} delayS={0.26 + i * 0.07} />)}</>
+    : <NoTasks inset={2}>No tasks today</NoTasks>;
 }
 
 function CloseButton({ onClose, refEl, label }: { onClose: () => void; refEl: React.RefObject<HTMLButtonElement | null>; label: string }) {
@@ -197,11 +203,15 @@ function NavArrow({ dir, label, onClick }: { dir: "left" | "right"; label: strin
 }
 function TaskLine({ task }: { task: TaskItem }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", width: "100%" }}>
-      <span style={{ fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", color: T.text, whiteSpace: "nowrap", userSelect: "none" }}>{task.label}</span>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "0 12px", width: "100%" }}>
+      <span title={task.label} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", color: T.text, whiteSpace: "nowrap", userSelect: "none" }}>{task.label}</span>
       <Badge>{task.time}</Badge>
     </div>
   );
+}
+
+function NoTasks({ inset, children }: { inset: number; children: React.ReactNode }) {
+  return <span style={{ padding: `0 ${inset}px`, fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", color: T.muted, userSelect: "none" }}>{children}</span>;
 }
 
 function CalendarExpanded({ onClose, closeRef }: { onClose: () => void; closeRef: React.RefObject<HTMLButtonElement | null> }) {
@@ -213,6 +223,7 @@ function CalendarExpanded({ onClose, closeRef }: { onClose: () => void; closeRef
   const reduced = useReducedMotion();
   const weekDays = getWeekDays(weekOffset);
   const mid = weekDays[2];
+  const dayTasks = getTasksForDay(activeTab, selectedDay);
   const switchTab = (t: Tab) => { if (t === activeTab) return; play("tick"); taskDir.current = TABS.indexOf(t) > TABS.indexOf(activeTab) ? 1 : -1; setActiveTab(t); };
   const selectDay = (k: string) => {
     if (k === selectedDay) return;
@@ -254,7 +265,7 @@ function CalendarExpanded({ onClose, closeRef }: { onClose: () => void; closeRef
         <div style={{ padding: "0 12px" }}><span style={{ fontWeight: 500, fontSize: 13, lineHeight: "20px", color: T.faint, userSelect: "none" }}>Tasks</span></div>
         <AnimatePresence custom={taskDir.current} mode="popLayout" initial={false}>
           <motion.div key={`${activeTab}-${selectedDay}`} custom={taskDir.current} variants={reduced ? undefined : TASK_SLIDE} initial="enter" animate="center" exit="exit" style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
-            {getTasksForDay(activeTab, selectedDay).map((t) => <TaskLine key={t.id} task={t} />)}
+            {dayTasks.length ? dayTasks.map((t) => <TaskLine key={t.id} task={t} />) : <NoTasks inset={12}>No tasks for this day</NoTasks>}
           </motion.div>
         </AnimatePresence>
       </motion.div>
@@ -322,7 +333,7 @@ export default function WeekPicker({ size = "card" }: { size?: "card" | "big" })
                   <motion.div
                     style={{ position: "relative", display: "flex", flexDirection: "column", gap: 8, padding: 12, width: "100%", overflow: "hidden", borderRadius: "16px 16px 20px 20px", background: T.raised, boxShadow: T.raisedShadow }}
                     initial={{ opacity: 0, y: reduced ? 0 : 10 }} animate={{ opacity: 1, y: 0 }} transition={reduced ? { duration: 0.15 } : { ...SPRING_ENTRY, delay: 0.16 }}>
-                    {tasks.map((t, i) => <TaskRow key={t.id} label={t.label} time={t.time} delayS={0.26 + i * 0.07} />)}
+                    <ClosedTasks tasks={tasks} />
                   </motion.div>
                 </motion.div>
               ) : (
