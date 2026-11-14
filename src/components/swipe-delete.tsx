@@ -118,14 +118,14 @@ function MemberRow({ member, delay, onDelete }: { member: Member; delay: number;
       <motion.div style={{ x, display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", position: "relative", background: "var(--sd-row)", padding: "2px 4px", cursor: "grab", touchAction: "pan-y" }}
         drag="x" dragConstraints={{ left: -SWIPE_DELETE_WIDTH, right: 0 }} dragElastic={0.06} dragMomentum={false}
         onDragEnd={() => snap(x.get() < -(SWIPE_DELETE_WIDTH / 2) ? -SWIPE_DELETE_WIDTH : 0)}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0, flex: 1 }}>
           <Avatar email={member.email} size={32} />
-          <div style={{ display: "flex", flexDirection: "column", whiteSpace: "nowrap" }}>
-            <span style={{ fontWeight: 500, lineHeight: "20px", fontSize: 13, color: T.text }}>{displayName(member.email)}</span>
-            <span style={{ lineHeight: "18px", fontSize: 12, color: T.muted }}>{member.email}</span>
+          <div style={{ display: "flex", flexDirection: "column", whiteSpace: "nowrap", minWidth: 0 }}>
+            <span style={{ fontWeight: 500, lineHeight: "20px", fontSize: 13, color: T.text, overflow: "hidden", textOverflow: "ellipsis" }}>{displayName(member.email)}</span>
+            <span style={{ lineHeight: "18px", fontSize: 12, color: T.muted, overflow: "hidden", textOverflow: "ellipsis" }}>{member.email}</span>
           </div>
         </div>
-        <span style={{ fontSize: 13, lineHeight: "20px", color: T.muted, whiteSpace: "nowrap", paddingRight: 4 }}>{member.permission}</span>
+        <span style={{ fontSize: 13, lineHeight: "20px", color: T.muted, whiteSpace: "nowrap", paddingRight: 4, flexShrink: 0 }}>{member.permission}</span>
       </motion.div>
     </motion.div>
   );
