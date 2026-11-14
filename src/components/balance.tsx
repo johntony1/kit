@@ -395,10 +395,10 @@ function ShareCard({ onClose, maxSuggestions }: { onClose: () => void; maxSugges
                 initial={{ opacity: 0, scale: 0.6 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ type: "spring", visualDuration: 0.22, bounce: 0.15 }}
-                style={{ display: "inline-flex", height: 34, flexShrink: 0, alignItems: "center", gap: 8, borderRadius: 999, background: T.raised, padding: "0 6px 0 4px", boxShadow: T.raisedShadow, willChange: "transform", boxSizing: "border-box" }}
+                style={{ display: "inline-flex", height: 34, maxWidth: "100%", flexShrink: 0, alignItems: "center", gap: 8, borderRadius: 999, background: T.raised, padding: "0 6px 0 4px", boxShadow: T.raisedShadow, willChange: "transform", boxSizing: "border-box" }}
               >
                 <Avatar user={user} size={26} />
-                <span style={{ color: T.text, fontSize: 14, lineHeight: "20px", fontWeight: 500, letterSpacing: "-0.06px" }}>{user.name}</span>
+                <span style={{ color: T.text, fontSize: 14, lineHeight: "20px", fontWeight: 500, letterSpacing: "-0.06px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name}</span>
                 <button type="button" onClick={(e) => { e.stopPropagation(); removePill(user.email); }} aria-label={`Remove ${user.name}`} className="balance-x" style={{ display: "grid", width: 18, height: 18, flexShrink: 0, placeItems: "center", borderRadius: 999, border: "none", background: "transparent", padding: 0, cursor: "pointer" }}>
                   <CloseCircleIcon />
                 </button>
@@ -470,8 +470,8 @@ function ShareCard({ onClose, maxSuggestions }: { onClose: () => void; maxSugges
                   >
                     <Avatar user={u} size={28} />
                     <div style={{ display: "flex", minWidth: 0, flex: 1, alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 14, fontWeight: 500, lineHeight: "20px", color: T.text }}>{u.name}</span>
-                      <span style={{ flexShrink: 0, fontSize: 12, lineHeight: "18px", color: T.muted }}>{u.email}</span>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, flex: 1, fontSize: 14, fontWeight: 500, lineHeight: "20px", color: T.text }}>{u.name}</span>
+                      <span style={{ flexShrink: 1, minWidth: 0, maxWidth: "55%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12, lineHeight: "18px", color: T.muted }}>{u.email}</span>
                     </div>
                   </button>
                 );
@@ -490,8 +490,8 @@ function UserRow() {
     <div style={{ display: "flex", width: "100%", alignItems: "center", gap: 8, padding: "0 12px", boxSizing: "border-box" }}>
       <Avatar user={me} size={24} />
       <div style={{ display: "flex", minWidth: 0, flex: 1, alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: T.text, fontWeight: 500, fontSize: 13, lineHeight: "20px" }}>James okocha</span>
-        <span style={{ flexShrink: 0, color: T.muted, fontSize: 12, lineHeight: "18px" }}>James@email.com</span>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0, color: T.text, fontWeight: 500, fontSize: 13, lineHeight: "20px" }}>{me.name}</span>
+        <span style={{ flexShrink: 1, minWidth: 0, maxWidth: "55%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: T.muted, fontSize: 12, lineHeight: "18px" }}>{me.email}</span>
       </div>
     </div>
   );
