@@ -101,7 +101,7 @@ function Amount({ value, still }: { value: number; still: boolean }) {
 }
 
 /* ── add money sheet (distilled: amount, fill stepper, proceed) ── */
-const MIN = 1, MAX = 200, INSET = 4, FILL_H = 52, THUMB_W = 8, THUMB_H = 44;
+const MIN = 1, MAX = 200, INSET = 4, FILL_H = 52, THUMB_W = 8, THUMB_H = 44, DRAG_SLOP = 4;
 function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
   const reduced = !!useReducedMotion();
   const [value, setValue] = useState(69);
@@ -110,6 +110,8 @@ function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
   const fillW = useMotionValue(0);
   const thumbX = useTransform(fillW, (fw) => Math.max(INSET, fw - THUMB_W - 4));
   const dragging = useRef(false);
+  const press = useRef<{ x: number; onButton: boolean } | null>(null); // a press that has not moved enough to be a drag
+  const swallowClick = useRef(false); // the click a drag from +/- would otherwise land on the button
   const [hover, setHover] = useState(false);
   const [grab, setGrab] = useState(false);
 
@@ -168,10 +170,27 @@ function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
           ref={track}
           onPointerEnter={() => setHover(true)}
           onPointerLeave={() => { if (!dragging.current) setHover(false); }}
-          onPointerDown={(e) => { if ((e.target as HTMLElement).closest("button")) return; dragging.current = true; setGrab(true); e.currentTarget.setPointerCapture(e.pointerId); fromPointer(e); }}
-          onPointerMove={(e) => { if (dragging.current) fromPointer(e); }}
-          onPointerUp={(e) => { dragging.current = false; setGrab(false); const r = e.currentTarget.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) setHover(false); }}
-          onPointerCancel={() => { dragging.current = false; setGrab(false); setHover(false); }}
+          onPointerDown={(e) => {
+            swallowClick.current = false;
+            press.current = { x: e.clientX, onButton: !!(e.target as HTMLElement).closest("button") };
+            if (press.current.onButton) return; // a press on +/- waits to see whether it becomes a drag
+            dragging.current = true; setGrab(true); e.currentTarget.setPointerCapture(e.pointerId); fromPointer(e);
+          }}
+          onPointerMove={(e) => {
+            const p = press.current;
+            // past DRAG_SLOP a press on +/- becomes a drag, and the click it ends with is ignored
+            if (p?.onButton && !dragging.current) {
+              if (Math.abs(e.clientX - p.x) < DRAG_SLOP) return;
+              dragging.current = true; swallowClick.current = true; setGrab(true); e.currentTarget.setPointerCapture(e.pointerId);
+            }
+            if (dragging.current) fromPointer(e);
+          }}
+          onPointerUp={(e) => {
+            press.current = null; dragging.current = false; setGrab(false);
+            if (swallowClick.current) setTimeout(() => { swallowClick.current = false; }, 0); // let this click land, then rearm
+            const r = e.currentTarget.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) setHover(false);
+          }}
+          onPointerCancel={() => { press.current = null; dragging.current = false; setGrab(false); setHover(false); }}
           style={{
             background: "var(--k-well-solid)", borderRadius: 16, height: FILL_H + 2 * INSET, position: "relative", userSelect: "none", touchAction: "none",
             display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 8px", cursor: grab ? "grabbing" : "grab",
@@ -182,11 +201,11 @@ function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
           {/* the thumb: a narrow grip at the fill's right edge, shown while the pointer is on the track */}
           <motion.div aria-hidden animate={{ opacity: hover || grab ? 1 : 0, scaleY: grab ? 1.06 : 1 }} transition={{ duration: 0.15, ease: "easeOut" }}
             style={{ position: "absolute", top: (FILL_H + 2 * INSET - THUMB_H) / 2 + 6, height: THUMB_H - 12, left: thumbX, width: 4, borderRadius: 4, background: "var(--am-grip)", zIndex: 2, pointerEvents: "none" }} />
-          <motion.button type="button" onClick={() => { if (value > MIN) { play("tick"); change(value - 1); } }} whileTap={{ scale: 0.82 }} transition={{ type: "spring", visualDuration: 0.18, bounce: 0 }} aria-label="Decrease amount" style={btn}>
+          <motion.button type="button" onClick={() => { if (swallowClick.current) return; if (value > MIN) { play("tick"); change(value - 1); } }} whileTap={{ scale: 0.82 }} transition={{ type: "spring", visualDuration: 0.18, bounce: 0 }} aria-label="Decrease amount" style={btn}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M3 8h10" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" /></svg>
           </motion.button>
           <span style={{ position: "relative", zIndex: 3, width: 84, textAlign: "center", fontWeight: 500, fontSize: 18, lineHeight: "28px", color: C.sec, fontVariantNumeric: "tabular-nums", pointerEvents: "none" }}>${value.toFixed(2)}</span>
-          <motion.button type="button" onClick={() => { if (value < MAX) { play("tick"); change(value + 1); } }} whileTap={{ scale: 0.82 }} transition={{ type: "spring", visualDuration: 0.18, bounce: 0 }} aria-label="Increase amount" style={btn}>
+          <motion.button type="button" onClick={() => { if (swallowClick.current) return; if (value < MAX) { play("tick"); change(value + 1); } }} whileTap={{ scale: 0.82 }} transition={{ type: "spring", visualDuration: 0.18, bounce: 0 }} aria-label="Increase amount" style={btn}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M3 8h10M8 3v10" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" /></svg>
           </motion.button>
         </div>
