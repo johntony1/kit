@@ -130,7 +130,7 @@ const CSS = `
 .menu-card:active { transform: scale(0.98); }
 .menu-card:focus-visible { box-shadow: inset 0 1px 0 var(--k-hi), 0 0 0 1px var(--k-ring), 0 0 0 3px rgba(52,181,98,.55); }
 .menu-card.is-open {
-  height: calc(183px + var(--open-count, 0) * 152px); border-radius: 20px; padding: 12px; cursor: default;
+  height: var(--open-height, 183px); border-radius: 20px; padding: 12px; cursor: default;
   box-shadow: inset 0 1px 0 var(--k-hi), 0 0 0 1px var(--k-ring), 0 1px 2px var(--k-shadow), var(--mn-open-drop);
 }
 .menu-card.is-open:active { transform: none; }
@@ -158,14 +158,14 @@ const CSS = `
 .menu-row { cursor: pointer; }
 .menu-row:hover { background-color: var(--mn-hover); }
 .menu-row:focus-visible { outline: 2px solid rgba(52,181,98,.6); outline-offset: -2px; }
-.menu-row__group { display: flex; align-items: center; gap: 6px; }
+.menu-row__group { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .menu-row__label, .menu-collapsed__label, .menu-sub__label { font-size: 14px; line-height: 20px; font-weight: 500; letter-spacing: -0.084px; white-space: nowrap; }
-.menu-row__label, .menu-sub__label { color: var(--k-text); }
+.menu-row__label, .menu-sub__label { color: var(--k-text); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .menu-collapsed__label { color: var(--k-text2); padding: 0 4px; }
 .menu-icon { position: relative; display: block; width: 20px; height: 20px; overflow: hidden; flex-shrink: 0; }
 .menu-icon > span { position: absolute; }
 .menu-icon svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-.menu-chevron { display: inline-flex; align-items: center; justify-content: center; color: var(--k-faint); transition: transform var(--menu-dur) var(--menu-ease); }
+.menu-chevron { display: inline-flex; align-items: center; justify-content: center; color: var(--k-faint); flex-shrink: 0; transition: transform var(--menu-dur) var(--menu-ease); }
 .menu-section[data-state='open'] > .menu-row .menu-chevron { transform: rotate(180deg); }
 .menu-section { display: flex; flex-direction: column; width: 100%; }
 .menu-sub {
@@ -174,9 +174,9 @@ const CSS = `
   transition: height var(--menu-dur) var(--menu-ease), margin-top var(--menu-dur) var(--menu-ease);
 }
 .menu-sub::before { content: ''; position: absolute; left: 14px; top: 0; bottom: 14px; width: 1px; background: var(--mn-tree); border-radius: 1px; pointer-events: none; }
-.menu-section[data-state='open'] .menu-sub { height: 142px; margin-top: 10px; }
+.menu-section[data-state='open'] .menu-sub { height: calc(var(--sub-count, 4) * 28px + (var(--sub-count, 4) - 1) * 10px); margin-top: 10px; }
 .menu-sub__row {
-  display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 16px; flex-shrink: 0; height: 28px; box-sizing: border-box; position: relative;
+  display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 16px; flex-shrink: 0; height: 28px; box-sizing: border-box; position: relative; min-width: 0;
   color: var(--k-muted); opacity: 0; transform: translateY(6px); filter: blur(2px);
   transition: opacity 120ms ease-out, transform 120ms ease-out, filter 120ms ease-out; transition-delay: 0ms;
 }
@@ -240,7 +240,9 @@ export default function Menu({ size = "card" }: { size?: "card" | "big" }) {
 
   // fit: the card's target height (+ the close chip's 10px overhang) must stay inside the box
   const base = size === "big" ? 1.6 : 1;
-  const target = (open ? 183 + sections.size * 152 : 46) + 20;
+  const sectionH = (n: number) => 10 + n * 28 + Math.max(0, n - 1) * 10; // margin + rows + gaps
+  const openH = MAIN_ITEMS.reduce((h, it) => h + (sections.has(it.id) ? sectionH(it.subItems.length) : 0), 0);
+  const target = (open ? 183 + openH : 46) + 20;
   const scale = box.h ? Math.min(base, (box.h - 12) / target) : base;
 
   return (
@@ -250,7 +252,7 @@ export default function Menu({ size = "card" }: { size?: "card" | "big" }) {
         <div data-own-click className={`menu-wrapper ${open ? "is-open" : ""}`} style={{ pointerEvents: "auto" }}>
           <div
             className={`menu-card ${open ? "is-open" : ""}`}
-            style={{ ["--open-count" as string]: sections.size } as CSSProperties}
+            style={{ ["--open-height" as string]: `${183 + openH}px` } as CSSProperties}
             onClick={() => { if (!open) { play("open"); setOpen(true); } }}
             role={open ? undefined : "button"}
             tabIndex={open ? -1 : 0}
@@ -269,7 +271,7 @@ export default function Menu({ size = "card" }: { size?: "card" | "big" }) {
               {MAIN_ITEMS.map((item) => {
                 const isOpen = sections.has(item.id);
                 return (
-                  <li key={item.id} className="menu-section" data-state={isOpen ? "open" : "closed"}>
+                  <li key={item.id} className="menu-section" data-state={isOpen ? "open" : "closed"} style={{ ["--sub-count" as string]: item.subItems.length } as CSSProperties}>
                     <div
                       className="menu-row"
                       data-row={item.id}
