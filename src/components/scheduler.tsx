@@ -339,7 +339,7 @@ export default function Scheduler({ size = "card" }: { size?: "card" | "big" }) 
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, duration: 0.2, ease: "easeOut" }}
       style={{ background: T.raised, boxShadow: T.raisedShadow, borderRadius: 16, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
       <LayoutGroup>
-        {days.map((d, i) => <DayRow key={d} label={d} index={i} checked={!!on[d]} onChange={(v) => setOn((p) => ({ ...p, [d]: v }))} />)}
+        {days.length ? days.map((d, i) => <DayRow key={d} label={d} index={i} checked={!!on[d]} onChange={(v) => setOn((p) => ({ ...p, [d]: v }))} />) : <span style={{ padding: "0 4px", fontWeight: 500, fontSize: 14, lineHeight: "20px", color: T.muted, userSelect: "none" }}>No availability this week</span>}
       </LayoutGroup>
     </motion.div>
   );
