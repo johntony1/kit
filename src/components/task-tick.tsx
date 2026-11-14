@@ -259,14 +259,14 @@ function TaskRow({ label, time, delayS, onRipple }: { label: string; time: strin
       initial={{ opacity: 0, y: reduced ? 0 : 8 }} animate={{ opacity: 1, y: 0 }} transition={reduced ? { duration: 0.15 } : { ...SPRING_ENTRY, delay: delayS }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 0 0", minWidth: 0 }}>
         <Checkbox checked={checked} onToggle={(e) => { play(checked ? "tap" : "check"); setChecked(!checked); onRipple(e); }} />
-        <div style={{ position: "relative", flexShrink: 0 }}>
-          <motion.span style={{ display: "block", fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", whiteSpace: "nowrap", userSelect: "none" }}
+        <div style={{ position: "relative", minWidth: 0 }}>
+          <motion.span title={label} style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", fontWeight: 500, fontSize: 14, lineHeight: "20px", letterSpacing: "-0.084px", whiteSpace: "nowrap", userSelect: "none" }}
             animate={{ color: checked ? P.done : P.label }} transition={reduced ? { duration: 0 } : { duration: 0.18, ease: "easeOut" }}>{label}</motion.span>
           <motion.div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "var(--tt-strike)", transformOrigin: "left center", pointerEvents: "none" }}
             initial={false} animate={{ scaleX: checked ? 1 : 0 }} transition={reduced ? { duration: 0 } : { type: "spring", visualDuration: 0.22, bounce: 0 }} />
         </div>
       </div>
-      <div style={{ marginLeft: 8 }}><Badge>{time}</Badge></div>
+      <div style={{ marginLeft: 8, flexShrink: 0 }}><Badge>{time}</Badge></div>
     </motion.div>
   );
 }
@@ -296,7 +296,7 @@ export default function TaskTick({ size = "card" }: { size?: "card" | "big" }) {
             <motion.div ref={cardRef}
               style={{ position: "relative", display: "flex", flexDirection: "column", gap: 8, padding: 12, width: "100%", overflow: "hidden", borderRadius: "16px 16px 20px 20px", background: T.raised, boxShadow: T.raisedShadow }}
               initial={{ opacity: 0, y: reduced ? 0 : 10 }} animate={{ opacity: 1, y: 0 }} transition={reduced ? { duration: 0.15 } : { ...SPRING_ENTRY, delay: 0.16 }}>
-              {tasks.map((t, i) => <TaskRow key={t.id} label={t.label} time={t.time} delayS={0.26 + i * 0.07} onRipple={fireRipple} />)}
+              {tasks.length ? tasks.map((t, i) => <TaskRow key={t.id} label={t.label} time={t.time} delayS={0.26 + i * 0.07} onRipple={fireRipple} />) : <span style={{ padding: "0 2px", fontWeight: 500, fontSize: 14, lineHeight: "20px", color: T.muted, userSelect: "none" }}>No tasks today</span>}
               <CardRipple trigger={ripple} glowColor={P.glow} gain={P.gain} />
             </motion.div>
           </motion.div>
