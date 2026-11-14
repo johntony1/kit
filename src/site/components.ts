@@ -67,7 +67,7 @@ const BLOCKS: B[] = [
   ["swipe-delete", "Swipe to delete", "Swipe a member away and the list closes the gap.", "share", "Swipe", 2, 2],
   ["guest-list", "Guest list", "Tap the faces and they open into the guest list.", "calendar", "Press", 3, 3],
   ["slash-menu", "Slash command", "Type a slash and the command menu opens.", "document", "Type", 3, 2],
-  ["theme-switch", "Theme switch", "A rocker for light and dark: flip it and the other theme grows out of it as a circle.", "effects", "Press", 2, 2],
+  ["theme-switch", "Theme switch", "A rocker for light and dark: press it, the dots charge from SÜ to ER, and the whole surface switches.", "effects", "Press", 2, 2],
   ["keycap", "Keycap", "A white keycap that slides along its slot. Drag it like a slider and the track lights up behind it.", "effects", "Drag", 2, 2],
   ["macro-pad", "Macro pad", "A little four key pad with a screen. Type on its keys and the display answers.", "effects", "Press", 3, 3],
   ["glass-toggle", "Glass toggle", "A frosted glass thumb slides over a glowing orange track.", "effects", "Press", 2, 2],
