@@ -102,6 +102,10 @@ function Amount({ value, still }: { value: number; still: boolean }) {
 
 /* ── add money sheet (distilled: amount, fill stepper, proceed) ── */
 const MIN = 1, MAX = 200, INSET = 4, FILL_H = 52, THUMB_W = 8, THUMB_H = 44;
+/* the fill travels between the grip's start and one INSET from the track's right edge,
+ * so it keeps the same 4px padding all the way round at MIN and at MAX */
+const FW_MIN = INSET + THUMB_W;
+const fwMax = (tw: number) => tw - 2 * INSET;
 function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
   const reduced = !!useReducedMotion();
   const [value, setValue] = useState(69);
@@ -113,7 +117,7 @@ function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
   const [hover, setHover] = useState(false);
   const [grab, setGrab] = useState(false);
 
-  const toFW = useCallback((v: number, tw: number) => INSET + THUMB_W + ((v - MIN) / (MAX - MIN)) * (tw - 2 * INSET - THUMB_W), []);
+  const toFW = useCallback((v: number, tw: number) => FW_MIN + ((v - MIN) / (MAX - MIN)) * (fwMax(tw) - FW_MIN), []);
   useLayoutEffect(() => { if (track.current) fillW.set(toFW(69, track.current.offsetWidth)); }, [fillW, toFW]);
 
   const change = useCallback((next: number, anim = true) => {
@@ -127,9 +131,9 @@ function Sheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
     const r = track.current!.getBoundingClientRect();
     const tw = track.current!.offsetWidth;
     const x = ((e.clientX - r.left) / r.width) * tw;
-    const fw = Math.max(INSET + THUMB_W, Math.min(tw - INSET, x + THUMB_W / 2));
+    const fw = Math.max(FW_MIN, Math.min(fwMax(tw), x + THUMB_W / 2));
     fillW.set(fw);
-    const raw = MIN + ((fw - INSET - THUMB_W) / (tw - 2 * INSET - THUMB_W)) * (MAX - MIN);
+    const raw = MIN + ((fw - FW_MIN) / (fwMax(tw) - FW_MIN)) * (MAX - MIN);
     const next = Math.max(MIN, Math.min(MAX, Math.round(raw)));
     if (next !== prev.current) { change(next, false); play("detent", { gap: 40 }); }
   };
