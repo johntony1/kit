@@ -145,8 +145,9 @@ function Preview({ t }: { t: Tile }) {
 
 /** a card's live preview, for the top of its sheet */
 export function CardPreview({ k }: { k: BentoLib }) {
-  const t = TILES.find((x) => x.k === k);
-  return t ? <Preview t={t} /> : null;
+  // every item has a tile except the type effects left off the home page: they get a plain one
+  const t = TILES.find((x) => x.k === k) ?? { k, group: "Type", c: 2, r: 2 };
+  return <Preview t={t} />;
 }
 
 /** the QR code it all began with: it ripples by itself, and when you click it */

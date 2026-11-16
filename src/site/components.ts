@@ -68,6 +68,11 @@ const BLOCKS: B[] = [
   ["guest-list", "Guest list", "Tap the faces and they open into the guest list.", "calendar", "Press", 3, 3],
   ["slash-menu", "Slash command", "Type a slash and the command menu opens.", "document", "Type", 3, 2],
   ["theme-switch", "Theme switch", "A rocker for light and dark: press it, the dots charge from SÜ to ER, and the whole surface switches.", "effects", "Press", 2, 2],
+  ["tool-rail", "Tool rail", "Hover the rail: one tooltip slides from button to button and its label rolls like a ticker.", "effects", "Hover", 2, 2],
+  ["quick-add", "Quick add", "Press plus and the tab bar folds into a grid of things to make. The selected tab slides between tabs as a bead of glass.", "effects", "Press", 3, 2],
+  ["tool-strip", "Tool strip", "Hover the toolbar: one tooltip glides over the tools and takes each label's width and the words slide through it like film.", "effects", "Hover", 3, 2],
+  ["download", "Download", "Press download: the icon turns into a progress ring or a spinner, and when it lands a glimm band of colour breaks away up the button and leaves a check behind.", "effects", "Press", 2, 2],
+  ["letters", "Letters", "Postcards in a stack, leaning back. Click one and it stands up straight in front, its doodle drawing itself. Write one and send it to the front.", "effects", "Press", 3, 3],
   ["keycap", "Keycap", "A white keycap that slides along its slot. Drag it like a slider and the track lights up behind it.", "effects", "Drag", 2, 2],
   ["macro-pad", "Macro pad", "A little four key pad with a screen. Type on its keys and the display answers.", "effects", "Press", 3, 3],
   ["glass-toggle", "Glass toggle", "A frosted glass thumb slides over a glowing orange track.", "effects", "Press", 2, 2],
@@ -102,7 +107,7 @@ ${c.desc}
 
 It is open source: ${c.repo} (live: ${c.url}).
 Rebuild it in this project's stack and style, keeping the motion exactly: the same timings,
-springs and easing as the source below. It uses: ${c.deps.join(", ") || "React only"}.
+springs and easing as the source below. It uses: ${[...c.deps, ...(main?.[1].includes('from "glimm') ? ["glimm"] : [])].join(", ") || "React only"}.
 
 ${main ? `## ${main[0]}\n\`\`\`tsx\n${main[1]}\n\`\`\`\n` : ""}${tokens && main?.[1].includes("var(--k-") ? `\n## tokens.css\nThe component paints with these variables, so it has a light and a dark look. Add them once
 (light applies under \`<html data-theme="light">\`), or map them to this project's own tokens.\n\`\`\`css\n${tokens}\`\`\`\n` : ""}`;

@@ -327,7 +327,7 @@ function Menu({ label, children, open, setOpen }: { label: ReactNode; children: 
 export function Studio({ lib, libs, go }: { lib: StudioLib; libs: { k: StudioLib; name: string; group: string }[]; go: (lib: StudioLib) => void }) {
   const spec = useMemo(() => specFor(lib), [lib]);
   const fromHash = () => {
-    try { const q = new URLSearchParams(location.hash.split("?")[1] ?? "").get("s"); return q ? (JSON.parse(decodeURIComponent(atob(q))) as V) : null; } catch { return null; }
+    try { const q = new URLSearchParams(location.search).get("s") ?? new URLSearchParams(location.hash.split("?")[1] ?? "").get("s"); return q ? (JSON.parse(decodeURIComponent(atob(q))) as V) : null; } catch { return null; }
   };
   const [v, setV] = useState<V>(() => ({ ...spec.defaults, ...(fromHash() ?? {}) }));
   const set = (k: string, x: string | number | boolean) => setV((p) => ({ ...p, [k]: x }));
@@ -352,7 +352,7 @@ export function Studio({ lib, libs, go }: { lib: StudioLib; libs: { k: StudioLib
   };
   const share = () => {
     const s = btoa(encodeURIComponent(JSON.stringify(v)));
-    const url = `${location.origin}${location.pathname}#/studio/${lib}?s=${s}`;
+    const url = `${location.origin}/studio/${lib}?s=${s}`;
     link.copy(url);
   };
 

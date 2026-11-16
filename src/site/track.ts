@@ -2,6 +2,8 @@
 // no names: a random id kept in this browser, a random id for this visit, and what was used.
 // Off on localhost and for anyone who has Do Not Track or Global Privacy Control on.
 
+import { here as path } from "./route";
+
 const ENDPOINT = "https://kit.orevbajohn.me/_k/e";
 
 type Event = "view" | "open" | "kind" | "copy" | "download" | "search" | "github" | "theme" | "share";
@@ -32,8 +34,7 @@ let vid = "", sid = "", firstView = true;
 
 /** what is open right now, from the address: an item key, or "home" */
 export function here() {
-  const h = location.hash.replace(/^#\/?/, "").split("?")[0];
-  return h || "home";
+  return path() || "home";
 }
 
 export function track(event: Event, k?: string, what?: string, n?: number) {

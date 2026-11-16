@@ -177,7 +177,7 @@ export function Switch({ checked, onChange, label, h = 16, focus }: { checked: b
 export function SendToComputer({ name }: { name: string }) {
   const [done, setDone] = useState(false);
   const send = async () => {
-    const url = `${location.origin}/?ref=phone${location.hash}`;
+    const url = `${location.origin}${location.pathname}?ref=phone`;
     const n = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
     if (n.share) {
       try { await n.share({ title: `${name} on Kit`, url }); track("share", undefined, "sheet"); } catch { /* closed the sheet */ }

@@ -20,6 +20,8 @@ import type { StudioLib } from "./site/Studio";
 import { CardPreview, ES_COUNT, Home, KINDS, type BentoLib, type Kind, FILTER_ICON } from "./site/Bento";
 import { ThemeToggle } from "./site/VintageSwitch";
 import { MenuButton, MenuFooter, MobileMenu } from "./site/MobileMenu";
+import { here, navigate, onRoute } from "./site/route";
+import { LIB_META, TYPE_KEYS } from "./site/pages";
 import { track } from "./site/track";
 import { ILLS, illOf, useIll } from "./empty/ills";
 import { catOf } from "./empty/cats";
@@ -53,13 +55,12 @@ function EmptySheet({ k }: { k: string }) {
 /* ── Routing: #/ripple, #/confetti, #/introduction ── */
 type Lib = "ripple" | "confetti" | TypeEffectKey | TransitionKind;
 type Route = "intro" | Lib | `studio:${Lib}` | `cmp-${string}` | `es-${string}`;
-const TYPE_KEYS = ["bubble", "lens", "liquid", "rings", "slice", "smear", "lines", "contour"] as TypeEffectKey[];
 const ORDER: Route[] = ["intro", "ripple", "confetti", ...TYPE_KEYS, ...TRANS_KEYS];
 const isTrans = (r: string): r is TransitionKind => (TRANS_KEYS as string[]).includes(r);
 const isType = (r: string): r is TypeEffectKey => (TYPE_KEYS as string[]).includes(r);
 function useRoute(): [Route, (r: Route) => void] {
   const read = (): Route => {
-    const h = location.hash.replace(/^#\/?/, "").split("?")[0];
+    const h = here();
     if (h.startsWith("studio")) { const k = h.split("/")[1] ?? "ripple"; return (k === "ripple" || k === "confetti" || isType(k) ? `studio:${k}` : "studio:ripple") as Route; }
     const k = h.replace(/^type\//, "");
     if (h.startsWith("component/") && compOf(h.slice(10))) return `cmp-${h.slice(10)}` as Route;
@@ -73,10 +74,9 @@ function useRoute(): [Route, (r: Route) => void] {
     // keep the scroll when a sheet opens or closes over the bento; only jump to the top for the Studio
     let was = read();
     const on = () => { const now = read(); if (now.startsWith("studio:") !== was.startsWith("studio:")) window.scrollTo(0, 0); was = now; setR(now); };
-    addEventListener("hashchange", on);
-    return () => removeEventListener("hashchange", on);
+    return onRoute(on);
   }, []);
-  return [r, (next) => { location.hash = `/${next === "intro" ? "" : next.startsWith("cmp-") ? `component/${next.slice(4)}` : next.startsWith("es-") ? `empty/${next.slice(3)}` : next.startsWith("studio:") ? `studio/${next.slice(7)}` : isType(next) ? `type/${next}` : isTrans(next) ? `transition/${next}` : next}`; }];
+  return [r, (next) => { navigate(`/${next === "intro" ? "" : next.startsWith("cmp-") ? `component/${next.slice(4)}` : next.startsWith("es-") ? `empty/${next.slice(3)}` : next.startsWith("studio:") ? `studio/${next.slice(7)}` : isType(next) ? `type/${next}` : isTrans(next) ? `transition/${next}` : next}`); }];
 }
 
 /* ── Icons ── */
@@ -105,8 +105,8 @@ function IntroIcon() {
 }
 
 const LIBS = {
-  ripple: { name: "Ripple", icon: <RippleIcon />, desc: "A ring of light that bursts out of a point, bends whatever is under it and splits its colours." },
-  confetti: { name: "Confetti pop", icon: <ConfettiIcon />, desc: "An element pops in with a blur and an overshoot, a glow springs in behind it, and ribbons of confetti burst out, tumble and fall." },
+  ripple: { ...LIB_META.ripple, icon: <RippleIcon /> },
+  confetti: { ...LIB_META.confetti, icon: <ConfettiIcon /> },
 } as const;
 
 /* ── Install tab ── */
@@ -488,7 +488,7 @@ export default function App() {
   return (
     <div className="site">
       <header className="top">
-        <a className="brand" href="#/" aria-label="Kit, home" onClick={() => setKind("All")}><Brand /></a>
+        <a className="brand" href="/" aria-label="Kit, home" onClick={() => setKind("All")}><Brand /></a>
         <nav className="topLinks" aria-label="Main" ref={navRef}>
           <span className="topThumb" aria-hidden="true" data-show={!!thumb} style={thumb ? { transform: `translateX(${thumb.x}px)`, width: thumb.w } : undefined} />
           {KINDS.filter((k) => k !== "All").map((k) => (
@@ -530,16 +530,16 @@ export default function App() {
         <div className="footCols">
           <div>
             <div className="footHead">Libraries</div>
-            <a href="#/ripple">Ripple</a>
-            <a href="#/confetti">Confetti pop</a>
+            <a href="/ripple">Ripple</a>
+            <a href="/confetti">Confetti pop</a>
           </div>
           <div>
             <div className="footHead">Type</div>
-            {TYPE_KEYS.map((k) => <a key={k} href={`#/type/${k}`}>{TYPE_EFFECTS[k].name}</a>)}
+            {TYPE_KEYS.map((k) => <a key={k} href={`/type/${k}`}>{TYPE_EFFECTS[k].name}</a>)}
           </div>
           <div>
             <div className="footHead">Transitions</div>
-            {TRANS_KEYS.map((k) => <a key={k} href={`#/transition/${k}`}>{TRANS_META[k].name}</a>)}
+            {TRANS_KEYS.map((k) => <a key={k} href={`/transition/${k}`}>{TRANS_META[k].name}</a>)}
           </div>
           <div>
             <div className="footHead">Links</div>
