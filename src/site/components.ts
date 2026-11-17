@@ -71,6 +71,8 @@ const BLOCKS: B[] = [
   ["tool-rail", "Tool rail", "Hover the rail: one tooltip slides from button to button and its label rolls like a ticker.", "effects", "Hover", 2, 2],
   ["quick-add", "Quick add", "Press plus and the tab bar folds into a grid of things to make. The selected tab slides between tabs as a bead of glass.", "effects", "Press", 3, 2],
   ["tool-strip", "Tool strip", "Hover the toolbar: one tooltip glides over the tools and takes each label's width and the words slide through it like film.", "effects", "Hover", 3, 2],
+  ["menu-drop", "Menu drop", "Hover the menu bar: a drop of the bar runs down under the icon and shows what it holds, then flows along to the next one.", "effects", "Hover", 3, 2],
+  ["scribble-list", "Scribble list", "Tick a task and a pen scribbles it out in loops across the words, and confetti pops where the pen lifts. Tick them all and the card bursts. Untick and the scribble draws back out.", "effects", "Press", 2, 2],
   ["download", "Download", "Press download: the icon turns into a progress ring or a spinner, and when it lands a glimm band of colour breaks away up the button and leaves a check behind.", "effects", "Press", 2, 2],
   ["letters", "Letters", "Postcards in a stack, leaning back. Click one and it stands up straight in front, its doodle drawing itself. Write one and send it to the front.", "effects", "Press", 3, 3],
   ["keycap", "Keycap", "A white keycap that slides along its slot. Drag it like a slider and the track lights up behind it.", "effects", "Drag", 2, 2],
