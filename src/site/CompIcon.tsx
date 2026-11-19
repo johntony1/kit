@@ -27,6 +27,7 @@ const GLYPH: Record<string, ReactNode> = {
   "slash-menu": <><rect x="5.5" y="5.5" width="13" height="13" rx="3.5" {...S} /><path d="m13.5 8.5-3 7" {...A} /></>,
   "quick-add": <><rect x="3.5" y="13" width="12" height="6" rx="3" {...S} /><circle cx="19" cy="16" r="3" {...S} /><path d="M19 14.8v2.4M17.8 16h2.4M5 5.5h3.5v3.5H5zM10 5.5h3.5v3.5H10z" {...A} /></>,
   "menu-drop": <><path d="M4 7.5h16" {...S} /><path d="M7.5 7.5c1.6 0 2 .8 2 2.3v1.7c0 1.1.9 2 2 2h1c1.1 0 2-.9 2-2V9.8c0-1.5.4-2.3 2-2.3" {...A} /></>,
+  "stack-roll": <><rect x="6.5" y="3.5" width="11" height="3" rx="1.5" {...S} /><rect x="4" y="8.5" width="16" height="7" rx="2.5" {...A} /><rect x="6.5" y="17.5" width="11" height="3" rx="1.5" {...S} /></>,
   "scribble-list": <><rect x="4" y="9" width="5" height="5" rx="1.6" {...S} /><path d="M11 11.5h8" {...S} /><path d="M10.5 12.5c1.6-1.8 2.6-1.8 2 0s.6 1.6 2.2-.4 2.6-1.4 2 .4 1 .8 2-.6" {...A} /></>,
   download: <><path d="M12 5v9m-3.5-3.5L12 14l3.5-3.5" {...S} /><path d="M6 15v1.75c0 .97.78 1.75 1.75 1.75h8.5c.97 0 1.75-.78 1.75-1.75V15" {...A} /></>,
   letters: <><rect x="4" y="7" width="16" height="11" rx="2" {...S} /><path d="M12 9v7" {...S} /><rect x="15" y="9" width="3" height="3.5" rx=".6" {...A} /></>,
