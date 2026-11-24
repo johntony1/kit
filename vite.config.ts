@@ -54,7 +54,7 @@ function clearlook(): Plugin {
   return {
     name: "clearlook",
     apply: "build",
-    transformIndexHtml: () => [{ tag: "script", attrs: { defer: true, src: "https://app.clearlook.dev/s/0.1.0/w.js", "data-key": "pk_live_as3NsjkKda7RXwRzfxdqGhjv" }, injectTo: "head" }],
+    transformIndexHtml: () => [{ tag: "script", attrs: { defer: true, src: "https://app.clearlook.dev/s/0.1.0/w.js", "data-key": "pk_live_I98CdgGlTjs3WmnMBM71qvYn" }, injectTo: "head" }],
   };
 }
 
