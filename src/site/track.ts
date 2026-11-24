@@ -37,7 +37,35 @@ export function here() {
   return path() || "home";
 }
 
+// the same moments as named events in Clearlook (its script is only on the built site).
+// Page views it records by itself, so only the things people do are sent.
+const NAMES: Partial<Record<Event, string>> = {
+  copy: "Copied code", download: "Downloaded file", share: "Shared link",
+  search: "Searched", theme: "Changed theme", github: "Opened GitHub",
+};
+const quiet = (() => {
+  if (typeof navigator === "undefined") return true;
+  const n = navigator as Navigator & { globalPrivacyControl?: boolean };
+  return n.doNotTrack === "1" || n.globalPrivacyControl === true;
+})();
+function capture(event: Event, k?: string, what?: string, n?: number) {
+  const name = NAMES[event];
+  if (!name || quiet) return;
+  const props: Record<string, string | number> = { item: (k ?? here()).slice(0, 60) };
+  if (what) props[event === "download" ? "format" : event === "search" ? "picked" : event === "share" ? "via" : event === "github" ? "from" : "what"] = what.slice(0, 60);
+  if (event === "search") { props.query = props.item; props.item = here(); if (n !== undefined) props.results = n; }
+  if (event === "theme" || event === "github") delete props.item;
+  if (event === "theme") props.theme = (k ?? "").slice(0, 20);
+  if (event === "github") props.from = (k ?? "").slice(0, 20);
+  try {
+    const w = window as unknown as { platformq?: { push: (...a: unknown[]) => unknown } | unknown[] };
+    // the queue works whether or not the script has loaded yet
+    (w.platformq ??= []).push(["capture", name, props]);
+  } catch { /* analytics never breaks the page */ }
+}
+
 export function track(event: Event, k?: string, what?: string, n?: number) {
+  capture(event, k, what, n);
   if (off) return;
   vid ||= keep(() => localStorage, "kit-vid");
   sid ||= keep(() => sessionStorage, "kit-sid");
