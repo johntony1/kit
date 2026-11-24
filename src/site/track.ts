@@ -38,18 +38,14 @@ export function here() {
 }
 
 // the same moments as named events in Clearlook (its script is only on the built site).
-// Page views it records by itself, so only the things people do are sent.
+// Page views it records by itself, so only the things people do are sent. Like its page views
+// they are anonymous (no ids, no cookies), so they go out whatever the Do Not Track setting.
 const NAMES: Partial<Record<Event, string>> = {
   copy: "Copied code", download: "Downloaded file", share: "Shared link", github: "Opened GitHub",
 };
-const quiet = (() => {
-  if (typeof navigator === "undefined") return true;
-  const n = navigator as Navigator & { globalPrivacyControl?: boolean };
-  return n.doNotTrack === "1" || n.globalPrivacyControl === true;
-})();
 function capture(event: Event, k?: string, what?: string) {
   const name = NAMES[event];
-  if (!name || quiet) return;
+  if (!name) return;
   const props: Record<string, string | number> = { item: (k ?? here()).slice(0, 60) };
   if (what) props[event === "download" ? "format" : event === "share" ? "via" : "what"] = what.slice(0, 60);
   if (event === "github") { delete props.item; props.from = (k ?? "").slice(0, 20); }
