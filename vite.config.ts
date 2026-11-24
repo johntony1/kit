@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execSync } from "node:child_process";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -48,6 +49,19 @@ function illsMeta(): Plugin {
   };
 }
 
+/** Clearlook analytics: the tag goes in the built site only, so local dev and OG captures don't count as visits. */
+function clearlook(): Plugin {
+  return {
+    name: "clearlook",
+    apply: "build",
+    transformIndexHtml: () => [{ tag: "script", attrs: { defer: true, src: "https://app.clearlook.dev/s/0.1.0/w.js", "data-key": "pk_live_as3NsjkKda7RXwRzfxdqGhjv" }, injectTo: "head" }],
+  };
+}
+
+// the deploy's commit, so Clearlook's errors line up with a release
+const commit = process.env.COMMIT || (() => { try { return execSync("git rev-parse HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); } catch { return "dev"; } })();
+
 export default defineConfig({
-  plugins: [illsMeta(), react(), tailwindcss()],
+  plugins: [illsMeta(), clearlook(), react(), tailwindcss()],
+  define: { __COMMIT__: JSON.stringify(commit) },
 });

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@react-three/fiber": "^9.5.0",
+    "@sentry/browser": "^11.17.0",
     "framer-motion": "^12.38.0",
     "gifenc": "^1.0.3",
     "glimm": "^0.4.1",

@@ -4,6 +4,10 @@ import "./index.css";
 import "./site/theme"; // sets data-theme before the first paint
 import App from "./App";
 import { upgradeHash } from "./site/route";
+import * as Sentry from "@sentry/browser";
+
+// errors go to Clearlook (any Sentry SDK takes its DSN); the live site only
+if (import.meta.env.PROD) Sentry.init({ dsn: "https://ad7626a8639ded326753f5c93523f5fa@app.clearlook.dev/1", release: __COMMIT__ });
 // dev only pages, kept out of the site's own code
 const DotsLab = lazy(() => import("./empty/DotsLab"));
 const Lab = lazy(() => import("./Lab"));
